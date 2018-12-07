@@ -1,0 +1,153 @@
+
+    ///////////////////////////////////////////
+    // *** Toylang Grammar ***
+    //
+    // A program is a series of functions.
+    // The first function matching is called first
+    // Grammar is hopefully ll(1), suitable for a
+    // Top-Down parser.
+    //
+    ///////////////////////////////////////////
+
+
+    start: (_NEWLINE|function)*
+
+    function: identifier "(" [fn_firm_args] ")" ":" _NEWLINE? function_body
+
+    function_body: (statement _NEWLINE)* return_statement "." _NEWLINE?
+
+    return_statement: expr
+
+    statement: expr
+
+
+    ///////////////////////////////////////////
+    // Arithmetic Expressions
+    ///////////////////////////////////////////
+
+    expr: term expr_rhs
+
+
+    expr_rhs: "<-" expr -> action_lhs_assignment
+              | [expr_]
+
+
+    expr_:    "+" term [expr_]  -> action_arith_add
+            | "-" term [expr_]  -> action_arith_sub
+
+
+    term: factor [term_]
+
+    term_:    "*" factor [term_] -> action_arith_mul
+            | "/" factor [term_] -> action_arith_div
+            | "%" factor [term_] -> action_arith_mod
+
+    factor: "(" expr ")" |  list  | number | function_call | string
+
+    ///////////////////////////////////////////
+    //Boolean Expressions
+    ///////////////////////////////////////////
+
+    boolean_expr: boolean_binary_term [boolean_expr_]
+
+    boolean_expr_:  "&" boolean_binary_term [boolean_expr_]    -> action_bool_and
+                   | "or" boolean_binary_term [boolean_expr_]  -> action_bool_or
+
+    boolean_binary_term: factor boolean_binary_term_
+
+    boolean_binary_term_:    ">"  factor  -> action_bool_gt
+                    | "<"  factor         -> action_bool_lt
+                    | "=" factor          -> action_bool_eq
+                    | "!=" factor         -> action_bool_neq
+
+    ///////////////////////////////////////////
+    // lists
+    ///////////////////////////////////////////
+
+
+    list: "[" [list_initialization] "]"
+
+    list_initialization: list_elements
+                        | list_comprehension
+                        | list_concatenation
+
+    list_concatenation: identifier "~>" list
+
+    list_comprehension: expr "|" list_comprehension_range [list_comprehension_conditions]
+
+    list_comprehension_range: expr list_comprehension_range_rhs
+
+
+    list_comprehension_range_rhs:    "<" identifier range_rhs
+                                    |"<=" identifier range_rhs
+                                    | ":" expr
+    range_rhs: "<" expr
+             | "<=" expr
+
+    list_comprehension_conditions: boolean_expr [more_list_comprehension_conditions]
+
+    more_list_comprehension_conditions: "," boolean_expr
+
+    list_elements: expr [more_list_elements]
+
+    more_list_elements:  "," list_element [more_list_elements]
+
+    list_element: expr -> action_list_element
+
+
+    ///////////////////////////////////////////
+    // Function calls
+    ///////////////////////////////////////////
+
+    function_call: identifier [fn_call_arguments]
+
+    fn_call_arguments:  "(" list_elements ")" -> action_function_call_args
+
+
+    ///////////////////////////////////////////
+    // Function firms
+    ///////////////////////////////////////////
+
+    fn_firm_args: fn_firm_element [more_fn_firm_elements] [fn_precondition]
+
+    fn_firm_elements: fn_firm_element [more_fn_firm_elements]
+
+    more_fn_firm_elements: "," fn_firm_element [more_fn_firm_elements]
+
+    fn_firm_element: identifier fn_firm_element_ -> action_firm_element
+                     |"[" "]"                     -> action_match_empty_list
+                     | number                     -> action_match_literal
+
+    fn_firm_element_: "<~" "[" identifier "]"   -> action_pop_list_head
+                        |                       -> action_match_identifier
+
+    fn_precondition: "|" boolean_expr
+
+    ///////////////////////////////////////////
+    //Terminal Definitions
+    ///////////////////////////////////////////
+
+    identifier: NAME
+
+    number: DEC_NUMBER    -> action_int_constant
+            | HEX_NUMBER  -> action_hex_constant
+            | FLOAT       -> action_float_constant
+
+    COMMENT: /#[^\n]*/
+    _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
+
+    string: STRING
+
+    STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+    DEC_NUMBER: /[0-9]\d*l?/i
+    HEX_NUMBER: /0x[\da-f]*l?/i
+
+    %import common.FLOAT -> FLOAT
+    %import common.INT   -> _INT
+    %import common.CNAME -> NAME
+
+    %ignore /[\t \f]+/  // WS
+    %ignore /\\[\t \f]*\r?\n/   // LINE_CONT
+    %ignore COMMENT
+    %declare _INDENT _DEDENT
+

@@ -1,0 +1,15 @@
+
+for_each([],_): 1.
+
+for_each( head <~ [tail], F):
+    F(head)
+    for_each(tail, F).
+
+A(x): say(x, ' + 1 = ', x + 1).
+
+main():
+    n <- 9
+    #a <- [ 2 * x | 1 <= x <= n+1 ]
+    a <- [1, 2, 3, 4, 5]
+    for_each(a, A).
+
