@@ -223,7 +223,7 @@ define void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0 {{
   %59 = getelementptr inbounds %struct.tdata, %struct.tdata* %58, i32 0, i32 1
   %60 = bitcast %union.data_type* %59 to float*
   %61 = load float, float* %60, align 8
-  %62 = fadd float %56, %61
+  %62 = fsub float %56, %61
   %63 = load %struct.tnode*, %struct.tnode** %4, align 8
   %64 = getelementptr inbounds %struct.tnode, %struct.tnode* %63, i32 0, i32 1
   %65 = getelementptr inbounds %struct.tdata, %struct.tdata* %64, i32 0, i32 1
@@ -282,6 +282,53 @@ define void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0 {{
   %22 = load i32, i32* %21, align 8
   %23 = load i32, i32* %6, align 4
   %24 = add i32 %22, %23
+  %25 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %26 = getelementptr inbounds %struct.tnode, %struct.tnode* %25, i32 0, i32 1
+  %27 = getelementptr inbounds %struct.tdata, %struct.tdata* %26, i32 0, i32 1
+  %28 = bitcast %union.data_type* %27 to i32*
+  store i32 %24, i32* %28, align 8
+  %29 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %30 = getelementptr inbounds %struct.tnode, %struct.tnode* %29, i32 0, i32 1
+  %31 = getelementptr inbounds %struct.tdata, %struct.tdata* %30, i32 0, i32 0
+  store i8 {funk_type_int}, i8* %31, align 8
+  br label %32
+
+; <label>:32:                                     ; preds = %17, %15
+  ret void
+}}
+
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 {{
+  %4 = alloca %struct.tnode*, align 8
+  %5 = alloca %struct.tnode*, align 8
+  %6 = alloca i32, align 4
+  %7 = alloca i8, align 1
+  store %struct.tnode* %0, %struct.tnode** %4, align 8
+  store %struct.tnode* %1, %struct.tnode** %5, align 8
+  store i32 %2, i32* %6, align 4
+  %8 = load %struct.tnode*, %struct.tnode** %5, align 8
+  %9 = getelementptr inbounds %struct.tnode, %struct.tnode* %8, i32 0, i32 1
+  %10 = getelementptr inbounds %struct.tdata, %struct.tdata* %9, i32 0, i32 0
+  %11 = load i8, i8* %10, align 8
+  store i8 %11, i8* %7, align 1
+  %12 = load i8, i8* %7, align 1
+  %13 = zext i8 %12 to i32
+  %14 = icmp ne i32 %13, {funk_type_int}
+  br i1 %14, label %15, label %17
+
+; <label>:15:                                     ; preds = %3
+  %16 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([36 x i8], [36 x i8]* @.str_ERR_ARITH_TYPE, i32 0, i32 0), i32 %13, i32 {funk_type_int})
+  br label %32
+
+; <label>:17:                                     ; preds = %3
+  %18 = load %struct.tnode*, %struct.tnode** %5, align 8
+  %19 = getelementptr inbounds %struct.tnode, %struct.tnode* %18, i32 0, i32 1
+  %20 = getelementptr inbounds %struct.tdata, %struct.tdata* %19, i32 0, i32 1
+  %21 = bitcast %union.data_type* %20 to i32*
+  %22 = load i32, i32* %21, align 8
+  %23 = load i32, i32* %6, align 4
+  %24 = sub i32 %22, %23
   %25 = load %struct.tnode*, %struct.tnode** %4, align 8
   %26 = getelementptr inbounds %struct.tnode, %struct.tnode* %25, i32 0, i32 1
   %27 = getelementptr inbounds %struct.tdata, %struct.tdata* %26, i32 0, i32 1

@@ -181,6 +181,26 @@ class Emitter:
 
         return result
 
+    def sub(self, a, b, result_data=None):
+
+        if result_data is None:
+            result = self.alloc_tnode('substraction result' )
+
+        if isinstance(a, int):
+            self.code += """
+            call void @funk_sub_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
+            """.format(p_result=result, pA=b, pB=a)
+        elif isinstance(b, int):
+            self.code += """
+            call void @funk_sub_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
+            """.format(p_result=result, pA=a, pB=b)
+        else:
+            self.code += """
+            call void @funk_sub_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
+            """.format(p_result=result, pA=a, pB=b)
+
+        return result
+
     def store_val(self,p_data,val):
         self.code += """
         store i32 {val}, i32* %{p_data}, align 4
