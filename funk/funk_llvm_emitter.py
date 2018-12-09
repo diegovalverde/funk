@@ -35,6 +35,19 @@ class Emitter:
         store i8 {funk_type}, i8* %{0}, align 8
         """.format(p[0], str_type=funk_types.to_str[funk_type], node=node, funk_type=funk_type)
 
+    def get_node_data_value(self, node):
+        p = [x for x in range(self.index, self.index + 4)]
+        self.index = p[-1] + 1
+        self.code += """
+        ;; Get node.data.value
+        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
+        %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
+        %{2} = bitcast %union.data_type* %{1} to i32*
+        %{3} = load i32, i32* %{2}, align 8
+        """.format(p[0], p[1], p[2], p[3], node=node)
+
+        return '%{}'.format(p[-1])
+
     def set_node_data_value(self, name, node, value):
         p = [x for x in range(self.index, self.index + 3)]
         self.index = p[-1] + 1
@@ -45,6 +58,19 @@ class Emitter:
         %{2} = bitcast %union.data_type* %{1} to i32*
         store i32 {value}, i32* %{2}, align 8
         """.format(p[0], p[1], p[2], node=node, value=value, name=name)
+
+    def get_node_data_type(self, node):
+        p = [x for x in range(self.index, self.index + 4)]
+        self.index = p[-1] + 1
+        self.code += """
+        ;;Get node.data.type
+        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
+        %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 0
+        %{2} = load i8, i8* %{1}, align 8
+        %{3} = zext i8 %{2} to i32
+        """.format(p[0], p[1], p[2], p[3], node=node)
+
+        return '%{}'.format(p[-1])
 
     def set_node_data_type(self, name, node, type):
         p = [x for x in range(self.index, self.index + 2)]
@@ -66,7 +92,6 @@ class Emitter:
                """.format(p[0], node=node)
 
         return '%{}'.format(p[-1])
-
 
     def set_node_next(self, p_node,p_node_next):
         p = [x for x in range(self.index, self.index + 1)]
@@ -109,7 +134,6 @@ class Emitter:
 
         return '%{}'.format(p[0])
 
-
     def icmp_signed(self, p_node, val, result=None):
 
         data = self.get_data_from_node(p_node)
@@ -137,7 +161,7 @@ class Emitter:
     def br_cond(self, cond, a, b, label_true, label_false):
         p = [x for x in range(self.index, self.index + 2)]
         self.index = p[-1]
-        self.code +="""
+        self.code += """
         %{0} = icmp {cond} i32 {a}, {b}
          br i1 %{0}, label %{label_true}, label %{label_false}
         """.format(p[0], p[1], cond=cond, a=a, b=b, label_true=label_true, label_false=label_false)
@@ -151,15 +175,15 @@ class Emitter:
         ret void
         """
         self.index += 1
+
     def add_label(self,label):
         """
         Labels can only be placed at the start of a basic block.
         In other words, they must go directly after a terminator instruction
         """
-        self.code +="""
+        self.code += """
     {label}:
         """.format(label=label)
-
 
     def add(self, a, b, result_data=None):
 
@@ -184,7 +208,7 @@ class Emitter:
     def sub(self, a, b, result_data=None):
 
         if result_data is None:
-            result = self.alloc_tnode('substraction result' )
+            result = self.alloc_tnode('subtraction result' )
 
         if isinstance(a, int):
             self.code += """

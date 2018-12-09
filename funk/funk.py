@@ -344,6 +344,8 @@ define void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 {{
   ret void
 }}
 
+
+
             """.format(funk_type_int=funk_types.int, funk_type_float=funk_types.float)
 
         self.post_amble =\

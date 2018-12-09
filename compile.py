@@ -127,6 +127,9 @@ class TreeToAst(Transformer):
         else:
             return token
 
+    def action_match_literal(self, token):
+        return funk_ast.PatternMatchLiteral(self.funk, token[0] )
+
     def action_firm_element(self, token):
         token = remove_invalid(flatten(token))
         if len(token) == 2:

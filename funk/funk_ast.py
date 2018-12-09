@@ -128,10 +128,11 @@ class PatternMatchEmptyList(PatternMatch):
         pass
 
 
-class PatternMatchLiteral:
-    def __init__(self, funk, value):
+class PatternMatchLiteral(PatternMatch):
+    def __init__(self, funk, value, type=funk_types.int):
         self.funk = funk
-        self.value = value
+        self.value = value.eval()
+        self.type = type
         self.is_literal = True
 
     def __repr__(self):
@@ -330,7 +331,6 @@ class FunctionClause:
         self.tail_pairs = tail_pairs
         self.funk = funk
 
-
     def emit(self, index, arity):
         if self.name == 'main':
             for stmt in self.body:
@@ -354,30 +354,40 @@ class FunctionClause:
 
             self.funk.emitter.br_cond('eq', '%1', len(self.arguments), label_next, clause_exit_label)
 
-
             # check for clause pattern matches
             if self.pattern_matches is not None and len(self.pattern_matches) != 0:
                 self.funk.emitter.add_label(clause_pm_label)
                 self.funk.emitter.add_comment('{}'.format(self.pattern_matches))
 
-                # self.funk.emitter.
                 pm_count = 0
                 for pattern in self.pattern_matches:
+                    self.funk.emitter.add_comment('{}'.format(self.arguments))
+                    arg = self.funk.emitter.get_function_argument_tnode(pattern.position)
+                    last = pm_count + 1 == len(self.pattern_matches)
+
+                    if last:
+                        label_next = clause_entry_label
+                    else:
+                        label_next = '{}_clause_{}_pattern_match_{}'.format(name, index, pm_count)
+
                     if isinstance(pattern, PatternMatchEmptyList):
-                        self.funk.emitter.add_comment('{}'.format(self.arguments))
-                        arg = self.funk.emitter.get_function_argument_tnode(pattern.position)
-                        type = self.funk.emitter.get_node_type( arg )
+                        node_type = self.funk.emitter.get_node_type( arg )
+                        self.funk.emitter.br_cond('ne', node_type, funk_types.empty_array, clause_exit_label,
+                                                  label_next)
 
-                        last = pm_count+1 == len(self.pattern_matches)
-                        if last:
-                            label_next = clause_entry_label
-                        else:
-                            label_next = '{}_clause_{}_pattern_match_{}'.format(name, index, pm_count)
-                        self.funk.emitter.br_cond('ne', type, funk_types.empty_array, clause_exit_label, label_next)
+                    elif isinstance(pattern, PatternMatchLiteral):
+                        label_match_literal_check_value = '{}_clause_{}_pattern_match_literal_check_value_{}'.format(
+                            name, index, pm_count)
+                        data_type = self.funk.emitter.get_node_data_type(arg)
+                        self.funk.emitter.br_cond('ne', data_type, pattern.type, clause_exit_label,
+                                                  label_match_literal_check_value)
 
-                        if not last:
-                            self.funk.emitter.add_label(label_next)
+                        self.funk.emitter.add_label(label_match_literal_check_value)
+                        value = self.funk.emitter.get_node_data_value(arg)
+                        self.funk.emitter.br_cond('ne', value, pattern.value, clause_exit_label, label_next)
 
+                    if not last:
+                        self.funk.emitter.add_label(label_next)
 
 
             # check for clause preconditions
