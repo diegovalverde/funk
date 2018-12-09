@@ -129,10 +129,17 @@ class PatternMatchEmptyList(PatternMatch):
 
 
 class PatternMatchLiteral(PatternMatch):
-    def __init__(self, funk, value, type=funk_types.int):
+    def __init__(self, funk, value):
         self.funk = funk
         self.value = value.eval()
-        self.type = type
+
+        if isinstance(value, IntegerConstant):
+            self.type = funk_types.int
+        elif isinstance(value, FloatConstant):
+            self.type = funk_types.float
+        else:
+            self.type = funk_types.invalid
+
         self.is_literal = True
 
     def __repr__(self):
