@@ -162,7 +162,7 @@ class PatternMatchIdentifier:
         pass
 
 class BinaryOp:
-    def __init__(self, funk, left, right):
+    def __init__(self, funk, left=None, right=None):
         self.funk = funk
         self.left = left
         self.right = right

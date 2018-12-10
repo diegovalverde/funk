@@ -183,6 +183,31 @@ class TreeToAst(Transformer):
         rhs = children[0]
         return funk_ast.Assignment(self.funk, None, rhs)
 
+    def action_bool_mod(self, token):
+        return funk_ast.Mod(self.funk, right=token[0])
+
+    def action_bool_eq(self, token):
+        if len(token) == 2:
+            return funk_ast.EqualThan(self.funk,left=token[0], right=token[1])
+        else:
+            return funk_ast.EqualThan(self.funk, right=token[0])
+
+    def action_rhs_bool_factor(self, token):
+        if len(token) == 2 and isinstance(token[1], funk_ast.BinaryOp):
+
+            token[1].left = token[0]
+            return token[1]
+        else:
+            return token[0]
+
+    def boolean_binary_term(self, token):
+
+        if len(token) == 2:
+            token[1].left = token[0]
+            return token[1]
+        else:
+            return token[0]
+
     def array_index(self, token):
         t = flatten(token)
         return funk_ast.ArrayElement(self.funk, '', t[0])
@@ -232,13 +257,7 @@ class TreeToAst(Transformer):
     def bool_lt(self,token):
         return self.bin_op(token, funk_ast.LessThan)
 
-    @staticmethod
-    def boolean_binary_term(self, token):
-        if len(token) == 2:
-            token[1].left = token[0]
-            return token[1]
-        else:
-            return token[0]
+
 
     @staticmethod
     def boolean_binary_term_(self,token):

@@ -53,12 +53,16 @@
     boolean_expr_:  "&" boolean_binary_term [boolean_expr_]    -> action_bool_and
                    | "or" boolean_binary_term [boolean_expr_]  -> action_bool_or
 
-    boolean_binary_term: factor boolean_binary_term_
+    boolean_binary_term: rhs_bool_factor boolean_binary_term_
+
+    rhs_bool_factor:  factor [rhs_bool_factor_] -> action_rhs_bool_factor
+    rhs_bool_factor_: "%" factor          -> action_bool_mod
 
     boolean_binary_term_:    ">"  factor  -> action_bool_gt
                     | "<"  factor         -> action_bool_lt
                     | "=" factor          -> action_bool_eq
                     | "!=" factor         -> action_bool_neq
+
 
     ///////////////////////////////////////////
     // lists
