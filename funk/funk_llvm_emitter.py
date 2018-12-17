@@ -134,16 +134,29 @@ class Emitter:
 
         return '%{}'.format(p[0])
 
-    def icmp_signed(self, p_node, val, result=None):
+    def icmp_signed(self, val_rhs, val_lhs, result=None):
+        p = [x for x in range(self.index, self.index + 2)]
+        self.index = p[-1] + 1
 
-        data = self.get_data_from_node(p_node)
+        self.code += """
+        %{0} = icmp eq i32 {val_rhs}, {val_lhs}
+        %{1} = zext i1 %{0} to i32
+        """.format(p[0], p[1], val_rhs=val_rhs, val_lhs=val_lhs)
 
-        if result is None:
-            result = self.index + 1
+        return "%{}".format(p[-1])
 
-        self.code += """%{result} = icmp eq, i32 %{data}, {val}""".format(data=data, val=val )
+    def srem(self, node, lit):
+        self.add_comment('{} MOD {}'.format(node, lit))
+        val = self.get_node_data_value(node)
 
-        return result
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+
+        self.code += """
+        %{0} = srem i32 {val} , {lit}
+        """.format(p[0], val=val, lit=lit)
+
+        return '%{}'.format(p[-1])
 
     def noop(self):
         p = [x for x in range(self.index, self.index + 1)]
@@ -255,7 +268,6 @@ class Emitter:
             self.copy_node(arguments[i], p_element)
 
         head = self.get_array_element(array, 0, n)
-
 
         fn_data = self.get_node_data(fn_node)
 

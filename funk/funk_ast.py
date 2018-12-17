@@ -352,11 +352,15 @@ class FunctionClause:
             clause_entry_label = '{}_{}_clause_entry'.format(name, index)
             clause_exit_label = '{}_{}_clause_exit'.format(name, index)
             clause_pm_label = '{}_{}_pattern_match'.format(name, index)
+            clause_precondition_label = '{}_{}_clause_precondition'.format(name, index)
 
             # check for arity
-
-            label_next = clause_pm_label
-            if self.pattern_matches is None or len(self.pattern_matches) == 0:
+            label_next = clause_entry_label
+            if self.pattern_matches is not None and len(self.pattern_matches) != 0:
+                label_next = clause_pm_label
+            elif self.preconditions is not None:
+                label_next = clause_precondition_label
+            else:
                 label_next = clause_entry_label
 
             self.funk.emitter.br_cond('eq', '%1', len(self.arguments), label_next, clause_exit_label)
@@ -396,18 +400,20 @@ class FunctionClause:
                     if not last:
                         self.funk.emitter.add_label(label_next)
 
-
             # check for clause preconditions
+            
             if self.preconditions is not None:
-                print('Preconditions ', self.preconditions)
+
+                self.funk.emitter.add_label(clause_precondition_label)
+                self.funk.emitter.add_comment('{}'.format(self.preconditions))
+                result = self.preconditions.eval()
+                self.funk.emitter.br_cond('eq', result, len(self.arguments), clause_entry_label, clause_exit_label)
 
             self.funk.function_scope.args = self.arguments
             self.funk.function_scope.tail_pairs = self.tail_pairs
 
-
             self.funk.emitter.add_comment('========= Emitting clause {} ========'.format(index))
             self.funk.emitter.add_label(clause_entry_label)
-
 
             for stmt in self.body:
                 stmt.eval()

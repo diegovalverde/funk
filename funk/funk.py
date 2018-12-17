@@ -77,7 +77,7 @@ target datalayout = ""
 
 %union.data_type = type {{ {{}}* }}
 
-;; This a primitive data type. It contais a type tag (i8) followed by
+;; This a primitive data type. It contains a type tag (i8) followed by
 ;; the actual data represented as a union
 
 %struct.tdata = type {{ i8, %union.data_type }}

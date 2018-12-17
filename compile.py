@@ -82,8 +82,8 @@ class TreeToAst(Transformer):
 
             self.function_map[function_key].clauses.append(clause)
 
-    @staticmethod
-    def fn_precondition(token):
+
+    def fn_precondition(self,token):
         return token
 
     @staticmethod
@@ -256,8 +256,6 @@ class TreeToAst(Transformer):
 
     def bool_lt(self,token):
         return self.bin_op(token, funk_ast.LessThan)
-
-
 
     @staticmethod
     def boolean_binary_term_(self,token):
