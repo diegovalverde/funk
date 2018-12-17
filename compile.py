@@ -5,6 +5,7 @@ from funk.codegen import CodeGen
 import argparse
 import collections
 from funk.funk import Funk
+import os
 
 
 def flatten(x):
@@ -201,6 +202,17 @@ class TreeToAst(Transformer):
         else:
             return token[0]
 
+    def action_include_external_function(self, token):
+        functions = remove_invalid(flatten(token))
+
+        for fn in functions:
+            fn_symbol = '@{}'.format(fn.name)
+            self.funk.functions.append(fn_symbol)
+            self.funk.symbol_table[fn_symbol] = funk_ast.ExternalFunction(self.funk, fn_symbol)
+
+    def more_extern_funcs(self,token):
+        return token
+
     def boolean_binary_term(self, token):
 
         if len(token) == 2:
@@ -329,6 +341,10 @@ if __name__ == '__main__':
     with open(args.input_path, 'r') as myfile:
         text = myfile.read()
 
+    path, file_name = os.path.split(args.input_path)
+
+    file_base_name, file_extension = os.path.splitext(file_name)
+
     parse_tree = grammar.parse(text)
 
     funk = Funk(binding.get_default_triple())
@@ -343,9 +359,10 @@ if __name__ == '__main__':
 
         ast_generator.function_map[fn].eval()
 
-    funk.save_ir('output.ll')
+    ll_name = '{}.ll'.format(file_base_name)
+    funk.save_ir(ll_name)
 
-    print('Compilation successful')
+    print('Compilation successful saved: {}'.format(ll_name) )
 
     #except Exception as e:
     #    print('Compilation error: {}'.format(e))

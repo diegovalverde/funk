@@ -10,7 +10,13 @@
     ///////////////////////////////////////////
 
 
-    start: (_NEWLINE|function)*
+    start: (_NEWLINE|function|include)*
+
+    include: "use" extern_func_list
+
+    extern_func_list:  identifier [more_extern_funcs] -> action_include_external_function
+
+    more_extern_funcs: "," identifier [more_extern_funcs]
 
     function: identifier "(" [fn_firm_args] ")" ":" _NEWLINE? function_body
 

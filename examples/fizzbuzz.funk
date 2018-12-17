@@ -1,10 +1,4 @@
-
-foreach([],_): 1.
-
-foreach( head <~ [tail], F):
-    F(head)
-    foreach(tail, F).
-
+use foreach
 
 fbz(x | x % 15 = 0): say('FizzBuzz') .
 fbz(x | x % 3 = 0): say('Fizz') .

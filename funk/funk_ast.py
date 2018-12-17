@@ -292,6 +292,20 @@ class Assignment(BinaryOp):
 
         return
 
+class ExternalFunction:
+    def __init__(self, funk, name):
+        self.funk = funk
+        self.name = name
+
+    def __repr__(self):
+        return 'ExternalFunction({})'.format(self.name)
+
+    def emit(self):
+        return """
+declare void {name}(%struct.tnode*, i32,  %struct.tnode*)
+                """.format(name=self.name)
+
+
 class FunctionCall:
     def __init__(self, funk, name, args):
         self.funk = funk
@@ -306,7 +320,6 @@ class FunctionCall:
         name = '@{}'.format(self.name)
 
         if self.name == 'say':
-
             p = Print(self.funk, self.args)
             return p.eval()
 

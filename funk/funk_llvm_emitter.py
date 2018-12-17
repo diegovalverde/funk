@@ -158,6 +158,11 @@ class Emitter:
 
         return '%{}'.format(p[-1])
 
+    def external_function(self, name):
+        self.code += """
+                declare void {name}(%struct.tnode*, %struct.tnode*, i32)
+                """.format(name=name)
+
     def noop(self):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
