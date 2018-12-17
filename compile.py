@@ -1,4 +1,5 @@
 from lark import Lark, Transformer
+from llvmlite import binding
 import funk.funk_ast as funk_ast
 from funk.codegen import CodeGen
 import argparse
@@ -330,7 +331,7 @@ if __name__ == '__main__':
 
     parse_tree = grammar.parse(text)
 
-    funk = Funk()
+    funk = Funk(binding.get_default_triple())
 
     ast_generator = TreeToAst(funk, debug=args.debug)
 

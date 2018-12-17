@@ -1,34 +1,12 @@
 from llvmlite import ir, binding
 
 
-
-class ToyDefs:
-    def __init__(self):
-        self.debug = True
-
-        self.int32 = ir.IntType(32)
-        self.int64 = ir.IntType(64)
-        self.t_tag_type = ir.IntType(8)
-
-
-        self.t_data = None
-
-        self.t_array_node = None
-        self.t_p_array_node = None
-        self.t_p_array_node_null = None
-
-        self.tag_type_int = ir.Constant(self.t_tag_type, 77)
-        self.tag_type_float = ir.Constant(self.t_tag_type, 2)
-        self.tag_type_array = ir.Constant(self.t_tag_type, 70)
-        self.tag_type_empty_array = ir.Constant(self.t_tag_type, 4)
-
 class CodeGen:
     def __init__(self):
         self.binding = binding
         self.binding.initialize()
         self.binding.initialize_native_target()
         self.binding.initialize_native_asmprinter()
-        self.toy = ToyDefs()
         self._config_llvm()
         self._create_execution_engine()
         self._declare_print_function()

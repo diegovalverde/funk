@@ -42,15 +42,16 @@ define {ret_val} @{name}({args}) #0 {{
 
 
 class Funk:
-    def __init__(self):
+    def __init__(self, triple):
 
         self.symbol_table = {}
         self.strings_count = 0
+        self.triple = triple
 
         main_scope = '_function__{}'.format('main')
-        self.symbol_table = {} #[main_scope] = #FunctionScope('main', 'i32', [])
-        self.function_scope = None #self.symbol_table[main_scope]
-        self.functions = []#[main_scope]
+        self.symbol_table = {}
+        self.function_scope = None
+        self.functions = []
         self.preamble = \
             """
 ;; =============================================================== ;;
@@ -62,7 +63,7 @@ class Funk:
 ;; =============================================================== ;;
 
 
-target triple = "x86_64-apple-darwin17.7.0"
+target triple = "{triple}"
 target datalayout = ""
 
 
@@ -346,7 +347,7 @@ define void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 {{
 
 
 
-            """.format(funk_type_int=funk_types.int, funk_type_float=funk_types.float)
+            """.format(triple=triple, funk_type_int=funk_types.int, funk_type_float=funk_types.float)
 
         self.post_amble =\
         """

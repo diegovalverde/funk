@@ -401,7 +401,7 @@ class FunctionClause:
                         self.funk.emitter.add_label(label_next)
 
             # check for clause preconditions
-            
+
             if self.preconditions is not None:
 
                 self.funk.emitter.add_label(clause_precondition_label)
