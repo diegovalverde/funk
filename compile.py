@@ -319,6 +319,29 @@ class TreeToAst(Transformer):
     def action_int_constant(self,token):
         return funk_ast.IntegerConstant(self.funk, token[0].value)
 
+    def action_range_inclusive_rhs(self, token):
+        return funk_ast.Range(self.funk, rhs=token[0], rhs_type='<=')
+
+    def action_inclusive_range_lhs(self, token):
+        identifier = token[0]
+        range = token[1]
+        range.identifier = identifier
+        range.lhs_type = '<='
+        return range
+
+    def action_list_comprehension_range(self, token):
+        expr = token[0]
+        range = token[1]
+        range.lhs = expr
+        return range
+
+    def action_list_comprehension(self, token):
+        expr = token[0]
+        range = token[1]
+        #conditions = token[2]
+
+        return range.emit()
+
 
 if __name__ == '__main__':
     """

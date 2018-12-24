@@ -1,6 +1,6 @@
 
     ///////////////////////////////////////////
-    // *** Toylang Grammar ***
+    // *** Funk! Grammar ***
     //
     // A program is a series of functions.
     // The first function matching is called first
@@ -83,16 +83,17 @@
 
     list_concatenation: identifier "~>" list
 
-    list_comprehension: expr "|" list_comprehension_range [list_comprehension_conditions]
+    list_comprehension: expr "|" list_comprehension_range [list_comprehension_conditions] -> action_list_comprehension
 
-    list_comprehension_range: expr list_comprehension_range_rhs
+    list_comprehension_range: expr list_comprehension_range_rhs -> action_list_comprehension_range
 
 
-    list_comprehension_range_rhs:    "<" identifier range_rhs
-                                    |"<=" identifier range_rhs
+    list_comprehension_range_rhs:    "<" identifier range_rhs   -> action_exclusive_range_lhs
+                                    |"<=" identifier range_rhs  -> action_inclusive_range_lhs
                                     | ":" expr
-    range_rhs: "<" expr
-             | "<=" expr
+
+    range_rhs: "<" expr    -> action_range_exclusive_rhs
+             | "<=" expr   -> action_range_inclusive_rhs
 
     list_comprehension_conditions: boolean_expr [more_list_comprehension_conditions]
 

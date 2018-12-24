@@ -226,7 +226,6 @@ class EqualThan(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.icmp_signed(self.left.eval(), self.right.eval())
 
-
 class And(BinaryOp):
     def __repr__(self):
         return 'And({} , {})'.format(self.left, self.right)
@@ -291,6 +290,29 @@ class Assignment(BinaryOp):
             self.right.eval(result=allocation)
 
         return
+
+
+class Range:
+    def __init__(self, funk, rhs=None, lhs=None, identifier=None, rhs_type='<', lhs_type='<'):
+        self.funk = funk
+        self.identifier = identifier
+        self.rhs = rhs
+        self.lhs_type = lhs_type
+        self.rhs_type = rhs_type
+        self.lhs = lhs
+
+    def __repr__(self):
+        return 'Range({} {} {} {} {})'.format(self.lhs, self.lhs_type, self.identifier, self.rhs_type, self.rhs)
+
+    def emit(self):
+        # create as many Integers as necessary
+        if isinstance(self.lhs, IntegerConstant) and isinstance(self.rhs,IntegerConstant):
+            integers = []
+            for i in range(self.lhs.eval(), self.rhs.eval()):
+                integers.append(IntegerConstant(self.funk, i))
+
+            return integers
+
 
 class ExternalFunction:
     def __init__(self, funk, name):
