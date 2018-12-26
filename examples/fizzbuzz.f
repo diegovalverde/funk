@@ -1,8 +1,11 @@
+#
+# Example program: FizzBuzz!
+#
 use foreach
 
-fbz(x | x % 15 = 0): say('FizzBuzz') .
-fbz(x | x % 3 = 0): say('Fizz') .
-fbz(x | x % 5 = 0): say('Buzz') .
+fbz(x | x % 15 = 0): say(x, ' FizzBuzz') .
+fbz(x | x % 3 = 0):  say(x, ' Fizz') .
+fbz(x | x % 5 = 0):  say(x, ' Buzz') .
 fbz(x) : say(x).
 
 main():
