@@ -2,6 +2,20 @@ from funk_llvm_emitter import Emitter
 import funk_types
 
 
+def create_ast_symbol(name, funk, left, right):
+    symbol_name = '{}__{}'.format(funk.function_scope.name, name)
+
+    if symbol_name in funk.symbol_table:
+        raise Exception('=== Variables are immutable \'{}\' '.format(name))
+
+    if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
+        funk.create_literal_symbol(right, symbol_name)
+
+    elif isinstance(right, ArrayLiteral):
+        funk.create_list_symbol(right, symbol_name)
+    else:
+        funk.create_variable_symbol(right, symbol_name)
+
 class IntegerConstant:
     def __init__(self, funk,  value):
         self.value = value
@@ -241,56 +255,13 @@ class LessThan(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.icmp_signed('<', self.left.eval(), self.right.eval())
 
-
 class Assignment(BinaryOp):
     def __repr__(self):
         return 'Assignment({} , {})'.format(self.left, self.right)
 
-
     def eval(self, result=None):
         name = self.left.name
-
-        symbol_name = '{}__{}'.format(self.funk.function_scope.name, name)
-
-        if symbol_name in self.funk.symbol_table:
-            raise Exception('=== Variables are immutable \'{}\' '.format(name))
-
-        if isinstance(self.right, IntegerConstant) or isinstance(self.right, FloatConstant):
-            self.funk.symbol_table[symbol_name] = self.funk.emitter.alloc_tnode(symbol_name, self.right.eval(),
-                                                                                self.right.type)
-        elif isinstance(self.right, ArrayLiteral):
-            elements = self.right.eval()
-            n = len(elements)
-            prev = None
-            head = None
-            node = None
-            for i in range(n):
-
-                node = self.funk.emitter.alloc_tnode(name='list[{}]'.format(i),
-                                                    value=elements[i].eval(),
-                                                     data_type=funk_types.int,
-                                                    node_type=funk_types.array)
-                if prev is not None:
-                    self.funk.emitter.set_next_node(prev, node)
-                else:
-                    head = node
-                    
-                prev = node
-
-            tail = self.funk.emitter.alloc_tnode(name='list_tail',
-                                                 node_type=funk_types.empty_array)
-
-            self.funk.emitter.set_next_node(node, tail)
-            self.funk.symbol_table[symbol_name] = head
-
-
-        else:
-            allocation = self.funk.emitter.alloc_tdata(symbol_name)
-            self.funk.symbol_table[symbol_name] = '{}'.format(allocation)
-            self.right.eval(result=allocation)
-
-        return
-
+        create_ast_symbol(name, self.funk, self.left, self.right)
 
 class Range:
     def __init__(self, funk, rhs=None, lhs=None, identifier=None, rhs_type='<', lhs_type='<'):
