@@ -2,19 +2,29 @@ from funk_llvm_emitter import Emitter
 import funk_types
 
 
-def create_ast_symbol(name, funk, left, right):
+def create_ast_named_symbol(name, funk, right):
     symbol_name = '{}__{}'.format(funk.function_scope.name, name)
 
     if symbol_name in funk.symbol_table:
         raise Exception('=== Variables are immutable \'{}\' '.format(name))
 
     if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
-        funk.create_literal_symbol(right, symbol_name)
+        funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, symbol_name)
 
     elif isinstance(right, ArrayLiteral):
-        funk.create_list_symbol(right, symbol_name)
+        funk.symbol_table[symbol_name] = funk.alloc_list_symbol(right, symbol_name)
     else:
         funk.create_variable_symbol(right, symbol_name)
+
+def create_ast_anon_symbol(funk, right):
+
+    if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
+        return funk.alloc_literal_symbol(right, 'anon')
+
+    elif isinstance(right, ArrayLiteral):
+        return funk.alloc_list_symbol(right, 'anon')
+    else:
+        return right.eval()
 
 class IntegerConstant:
     def __init__(self, funk,  value):
@@ -261,7 +271,7 @@ class Assignment(BinaryOp):
 
     def eval(self, result=None):
         name = self.left.name
-        create_ast_symbol(name, self.funk, self.left, self.right)
+        create_ast_named_symbol(name, self.funk, self.right)
 
 class Range:
     def __init__(self, funk, rhs=None, lhs=None, identifier=None, rhs_type='<', lhs_type='<'):
@@ -319,13 +329,14 @@ class FunctionCall:
         # First check if this is globally defined function
         for fn in self.funk.functions:
             if fn == name:
-                return self.funk.emitter.call(fn, [a.eval() for a in self.args])
+
+                return self.funk.emitter.call(fn, [ create_ast_anon_symbol(self.funk,  a) for a in self.args])
         # Now check if this is an input argument containing a function pointer
         i = 0
         for arg in self.funk.function_scope.args:
             if arg == self.name:
                 fn = self.funk.emitter.get_function_argument_tnode(i)
-                return self.funk.emitter.call_fn_ptr(fn, [a.eval() for a in self.args])
+                return self.funk.emitter.call_fn_ptr(fn, [create_ast_anon_symbol(self.funk,  a) for a in self.args])
             i += 1
 
         if not found:

@@ -6,5 +6,4 @@ fbz(x | x % 5 = 0): say('Buzz') .
 fbz(x) : say(x).
 
 main():
-    Y <- [x | 1 <= x <= 100]
-    foreach( Y ,  fbz ).
+    foreach( [x | 1 <= x <= 100] ,  fbz ).

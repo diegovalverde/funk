@@ -149,11 +149,11 @@ declare i32 @printf(i8*, ...) #1
         f.write(self.emit())
         f.close()
 
-    def create_literal_symbol(self,symbol, symbol_name):
-        self.symbol_table[symbol_name] = self.emitter.alloc_tnode(symbol_name, symbol.eval(),
-                                                                  symbol.type)
+    def alloc_literal_symbol(self,symbol, symbol_name):
+        return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.type)
 
-    def create_list_symbol(self, symbol , symbol_name):
+
+    def alloc_list_symbol(self, symbol , symbol_name):
         elements = symbol.eval()
         n = len(elements)
         prev = None
@@ -175,9 +175,9 @@ declare i32 @printf(i8*, ...) #1
                                              node_type=funk_types.empty_array)
 
         self.emitter.set_next_node(node, tail)
-        self.symbol_table[symbol_name] = head
+        return head
 
     def create_variable_symbol(self, symbol, symbol_name):
-        allocation = self.funk.emitter.alloc_tdata(symbol_name)
+        allocation = self.emitter.alloc_tdata(symbol_name)
         self.symbol_table[symbol_name] = '{}'.format(allocation)
         symbol.eval(result=allocation)
