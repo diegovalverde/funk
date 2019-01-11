@@ -11,7 +11,9 @@ The Funk compiler translates to LLVM code, such that an executable file for the 
 
 The most important programming blocks of Funk are functions.
 
-Funtions are declared using the following syntax:
+Funk programs are essentially a collection of functions.
+
+Functions are declared using the following syntax:
 ```
 # This here is a function
 myFunction(x,y):
@@ -56,9 +58,9 @@ fibo( n ):
     fibo( n - 1 ) + fibo( n - 2 ).
 
 ```
-This example ilustrates how you can specially special function behavior for specific values of the input arguments.
+This example illustrates how you can specify special function behavior for specific values of the input arguments of a function.
 
-Each of this function definition for ```fibo``` is called a **function clause***.
+Each of these function definitions for ```fibo``` is called a **function clause***.
 
 The order in which these function clauses are declared is important. 
 
@@ -66,9 +68,9 @@ When the compiler translates your code into LLVM IM, it will use this same order
 
 ### Function preconditions
 
-The programming languague Funk has no *if statements*.
+The programming language Funk has no *if statements*.
 
-Instead, you use a combinaation of **function preconditions** and **conditional variable assignements** in order to achive the same effect as have *if statements*.
+Instead, you use a combination of **function preconditions** and **conditional variable assignments** in order to achieve the same effect as have *if statements*.
 
 Consider the following code:
 
@@ -84,10 +86,10 @@ fibo( n ):
 
 ## Variables
 
-All varibles in Funk are immutable. 
+All variables in Funk are immutable. 
 
 This means that once you assign a value to a variable, you cannot assign another value, it will result in a runtime error message.
-To asign a value to variable you use the following syntax:
+To assign a value to variable you use the following syntax:
 
 ```
 myFunction(x,y):
@@ -103,23 +105,23 @@ The compiler does not need a special indentation to distinguish between statemen
 
 The only requirement is that all statements are well formed, and the last statement in a function is followed by the *dot* terminator ```.```
 
-## Conditional assignements
+## Conditional assignments
 
-Conditional assignements are done using the ```<-?``` symbol:
+Conditional assignments are done using the ```<-?``` symbol:
 
 ```
 x <-?  y % 2 = 0: 1, -1
 
 ```
 
-The previous expresion can assing either ```1``` or ```-1``` to ```x```, depending on the evaluation of the boolean expression ```y % 2 = 0```.
+The previous expression can assign either ```1``` or ```-1``` to ```x```, depending on the evaluation of the boolean expression ```y % 2 = 0```.
 
 Also note that unlike Python, in Funk the symbol ```=``` stands for **equality**.
 
 
 ## Lists
 
-Lists are be speciafied using the following syntax:
+Lists are be specified using the following syntax:
 
 ```
 # create an empty list
@@ -129,10 +131,10 @@ my_empty_list <- []
 my_list <- [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
 
-Or more succintly, using a list comprehension like this:
+Or more succinctly, using a list comprehension like this:
 
 ```
-# use a list comprehesion to quickly create a list
+# use a list comprehension to quickly create a list
 my_list <- [ x | 1 <= x <= 10]
 
 ```
@@ -141,7 +143,7 @@ my_list <- [ x | 1 <= x <= 10]
 
 Funk lists are internally represented as linked lists.
 
-This allows to very easly pop  head element from the list, like so:
+This allows to very easily pop  head element from the list, like so:
 
 ```
 # pop the first element from my_list and store it in head
@@ -209,3 +211,4 @@ main():
 Lastly, there is special function called the ```main``` function.
 
 This function shall take no arguments, and marks the entry point to your program.
+
