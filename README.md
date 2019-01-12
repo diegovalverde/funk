@@ -1,3 +1,6 @@
+
+![](doc/images/funk_logo.png)
+
 # funk
 *Functional Programming Language Experiment*
 
