@@ -1,5 +1,6 @@
 
-![](doc/images/funk_logo.png)
+
+<img src="doc/images/funk_logo.png" width="600">
 
 # funk
 *Functional Programming Language Experiment*
