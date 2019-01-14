@@ -11,6 +11,10 @@ The goal of Funk is not to be efficient or safe, but rather to be simple and eas
 
 The Funk compiler translates to LLVM code, such that an executable file for the target platform can be created.
 
+Please note the the state of this project is **under early stages of development**.
+
+# Quick Language walk-through
+
 ## Functions
 
 The most important programming blocks of Funk are functions.
@@ -28,13 +32,13 @@ myFunction(x,y):
 
 The last statement of a function is always the return statement. 
 
-In this example, the function ```myFunction``` has a single statement which also happens to be the return statement.
+In the previous example, the function ```myFunction``` has a single statement, which also happens to be the return statement.
 
 In summary: All functions in Funk have a single return statement, and this is always the last statement of the function.
 
 ### Function Arguments
 
-Function arguments in Funk can be any symbol. 
+Function arguments in Funk can be any valid symbol. 
 
 This includes variables, lists, and off course other functions.
 
@@ -72,7 +76,7 @@ When the compiler translates your code into LLVM IM, it will use this same order
 
 ### Function preconditions
 
-The programming language Funk has no *if statements*.
+Funk has no *if statements*.
 
 Instead, you use a combination of **function preconditions** and **conditional variable assignments** in order to achieve the same effect as have *if statements*.
 
@@ -85,7 +89,14 @@ fibo( n ):
     fibo( n - 1 ) + fibo( n - 2 ).
 
 ```
+This example introduces the concept of **function preconditions**. 
 
+For example ``` n | n <= 1``` is read as *'n given that n is less of equal than 1`*. 
+
+**Note**: In Funk a precondition can be any valid boolean statement. 
+This includes things like function calls. 
+Please note that Funk precondtions are different from Erlang guards. Erlang guarantees that guards are **free from side effects**. 
+Funk makes **no such guarantee**, but in exchange, it allows a richer set of expression to be used.
 
 
 ## Variables
@@ -93,6 +104,7 @@ fibo( n ):
 All variables in Funk are immutable. 
 
 This means that once you assign a value to a variable, you cannot assign another value, it will result in a runtime error message.
+
 To assign a value to variable you use the following syntax:
 
 ```
