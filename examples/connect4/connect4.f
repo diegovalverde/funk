@@ -54,9 +54,24 @@ use min, max, sort, read, stdin
 
 # Declare some constants with global visibility
 # Constants essentially become LLVM statements like @W = global i32 7
-W <- 7
-H <- 6
-MAX_DEPTH <- 3 # Maximum search depth for the minimax DFS
+W            <- 7
+H            <- 6
+MAX_DEPTH    <- 3 # Maximum search depth for the minimax DFS
+HUMAN_PLAYER <- 1
+AI_PLAYER    <- -1
+
+# Utility table: each tell has 1 number for each possible group of 4
+# cells including the current cell. For example, the upper left corner has
+# a number 3 because is one horizontal, one vertical and one diagonal which
+# include said cell.
+
+utility_table_7x6 <- [
+        [3, 4, 5, 7, 5, 4, 3],
+        [4, 6, 8, 10, 8, 6, 4],
+        [5, 8, 11, 13, 11, 8, 5],
+        [5, 8, 11, 13, 11, 8, 5],
+        [4, 6, 8, 10, 8, 6, 4],
+        [3, 4, 5, 7, 5, 4, 3]]
 
 ############################################################
 #
@@ -76,18 +91,25 @@ main():
 #
 ############################################################
 
-gameLoop(board, turn, player | player = 0):
+gameLoop(board, turn, player | playerWon(board,HUMAN_PLAYER)):
+    say('You win').
+
+gameLoop(board, turn, player | playerWon(board,AI_PLAYER)):
+    say('AI wins').
+
+gameLoop(board, turn, player | player = HUMAN_PLAYER):
     printBoard(board)
-    say(‘Please select your next move human [’, legalMoves(board), ‘]’ )
+    say(' 0  1  2  3  4  5  6')
+    say(‘Please select your next move [’, legalMoves(board), ‘]’ )
     move <- read(stdin())
     next_board <- getUpdatedBoard( board, W, move, player )
-    gameLoop(next_board , turn + 1, 1).
+    gameLoop(next_board , turn + 1, -1*player).
 
-gameLoop(board, turn, player | player = 1):
+gameLoop(board, turn, player | player = AI_PLAYER):
     printBoard(board)
-    _, move <- miniMax([], board, MAX_DEPTH)
+    _, move <- miniMax([], board, MAX_DEPTH, -1)
     next_board <- getUpdatedBoard( board, W, move, player )
-    gameLoop(next_board, turn + 1, 0).
+    gameLoop(next_board, turn + 1, -1*player).
 
 ############################################################
 #
@@ -97,7 +119,7 @@ gameLoop(board, turn, player | player = 1):
 ############################################################
 getUpdatedBoard(board, move, j, player | j= 0 \/ notLegal(move)): [].
 
-getUpdatedBoard(board, move, j, player | move = j):
+getUpdatedBoard(board, move, j, player | move = W-j):
       col <- sort( getCol(board,move),
                     lambda(v1 <~ [a],v2 <~ [b]): v1 > v2. )
 
@@ -117,11 +139,12 @@ getUpdatedBoard(board, move, j, player ):
 #
 ############################################################
 
-dropPiece([],  player): []. # shall never happen
+dropPiece([],  player, found): []. # shall never happen
 dropPiece(h <~ [t],  player):
-      v <~ [h]
-      cell <-? v = 0 : player, v
-      cell ~> dropPiece(t, move, player).
+      v,r,c <~ [h]
+      cell <-? v = 0 & found = 0 : [player,r,c], h
+      found <-? v = 0 & found = 0 : 1 : 0 # ugly....
+      cell ~> [dropPiece(t, move, player)].
 
 ############################################################
 #
@@ -134,23 +157,44 @@ dropPiece(h <~ [t],  player):
 #
 ############################################################
 
-# if there are no more legal moves or we reached maximum depth, then return the
-# last move
-miniMax(move, board, depth, _,_,_ | depth = 0 \/ legalMoves(board)=[] ): [utility(board), move].
 
-# if the player won then return the winning move with super high utility
-miniMax(move, board, depth | depth % 2 = 0 & playerWon(board, 0 )  ): [1000, move].
+miniMax(move, board, depth, player, alpha, beta, util | depth = 0  ):
+  # utility is always calculated from the *human player* perspective.
+  # Human is assumed to select the best possible move for himself, AI on the other
+  # hand, will select the move that will hurt the human the most (as opposed
+  # to the move that benefits AI the most)
+  [move, player*utility(board, HUMAN_PLAYER) ].
 
-# Make sure not to select a loosing move
-miniMax(move, board, depth | depth % 2 = 1 & playerWon(board, 1 )  ): [-1000, move].
 
-# player search iteration
-miniMax(move, board, depth, player, alpha, beta | player = 1):
-  max([ miniMax(move, getUpdatedBoard(board, move), depth - 1), | move : legalMoves(board) ]).
+miniMax(move, board, depth, player, alpha, beta, util | playerWon(board,HUMAN_PLAYER) \/ playerWon(board,AI_PLAYER) ):
+  [move, player * 1000 ].
 
-# opponent search iteration
-miniMax(move, board, depth, player, alpha, beta | player = -1):
-  min([ miniMax(move, getUpdatedBoard(board, move), depth - 1), | move : legalMoves(board) ]).
+# Minimax loops the list of current legal moves, for each move, it does a DFS
+# recursively calling miniMax until a suitable solution is found or depth reaches zero
+miniMax(move, board, depth, player, alpha, beta, util | player = HUMAN_PLAYER):
+  loopMinimax( board,  legalMoves(board), alpha, beta, depth - 1, player, best_util,  0, -1000).
+
+miniMax(move, board, depth, player, alpha, beta, util | player = AI_PLAYER):
+  loopMinimax( board,  legalMoves(board), alpha, beta, depth - 1, player, best_util,  0, 1000).
+
+
+loopMinimax( board, moves, alpha, beta, depth, player, best_util, best_move | beta <= alpha \/ moves = []):
+  # break from loop in case no more moves or alpha-beta pruning condition is set
+  best_util, best_move.
+
+loopMinimax( board, move <~ [remaining_moves], alpha, beta, depth, player, best_util, best_move | player = HUMAN_PLAYER):
+    next_board <- getUpdatedBoard(board, move, W, 1)
+    util <- miniMax(move, next_board, depth, -1* player, alpha, beta, utility(next_board) )
+    best_util <- max(util, best_util)
+    next_alpha <- max(alpha, best_util)
+    loopMinimax( board, remaining_moves, next_alpha, beta, depth, player, best_util, best_move) .
+
+loopMinimax( board, move <~ [remaining_moves], alpha, beta, depth, player, best_util, best_move | player = AI_PLAYER):
+    next_board <- getUpdatedBoard(board, move, W, 1)
+    util <- miniMax(move, next_board, depth, -1* player, alpha, beta, utility(next_board) )
+    best_util <- min(util, best_util)
+    next_beta <- min(beta, best_util)
+    loopMinimax( board, remaining_moves, alpha, next_beta, depth, player, best_util, best_move) .
 
 ############################################################
 #
@@ -314,3 +358,26 @@ printBoard(h <~ [t]):
    v <~ h
    p <-? v = 0 : ‘ ’ : v
    say(‘ ’, p , ‘ ’).
+
+
+
+
+utility(board, player):
+    total_util = 0
+    for i in range(H):
+        row = getRow(board,i,[])
+        for e in row:
+            [v,r,c] = e
+            if player == v:
+                total_util += utility_table_7x6[r][c]
+            elif v != 0:
+                total_util -= utility_table_7x6[r][c]
+
+    return total_util
+
+utility([], total_util): total_util.
+utility( h <~[board], total_util ):
+    v,r,c = h
+    total_util <-? v = HUMAN_PLAYER : total_util + utility_table_7x6[r][c], total_util
+    total_util <-? v = AI_PLAYER : total_util - utility_table_7x6[r][c], total_util
+    util_loop(board, total_util)

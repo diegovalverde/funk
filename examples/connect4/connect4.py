@@ -12,7 +12,7 @@ import copy
 
 W = 7  # 4
 H = 6  # 4
-MAX_DEPTH = 3  # Maximum search depth for the minimax DFS
+MAX_DEPTH = 4  # Maximum search depth for the minimax DFS
 
 
 ############################################################
@@ -312,7 +312,11 @@ def getUpdatedBoard(b, move, j, player):
     else:
         return getCol(board, W - j, []) + getUpdatedBoard(board, move, j - 1, player)
 
-
+############################################################
+#
+# printBoard: prints the board
+#
+############################################################
 def printBoard(b, i):
 
     board = copy.deepcopy(b)
