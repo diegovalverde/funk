@@ -361,23 +361,15 @@ printBoard(h <~ [t]):
 
 
 
-
-utility(board, player):
-    total_util = 0
-    for i in range(H):
-        row = getRow(board,i,[])
-        for e in row:
-            [v,r,c] = e
-            if player == v:
-                total_util += utility_table_7x6[r][c]
-            elif v != 0:
-                total_util -= utility_table_7x6[r][c]
-
-    return total_util
+############################################################
+#
+# utility: Calculates the utility.
+#
+############################################################
 
 utility([], total_util): total_util.
 utility( h <~[board], total_util ):
     v,r,c = h
     total_util <-? v = HUMAN_PLAYER : total_util + utility_table_7x6[r][c], total_util
     total_util <-? v = AI_PLAYER : total_util - utility_table_7x6[r][c], total_util
-    util_loop(board, total_util)
+    utility(board, total_util)

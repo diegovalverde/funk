@@ -5,8 +5,8 @@ import copy
 #
 # Note: This is NOT pythonish way of writing the code
 # rather the idea of this code is that it resembles how
-# you would write it in Funk, and it is used to then
-# check the Funk algorithms
+# you would write it in Funk (https://github.com/diegovalverde/funk),
+# and it is used to then check the Funk algorithms
 #
 ############################################################
 
