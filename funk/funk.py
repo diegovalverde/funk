@@ -1,4 +1,8 @@
 from funk_llvm_emitter import Emitter
+from llvmlite import binding
+from lark import Lark
+from funk_ast_transformer import TreeToAst
+
 import funk_types
 
 
@@ -42,11 +46,19 @@ define {ret_val} @{name}({args}) #0 {{
 
 
 class Funk:
-    def __init__(self, triple):
+    def __init__(self, debug=False):
+
+
+        self.debug  = debug
+
+        with open('funk/funk_ll1.lark', 'r') as myfile:
+            funk_grammar = myfile.read()
+
+        self.grammar = Lark(funk_grammar)
 
         self.symbol_table = {}
         self.strings_count = 0
-        self.triple = triple
+        self.triple = binding.get_default_triple()
 
         main_scope = '_function__{}'.format('main')
         self.symbol_table = {}
@@ -105,7 +117,7 @@ declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 
  
-            """.format(triple=triple, funk_type_int=funk_types.int, funk_type_float=funk_types.float)
+            """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.float)
 
         self.post_amble =\
         """
@@ -148,6 +160,21 @@ declare i32 @printf(i8*, ...) #1
         f = open(path, 'w')
         f.write(self.emit())
         f.close()
+
+    def compile(self, text):
+
+        parse_tree = self.grammar.parse(text)
+
+        ast_generator = TreeToAst(self, debug=self.debug)
+
+        ast_generator.transform(parse_tree)
+
+        for fn in ast_generator.function_definition_list:
+            if self.debug:
+                print('-I- Emitting Function {}/{} '.format(fn, ast_generator.function_map[fn].arity))
+
+            ast_generator.function_map[fn].eval()
+
 
     def alloc_literal_symbol(self,symbol, symbol_name):
         return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.type)
