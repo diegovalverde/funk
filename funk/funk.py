@@ -54,6 +54,7 @@ class Funk:
         with open('funk/funk_ll1.lark', 'r') as myfile:
             funk_grammar = myfile.read()
 
+
         self.grammar = Lark(funk_grammar)
 
         self.symbol_table = {}
