@@ -25,7 +25,13 @@ import funk_types
 
 
 class FunctionScope:
-    def __init__(self, name, ret_type='i32',  args=[], pattern_matches=[], tail_pairs=[], empty=False):
+    def __init__(self, name, ret_type='i32', args=None, pattern_matches=None, tail_pairs=None, empty=False):
+        if pattern_matches is None:
+            pattern_matches = []
+        if tail_pairs is None:
+            tail_pairs = []
+        if args is None:
+            args = []
         self.name = name
         self.args = args
         self.tail_pairs = tail_pairs
@@ -66,12 +72,10 @@ define {ret_val} @{name}({args}) #0 {{
 class Funk:
     def __init__(self, debug=False):
 
-
-        self.debug  = debug
+        self.debug = debug
 
         with open('funk/funk_ll1.lark', 'r') as myfile:
             funk_grammar = myfile.read()
-
 
         self.grammar = Lark(funk_grammar)
 
@@ -138,8 +142,8 @@ declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0
  
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.float)
 
-        self.post_amble =\
-        """
+        self.post_amble = \
+            """
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #2
@@ -151,7 +155,14 @@ declare i32 @printf(i8*, ...) #1
 
         self.emitter = None
 
-    def create_function_scope(self, name, ret_type='%struct.tdata', args=[], tail_pairs=[], pattern_matches=[], empty=False):
+    def create_function_scope(self, name, ret_type='%struct.tdata', args=None, tail_pairs=None, pattern_matches=None,
+                              empty=False):
+        if args is None:
+            args = []
+        if tail_pairs is None:
+            tail_pairs = []
+        if pattern_matches is None:
+            pattern_matches = []
         scope_name = '{}'.format(name)
         self.symbol_table[scope_name] = FunctionScope(name, ret_type=ret_type, args=args, tail_pairs=tail_pairs,
                                                       empty=empty, pattern_matches=pattern_matches)
@@ -194,12 +205,10 @@ declare i32 @printf(i8*, ...) #1
 
             ast_generator.function_map[fn].eval()
 
-
-    def alloc_literal_symbol(self,symbol, symbol_name):
+    def alloc_literal_symbol(self, symbol, symbol_name):
         return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.type)
 
-
-    def alloc_list_symbol(self, symbol , symbol_name):
+    def alloc_list_symbol(self, symbol, symbol_name):
         elements = symbol.eval()
         n = len(elements)
         prev = None
@@ -207,9 +216,9 @@ declare i32 @printf(i8*, ...) #1
         node = None
         for i in range(n):
             node = self.emitter.alloc_tnode(name='list[{}]'.format(i),
-                                                 value=elements[i].eval(),
-                                                 data_type=funk_types.int,
-                                                 node_type=funk_types.array)
+                                            value=elements[i].eval(),
+                                            data_type=funk_types.int,
+                                            node_type=funk_types.array)
             if prev is not None:
                 self.emitter.set_next_node(prev, node)
             else:
@@ -218,7 +227,7 @@ declare i32 @printf(i8*, ...) #1
             prev = node
 
         tail = self.emitter.alloc_tnode(name='list_tail',
-                                             node_type=funk_types.empty_array)
+                                        node_type=funk_types.empty_array)
 
         self.emitter.set_next_node(node, tail)
         return head

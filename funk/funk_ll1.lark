@@ -26,16 +26,23 @@
 
     statement: expr
 
+    expr: term (expr_rhs | expr_rhs_cond)
+
+    ///////////////////////////////////////////
+    // Conditional Expressions
+    ///////////////////////////////////////////
+
+    expr_rhs_cond: "<-?" boolean_expr ":" expr "," expr
+
 
     ///////////////////////////////////////////
     // Arithmetic Expressions
     ///////////////////////////////////////////
 
-    expr: term expr_rhs
 
 
     expr_rhs: "<-" expr -> action_lhs_assignment
-              | [expr_]
+              | [expr_]  //TODO: Check this production ...
 
 
     expr_:    "+" term [expr_]  -> action_arith_add

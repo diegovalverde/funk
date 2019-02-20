@@ -32,8 +32,8 @@ def create_ast_named_symbol(name, funk, right):
     else:
         funk.create_variable_symbol(right, symbol_name)
 
-def create_ast_anon_symbol(funk, right):
 
+def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
         return funk.alloc_literal_symbol(right, 'anon')
 
@@ -42,8 +42,9 @@ def create_ast_anon_symbol(funk, right):
     else:
         return right.eval()
 
+
 class IntegerConstant:
-    def __init__(self, funk,  value):
+    def __init__(self, funk, value):
         self.value = value
         self.funk = funk
         self.type = funk_types.int
@@ -72,6 +73,7 @@ class ArrayLiteral:
     """
     Essentially a NULL terminated linked list
     """
+
     def __init__(self, funk, name, elements):
         self.funk = funk
         self.name = name
@@ -80,9 +82,7 @@ class ArrayLiteral:
     def __repr__(self):
         return 'ArrayLiteral({})'.format(self.elements)
 
-
     def eval(self, result=None):
-
         return self.elements
 
 
@@ -112,7 +112,6 @@ class Identifier:
                 head_node = self.funk.emitter.get_function_argument_tnode(idx)
                 tail_node = self.funk.emitter.get_next_node(head_node)
                 return tail_node
-
 
         global_symbol_name = '@{}'.format(self.name)
         local_symbol_name = '{}__{}'.format(self.funk.function_scope.name, self.name)
@@ -158,6 +157,7 @@ class PatternMatch:
 
 class PatternMatchEmptyList(PatternMatch):
     def __init__(self, funk):
+        PatternMatch.__init__(self, funk)
         self.funk = funk
         self.is_literal = False
 
@@ -170,6 +170,7 @@ class PatternMatchEmptyList(PatternMatch):
 
 class PatternMatchLiteral(PatternMatch):
     def __init__(self, funk, value):
+        PatternMatch.__init__(self, funk)
         self.funk = funk
         self.value = value.eval()
 
@@ -201,6 +202,7 @@ class PatternMatchIdentifier:
     def eval(self, result=None):
         pass
 
+
 class BinaryOp:
     def __init__(self, funk, left=None, right=None):
         self.funk = funk
@@ -213,7 +215,6 @@ class Sum(BinaryOp):
         return 'Sum({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-
         return self.funk.emitter.add(self.left.eval(), self.right.eval(), result_data=result)
 
 
@@ -266,12 +267,13 @@ class EqualThan(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.icmp_signed(self.left.eval(), self.right.eval())
 
+
 class And(BinaryOp):
     def __repr__(self):
         return 'And({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.and_( self.left.eval(), self.right.eval())
+        return self.funk.emitter.and_(self.left.eval(), self.right.eval())
 
 
 class LessThan(BinaryOp):
@@ -281,6 +283,7 @@ class LessThan(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.icmp_signed('<', self.left.eval(), self.right.eval())
 
+
 class Assignment(BinaryOp):
     def __repr__(self):
         return 'Assignment({} , {})'.format(self.left, self.right)
@@ -288,6 +291,7 @@ class Assignment(BinaryOp):
     def eval(self, result=None):
         name = self.left.name
         create_ast_named_symbol(name, self.funk, self.right)
+
 
 class Range:
     def __init__(self, funk, rhs=None, lhs=None, identifier=None, rhs_type='<', lhs_type='<'):
@@ -303,7 +307,7 @@ class Range:
 
     def emit(self):
         # create as many Integers as necessary
-        if isinstance(self.lhs, IntegerConstant) and isinstance(self.rhs,IntegerConstant):
+        if isinstance(self.lhs, IntegerConstant) and isinstance(self.rhs, IntegerConstant):
             integers = []
             for i in range(self.lhs.eval(), self.rhs.eval()):
                 integers.append(IntegerConstant(self.funk, i))
@@ -345,14 +349,13 @@ class FunctionCall:
         # First check if this is globally defined function
         for fn in self.funk.functions:
             if fn == name:
-
-                return self.funk.emitter.call(fn, [ create_ast_anon_symbol(self.funk,  a) for a in self.args])
+                return self.funk.emitter.call(fn, [create_ast_anon_symbol(self.funk, a) for a in self.args])
         # Now check if this is an input argument containing a function pointer
         i = 0
         for arg in self.funk.function_scope.args:
             if arg == self.name:
                 fn = self.funk.emitter.get_function_argument_tnode(i)
-                return self.funk.emitter.call_fn_ptr(fn, [create_ast_anon_symbol(self.funk,  a) for a in self.args])
+                return self.funk.emitter.call_fn_ptr(fn, [create_ast_anon_symbol(self.funk, a) for a in self.args])
             i += 1
 
         if not found:
@@ -362,7 +365,11 @@ class FunctionCall:
 
 
 class FunctionClause:
-    def __init__(self, funk, name, fn_body, preconditions, pattern_matches, tail_pairs=[], arguments=[]):
+    def __init__(self, funk, name, fn_body, preconditions, pattern_matches, tail_pairs=None, arguments=None):
+        if arguments is None:
+            arguments = []
+        if tail_pairs is None:
+            tail_pairs = []
         self.body = fn_body
         self.name = name
         self.arguments = arguments
@@ -415,7 +422,7 @@ class FunctionClause:
                         label_next = '{}_clause_{}_pattern_match_{}'.format(name, index, pm_count)
 
                     if isinstance(pattern, PatternMatchEmptyList):
-                        node_type = self.funk.emitter.get_node_type( arg )
+                        node_type = self.funk.emitter.get_node_type(arg)
                         self.funk.emitter.br_cond('ne', node_type, funk_types.empty_array, clause_exit_label,
                                                   label_next)
 
@@ -436,7 +443,6 @@ class FunctionClause:
             # check for clause preconditions
 
             if self.preconditions is not None:
-
                 self.funk.emitter.add_label(clause_precondition_label)
                 self.funk.emitter.add_comment('{}'.format(self.preconditions))
                 result = self.preconditions.eval()
@@ -457,13 +463,18 @@ class FunctionClause:
             self.funk.emitter.add_label(clause_exit_label)
 
 
-
 class FunctionMap:
-    def __init__(self, funk, name, arguments=[], tail_pairs=[], pattern_matches=[]):
+    def __init__(self, funk, name, arguments=None, tail_pairs=None, pattern_matches=None):
+        if arguments is None:
+            arguments = []
+        if tail_pairs is None:
+            tail_pairs = []
+        if pattern_matches is None:
+            pattern_matches = []
         self.funk = funk
         self.name = name
         self.arity = len(arguments)
-        self.clauses = [] # list of clauses
+        self.clauses = []  # list of clauses
         self.arguments = arguments
         self.tail_pairs = tail_pairs
         self.pattern_matches = pattern_matches
@@ -490,13 +501,11 @@ class FunctionMap:
         for stmt in self.body:
             stmt.eval()
 
+
 class String:
     def __init__(self, funk, fmt_str):
         self.funk = funk
         self.fmt_str = '{}'.format(fmt_str[1:-1])
-
-    def set_builder(self, builder):
-        self.builder = builder
 
     def __repr__(self):
         return 'String({})'.format(self.fmt_str)
@@ -511,5 +520,4 @@ class Print:
         self.arg_list = arg_list
 
     def eval(self, result=None):
-
         self.funk.emitter.print_funk(self.funk, self.arg_list)

@@ -19,6 +19,7 @@
 import funk_types
 import struct
 
+
 class Emitter:
     def __init__(self):
         self.index = 1
@@ -107,7 +108,7 @@ class Emitter:
 
         return '%{}'.format(p[-1])
 
-    def set_node_next(self, p_node,p_node_next):
+    def set_node_next(self, p_node, p_node_next):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
 
@@ -115,14 +116,14 @@ class Emitter:
         ;; set next node
         %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* %{p_node}, i32 0, i32 2
         store %struct.tnode* %{p_node_next}, %struct.tnode** %{0}, align 8
-        """.format(p[0],p_node=p_node, p_node_next=p_node_next)
+        """.format(p[0], p_node=p_node, p_node_next=p_node_next)
 
     def get_node_type(self, node):
 
         p = [x for x in range(self.index, self.index + 3)]
         self.index = p[-1] + 1
 
-        self.code +="""
+        self.code += """
         %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 0
         %{1} = load i8, i8* %{0}, align 8
         %{2} = zext i8 %{1} to i32
@@ -134,7 +135,6 @@ class Emitter:
 
         p = [x for x in range(self.index, self.index + 5)]
         self.index = p[-1] + 1
-
 
         self.code += """
         ;;return a copy of the next node from list
@@ -198,7 +198,7 @@ class Emitter:
          br i1 %{0}, label %{label_true}, label %{label_false}
         """.format(p[0], p[1], cond=cond, a=a, b=b, label_true=label_true, label_false=label_false)
 
-    def add_comment(self,comment):
+    def add_comment(self, comment):
         self.code += """
         ;;;  {}""".format(comment)
 
@@ -208,7 +208,7 @@ class Emitter:
         """
         self.index += 1
 
-    def add_label(self,label):
+    def add_label(self, label):
         """
         Labels can only be placed at the start of a basic block.
         In other words, they must go directly after a terminator instruction
@@ -219,8 +219,10 @@ class Emitter:
 
     def add(self, a, b, result_data=None):
 
+        result = result_data
+
         if result_data is None:
-            result = self.alloc_tnode('addition result' )
+            result = self.alloc_tnode('addition result')
 
         if isinstance(a, int):
             self.code += """
@@ -240,7 +242,7 @@ class Emitter:
     def sub(self, a, b, result_data=None):
 
         if result_data is None:
-            result = self.alloc_tnode('subtraction result' )
+            result = self.alloc_tnode('subtraction result')
 
         if isinstance(a, int):
             self.code += """
@@ -257,7 +259,7 @@ class Emitter:
 
         return result
 
-    def store_val(self,p_data,val):
+    def store_val(self, p_data, val):
         self.code += """
         store i32 {val}, i32* %{p_data}, align 4
         """.format(val=val, p_data=p_data)
@@ -274,7 +276,7 @@ class Emitter:
         """.format(p[0], p[1], node_dst=node_dst, node_src=node_src)
 
     def call_fn_ptr(self, fn_node, arguments):
-        n=len(arguments)
+        n = len(arguments)
 
         result = self.allocate_fn_return_node()
 
@@ -352,7 +354,7 @@ class Emitter:
     def get_function_argument_tnode(self, idx):
         p = [x for x in range(self.index, self.index + 2)]
 
-        self.code +="""
+        self.code += """
         ;; get Node from pointer
         %{0} = load %struct.tnode*, %struct.tnode** {p_fn_args}, align 8
         %{1} = getelementptr inbounds %struct.tnode, %struct.tnode* %{0}, i64 {idx} 
@@ -389,8 +391,6 @@ define i32 @main() #0 {
 
             self.index = 4  # number of arguments + result + the first label
 
-
-
             self.code += """
 ;; ======== {fn_name} Function implementation =========
 ;; The first input argument is a pointer to the result
@@ -398,7 +398,7 @@ define i32 @main() #0 {
 ;; Arguments are 
 
 define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
-        """.format(fn_name=name,  ret_type=ret_type)
+        """.format(fn_name=name, ret_type=ret_type)
 
             self.add_comment('pointer to result')
             p_result = self.alloc_tnode_pointer()
@@ -464,7 +464,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
     def alloc_tnode(self, name, value=None, data_type=None, node_type=None):
         p = [x for x in range(self.index, self.index + 1)]
 
-        self.code +="""
+        self.code += """
          ;; variable \'{name}\': allocate tnode
          %{0} = alloca %struct.tnode, align 8
          """.format(p[0], name=name)
@@ -487,7 +487,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
 
-        self.code +="""
+        self.code += """
         %{0} = getelementptr inbounds [{lenght} x %struct.tnode], [{lenght} x %struct.tnode]* {array}, i64 0, i64 {idx}
         """.format(p[0], lenght=lenght, idx=idx, array=array)
 
@@ -523,7 +523,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.set_node_data(p_node, data, index)
 
         if not tail:
-            self.set_next_node(p_node, index+1)
+            self.set_next_node(p_node, index + 1)
 
     def set_next_node(self, node, next_node):
 
@@ -534,7 +534,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
          ;; Set linked list next element
         %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 2
         store %struct.tnode* {next_node}, %struct.tnode** %{0}, align 8
-         """.format(p[0],  next_node=next_node, node=node)
+         """.format(p[0], next_node=next_node, node=node)
 
     def print_funk(self, funk, args):
         """
@@ -545,20 +545,19 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         for arg_expr in args:
             arg = arg_expr.eval()
 
-
             if arg[:1] != '%':
                 format_string = arg
-                format_len = len(format_string)+1
+                format_len = len(format_string) + 1
                 p = [x for x in range(self.index, self.index + 1)]
                 funk.preamble += \
                     """
 @.str_{cnt} = private unnamed_addr constant [{format_len} x i8] c"{format_string}\00", align 1
                     """.format(cnt=funk.strings_count, format_len=format_len, format_string=format_string)
 
-
                 self.code += """
         ;;Print a string         
-        %{0} = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(p[0], format_len=format_len, cnt=funk.strings_count)
+        %{0} = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
+                    p[0], format_len=format_len, cnt=funk.strings_count)
 
                 funk.strings_count += 1
 

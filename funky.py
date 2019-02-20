@@ -21,7 +21,6 @@ import argparse
 from funk.funk import Funk
 import os
 
-
 if __name__ == '__main__':
     try:
         parser = argparse.ArgumentParser(description='Compile a program to LLVM IR.')
@@ -42,12 +41,11 @@ if __name__ == '__main__':
 
         funk.save_ir(ll_name)
 
-        print('Compilation successful saved: {}'.format(ll_name) )
+        print('Compilation successful saved: {}'.format(ll_name))
 
     except IOError:
         print('File not found')
 
-    #TODO: display compilation error nicely (like Rust does)
-    #except Exception as e:
+    # TODO: display compilation error nicely (like Rust does)
+    # except Exception as e:
     #    print('Compilation error: {}'.format(e))
-

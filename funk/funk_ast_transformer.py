@@ -27,10 +27,11 @@ def flatten(x):
         return [x]
 
 
-def remove_invalid(L):
-    return [x for x in L if x is not None]
+def remove_invalid(l):
+    return [x for x in l if x is not None]
 
-#TODO Move this tree to another file
+
+# TODO Move this tree to another file
 class TreeToAst(Transformer):
 
     def __init__(self, funk, debug=False):
@@ -52,13 +53,13 @@ class TreeToAst(Transformer):
         if fn_name == 'main':
 
             fn_body = flatten(tree[1])
-            clause = funk_ast.FunctionClause(self.funk, 'main', fn_body, preconditions=None, pattern_matches=None, arguments=[])
+            clause = funk_ast.FunctionClause(self.funk, 'main', fn_body, preconditions=None, pattern_matches=None,
+                                             arguments=[])
 
             self.function_map['main'] = funk_ast.FunctionMap(self.funk, 'main', [])
             self.function_definition_list.append('main')
             self.function_map['main'].clauses.append(clause)
         else:
-
 
             firm = remove_invalid(flatten(tree[1]))
 
@@ -87,17 +88,17 @@ class TreeToAst(Transformer):
             fn_body = flatten(tree[2])
             function_key = '@{}'.format(fn_name)
 
-            clause = funk_ast.FunctionClause(self.funk,function_key, fn_body, preconditions, pattern_matches,
+            clause = funk_ast.FunctionClause(self.funk, function_key, fn_body, preconditions, pattern_matches,
                                              arguments=fn_arguments, tail_pairs=tail_pairs)
 
             if function_key not in self.function_map:
                 self.function_definition_list.append(function_key)
-                self.function_map[function_key] = funk_ast.FunctionMap(self.funk, function_key, arguments=fn_arguments, tail_pairs=tail_pairs)
+                self.function_map[function_key] = funk_ast.FunctionMap(self.funk, function_key, arguments=fn_arguments,
+                                                                       tail_pairs=tail_pairs)
 
             self.function_map[function_key].clauses.append(clause)
 
-
-    def fn_precondition(self,token):
+    def fn_precondition(self, token):
         return token
 
     @staticmethod
@@ -142,7 +143,7 @@ class TreeToAst(Transformer):
             return token
 
     def action_match_literal(self, token):
-        return funk_ast.PatternMatchLiteral(self.funk, token[0] )
+        return funk_ast.PatternMatchLiteral(self.funk, token[0])
 
     def action_firm_element(self, token):
         token = remove_invalid(flatten(token))
@@ -166,7 +167,7 @@ class TreeToAst(Transformer):
 
     def arith_mul(self, children):
         rhs = children[0]
-        return funk_ast.Mul(self.funk, None, rhs, self.symbol_table)
+        return funk_ast.Mul(self.funk, None, rhs)
 
     def bin_op(self, token, ast_op):
         children = remove_invalid(flatten(token))
@@ -202,7 +203,7 @@ class TreeToAst(Transformer):
 
     def action_bool_eq(self, token):
         if len(token) == 2:
-            return funk_ast.EqualThan(self.funk,left=token[0], right=token[1])
+            return funk_ast.EqualThan(self.funk, left=token[0], right=token[1])
         else:
             return funk_ast.EqualThan(self.funk, right=token[0])
 
@@ -222,7 +223,7 @@ class TreeToAst(Transformer):
             self.funk.functions.append(fn_symbol)
             self.funk.symbol_table[fn_symbol] = funk_ast.ExternalFunction(self.funk, fn_symbol)
 
-    def more_extern_funcs(self,token):
+    def more_extern_funcs(self, token):
         return token
 
     def boolean_binary_term(self, token):
@@ -279,11 +280,11 @@ class TreeToAst(Transformer):
     def bool_eq(self, token):
         return self.bin_op(token, funk_ast.EqualThan)
 
-    def bool_lt(self,token):
+    def bool_lt(self, token):
         return self.bin_op(token, funk_ast.LessThan)
 
     @staticmethod
-    def boolean_binary_term_(self,token):
+    def boolean_binary_term_(self, token):
         if len(token) == 2:
             token[1].left = token[0]
             return token[1]
@@ -291,10 +292,10 @@ class TreeToAst(Transformer):
             return token[0]
 
     @staticmethod
-    def bool_factor(self,token):
+    def bool_factor(self, token):
         return token[0]
 
-    def boolean_expr(self,token):
+    def boolean_expr(self, token):
         if len(token) == 2:
             token[1].left = token[0]
             return token[1]
@@ -304,7 +305,7 @@ class TreeToAst(Transformer):
     def factor(self, token):
         return token[0]
 
-    def fn_call_arguments(self,token):
+    def fn_call_arguments(self, token):
         return token[0]
 
     def term(self, children):
@@ -317,7 +318,7 @@ class TreeToAst(Transformer):
             return children[0]
 
     def term_(self, children):
-            return children[0]
+        return children[0]
 
     def identifier(self, token):
         return funk_ast.Identifier(self.funk, token[0].value)
@@ -325,10 +326,10 @@ class TreeToAst(Transformer):
     def string(self, token):
         return funk_ast.String(self.funk, token[0])
 
-    def action_float_constant(self,token):
+    def action_float_constant(self, token):
         return funk_ast.FloatConstant(self.funk, token[0].value)
 
-    def action_int_constant(self,token):
+    def action_int_constant(self, token):
         return funk_ast.IntegerConstant(self.funk, token[0].value)
 
     def action_range_inclusive_rhs(self, token):
@@ -350,7 +351,6 @@ class TreeToAst(Transformer):
     def action_list_comprehension(self, token):
         expr = token[0]
         range = token[1]
-        #conditions = token[2]
+        # conditions = token[2]
 
         return range.emit()
-
