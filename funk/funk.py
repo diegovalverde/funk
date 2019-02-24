@@ -16,12 +16,14 @@
 # under the License.
 
 
-from funk_llvm_emitter import Emitter
+from .funk_llvm_emitter import Emitter
 from llvmlite import binding
-from lark import Lark
-from funk_ast_transformer import TreeToAst
-
-import funk_types
+try:
+    from lark import Lark
+except ImportError:
+    import lark
+from .funk_ast_transformer import TreeToAst
+from . import funk_types
 
 
 class FunctionScope:
@@ -40,7 +42,6 @@ class FunctionScope:
         self.ret_statement = 'ret i32 0'
         self.empty = empty
         self.pattern_matches = pattern_matches
-        functions = []
 
     def emit(self):
 

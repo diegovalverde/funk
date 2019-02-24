@@ -16,7 +16,7 @@
 # under the License.
 
 
-import funk_types
+from . import funk_types
 import struct
 
 
@@ -240,6 +240,7 @@ class Emitter:
         return result
 
     def sub(self, a, b, result_data=None):
+        result = result_data
 
         if result_data is None:
             result = self.alloc_tnode('subtraction result')

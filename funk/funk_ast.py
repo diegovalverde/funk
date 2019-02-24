@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import funk_types
 
+from . import funk_types
 
 def create_ast_named_symbol(name, funk, right):
     symbol_name = '{}__{}'.format(funk.function_scope.name, name)

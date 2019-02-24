@@ -15,9 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import funk_ast as funk_ast
+from . import funk_ast
 import collections
-from lark import Lark, Transformer
+
+try:
+    from lark import Lark,Transformer
+except ImportError:
+    import lark, Transformer
+
+
+
 
 
 def flatten(x):
