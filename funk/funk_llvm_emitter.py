@@ -388,6 +388,11 @@ class Emitter:
 define i32 @main() #0 {
             """
             self.index = 1
+        elif name == 'sdl_render':
+            self.index = 1
+            self.code += """
+define void @sdl_render() #0 {
+            """
         else:
 
             self.index = 4  # number of arguments + result + the first label
@@ -575,3 +580,45 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         ;;============ [END] Print ====
         """.format(p[0])
         self.index = p[-1] + 1
+
+
+    def sdl_create_window(self, funk, args):
+
+        window_name = args[0].eval()
+        width = args[1].eval()
+        height = args[2].eval()
+
+        format_len = len(window_name) + 1
+
+        funk.preamble += \
+            """
+@.str_{cnt} = private unnamed_addr constant [{format_len} x i8] c"{format_string}\00", align 1
+            """.format(cnt=funk.strings_count, format_len=format_len, format_string=window_name)
+
+
+        p = [x for x in range(self.index, self.index + 5)]
+        self.code += """
+            ;;Call simple2D create window    
+            %{0} = alloca i32, align 4
+            %{1} = alloca %struct.S2D_Window*, align 8
+            store i32 0, i32* %{0}, align 4     
+            %{2} = call %struct.S2D_Window* @S2D_CreateWindow(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt}, i32 0, i32 0), i32 {width}, i32 {height}, void (...)* null, void (...)* bitcast (void ()* {callback_fn} to void (...)*), i32 0)
+            store %struct.S2D_Window* %{2}, %struct.S2D_Window** %{1}, align 8
+            %{3} = load %struct.S2D_Window*, %struct.S2D_Window** %{1}, align 8
+            %{4} = call i32 @S2D_Show(%struct.S2D_Window* %{3})
+            """.format(
+            p[0],p[1],p[2],p[3],p[4], format_len=format_len, cnt=funk.strings_count, height=height, width=width, callback_fn='@sdl_render')
+
+        funk.strings_count += 1
+
+    def sdl_draw_line(self,funk, args):
+        if len(args) != 9:
+            raise Exception('=== sdl_draw_line takes 9 parameters')
+
+        x1, y1, x2, y2, r,g,b,alpha, width = args
+
+
+        self.code += """
+        call void @S2D_DrawLine(float {x1}, float {y1}, float {x2}, float {y2}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
+        """.format(x1=float(x1.eval()),x2=float(x2.eval()),y1=float(y1.eval()),y2=float(y2.eval()),r=float(r.eval()),g=float(g.eval()),b=float(b.eval()),alpha=float(alpha.eval()), width=float(width.eval()))
+

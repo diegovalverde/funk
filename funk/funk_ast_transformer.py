@@ -57,15 +57,16 @@ class TreeToAst(Transformer):
 
         fn_name = tree[0].name
 
-        if fn_name == 'main':
+        special_fns = ['main', 'sdl_render']
+        if fn_name in special_fns:
 
             fn_body = flatten(tree[1])
-            clause = funk_ast.FunctionClause(self.funk, 'main', fn_body, preconditions=None, pattern_matches=None,
+            clause = funk_ast.FunctionClause(self.funk, fn_name, fn_body, preconditions=None, pattern_matches=None,
                                              arguments=[])
 
-            self.function_map['main'] = funk_ast.FunctionMap(self.funk, 'main', [])
-            self.function_definition_list.append('main')
-            self.function_map['main'].clauses.append(clause)
+            self.function_map[fn_name] = funk_ast.FunctionMap(self.funk, fn_name, [])
+            self.function_definition_list.append(fn_name)
+            self.function_map[fn_name].clauses.append(clause)
         else:
 
             firm = remove_invalid(flatten(tree[1]))
@@ -226,6 +227,25 @@ class TreeToAst(Transformer):
         functions = remove_invalid(flatten(token))
 
         for fn in functions:
+
+            if fn.name == 'sdl':
+                self.funk.preamble += \
+                    """
+    declare %struct.S2D_Window* @S2D_CreateWindow(i8*, i32, i32, void (...)*, void (...)*, i32) #1
+    declare i32 @S2D_Show(%struct.S2D_Window*) #1
+    declare void @S2D_DrawTriangle(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
+    declare void @S2D_DrawLine(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
+
+    %struct.S2D_Window = type { %struct.SDL_Window*, i8*, i8*, i8*, i8*, i32, i32, i8*, i8*, i32, i32, i32, i32, %struct.S2D_Viewport, void (...)*, void (...)*, i32, %struct.S2D_Mouse, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, i8, i32, %struct.S2D_Color, i8*, i32, i32, i32, i32, double, i8 }
+    %struct.SDL_Window = type opaque
+    %struct.S2D_Viewport = type { i32, i32, i32 }
+    %struct.S2D_Mouse = type { i32, i32, i32 }
+    %struct.S2D_Event = type { i32, i32, i32, i8, i8*, i32, i32, i32, i32, i32, i32, i32 }
+    %struct.S2D_Color = type { float, float, float, float }
+
+                    """
+
+                continue
             fn_symbol = '@{}'.format(fn.name)
             self.funk.functions.append(fn_symbol)
             self.funk.symbol_table[fn_symbol] = funk_ast.ExternalFunction(self.funk, fn_symbol)

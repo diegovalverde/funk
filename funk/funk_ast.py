@@ -335,6 +335,13 @@ class FunctionCall:
         self.name = name
         self.args = args
 
+        self.system_functions = {
+            'say': Print,
+            'sdl_window': SDLCreateWindow,
+            'sdl_line': SDLDrawLine,
+            'sdl_render': SDLRenderFunction, #void sdl_render(void)
+        }
+
     def __repr__(self):
         return 'FunctionCall({})'.format(self.name)
 
@@ -342,8 +349,13 @@ class FunctionCall:
         found = False
         name = '@{}'.format(self.name)
 
-        if self.name == 'say':
-            p = Print(self.funk, self.args)
+        # if self.name == 'say':
+        #     p = Print(self.funk, self.args)
+        #     return p.eval()
+        #
+
+        if self.name in self.system_functions:
+            p = self.system_functions[self.name](self.funk, self.args)
             return p.eval()
 
         # First check if this is globally defined function
@@ -379,7 +391,8 @@ class FunctionClause:
         self.funk = funk
 
     def emit(self, index, arity):
-        if self.name == 'main':
+        #TODO: refactor
+        if self.name in ['main','sdl_render']:
             for stmt in self.body:
                 stmt.eval()
 
@@ -521,3 +534,45 @@ class Print:
 
     def eval(self, result=None):
         self.funk.emitter.print_funk(self.funk, self.arg_list)
+
+class SDLCreateWindow:
+    """
+    Requires Simple2D to be installed.
+    https://github.com/simple2d/simple2d
+
+    """
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.sdl_create_window(self.funk, self.arg_list)
+
+class SDLRenderFunction:
+    """
+        Requires Simple2D to be installed.
+        https://github.com/simple2d/simple2d
+
+        """
+
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.sdl_render_callback(self.funk, self.arg_list)
+
+
+class SDLDrawLine:
+    """
+        Requires Simple2D to be installed.
+        https://github.com/simple2d/simple2d
+
+        """
+
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.sdl_draw_line(self.funk, self.arg_list)
