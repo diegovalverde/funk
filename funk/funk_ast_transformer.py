@@ -57,7 +57,7 @@ class TreeToAst(Transformer):
 
         fn_name = tree[0].name
 
-        special_fns = ['main', 'sdl_render']
+        special_fns = ['main', 's2d_render']
         if fn_name in special_fns:
 
             fn_body = flatten(tree[1])
@@ -80,6 +80,7 @@ class TreeToAst(Transformer):
             tail_pairs = []
             pattern_matches = []
             position = 0
+            print('fn_name',fn_name,'firm', firm)
             for arg in firm:
                 if isinstance(arg, funk_ast.HeadTail):
                     fn_arguments.append(arg.head)
@@ -199,6 +200,9 @@ class TreeToAst(Transformer):
     def action_arith_div(self, token):
         return self.bin_op(token, funk_ast.Div)
 
+    def action_arith_mul(self, token):
+        return self.bin_op(token, funk_ast.Mul)
+
     def action_arith_mod(self, token):
         return self.bin_op(token[0], funk_ast.Mod)
 
@@ -208,6 +212,18 @@ class TreeToAst(Transformer):
 
     def action_bool_mod(self, token):
         return funk_ast.Mod(self.funk, right=token[0])
+
+    def action_bool_lt(self, token):
+        if len(token) == 2:
+            return funk_ast.LessThan(self.funk, left=token[0], right=token[1])
+        else:
+            return funk_ast.LessThan(self.funk, right=token[0])
+
+    def action_bool_gt(self, token):
+        if len(token) == 2:
+            return funk_ast.GreaterThan(self.funk, left=token[0], right=token[1])
+        else:
+            return funk_ast.GreaterThan(self.funk, right=token[0])
 
     def action_bool_eq(self, token):
         if len(token) == 2:
@@ -228,7 +244,7 @@ class TreeToAst(Transformer):
 
         for fn in functions:
 
-            if fn.name == 'sdl':
+            if fn.name == 's2d':
                 self.funk.preamble += \
                     """
     declare %struct.S2D_Window* @S2D_CreateWindow(i8*, i32, i32, void (...)*, void (...)*, i32) #1
@@ -352,6 +368,16 @@ class TreeToAst(Transformer):
 
     def string(self, token):
         return funk_ast.String(self.funk, token[0])
+
+    def number(self, token):
+        token[1].sign = token[0]
+        return token[1]
+
+    def action_sign_negative(self, token):
+        return -1
+
+    def action_sign_positive(self, token):
+        return 1
 
     def action_float_constant(self, token):
         return funk_ast.FloatConstant(self.funk, token[0].value)

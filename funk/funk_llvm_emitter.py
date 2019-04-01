@@ -239,6 +239,7 @@ class Emitter:
 
         return result
 
+
     def sub(self, a, b, result_data=None):
         result = result_data
 
@@ -256,6 +257,25 @@ class Emitter:
         else:
             self.code += """
             call void @funk_sub_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
+            """.format(p_result=result, pA=a, pB=b)
+
+        return result
+
+    def mul(self, a, b, result_data=None):
+        if result_data is None:
+            result = self.alloc_tnode('mult result')
+
+        if isinstance(a, int):
+            self.code += """
+            call void @funk_mul_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
+            """.format(p_result=result, pA=b, pB=a)
+        elif isinstance(b, int):
+            self.code += """
+            call void @funk_mul_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
+            """.format(p_result=result, pA=a, pB=b)
+        else:
+            self.code += """
+            call void @funk_mul_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
             """.format(p_result=result, pA=a, pB=b)
 
         return result
@@ -388,10 +408,10 @@ class Emitter:
 define i32 @main() #0 {
             """
             self.index = 1
-        elif name == 'sdl_render':
+        elif name == 's2d_render':
             self.index = 1
             self.code += """
-define void @sdl_render() #0 {
+define void @s2d_render() #0 {
             """
         else:
 
@@ -582,7 +602,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.index = p[-1] + 1
 
 
-    def sdl_create_window(self, funk, args):
+    def s2d_create_window(self, funk, args):
 
         window_name = args[0].eval()
         width = args[1].eval()
@@ -607,18 +627,36 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             %{3} = load %struct.S2D_Window*, %struct.S2D_Window** %{1}, align 8
             %{4} = call i32 @S2D_Show(%struct.S2D_Window* %{3})
             """.format(
-            p[0],p[1],p[2],p[3],p[4], format_len=format_len, cnt=funk.strings_count, height=height, width=width, callback_fn='@sdl_render')
+            p[0],p[1],p[2],p[3],p[4], format_len=format_len, cnt=funk.strings_count, height=height, width=width, callback_fn='@s2d_render')
 
         funk.strings_count += 1
 
-    def sdl_draw_line(self,funk, args):
+    def s2d_draw_line(self, funk, args):
         if len(args) != 9:
-            raise Exception('=== sdl_draw_line takes 9 parameters')
+            raise Exception('=== s2d_draw_line takes 9 parameters')
 
-        x1, y1, x2, y2, r,g,b,alpha, width = args
-
+        x1, y1, x2, y2, r, g, b, alpha, width = args
 
         self.code += """
-        call void @S2D_DrawLine(float {x1}, float {y1}, float {x2}, float {y2}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
-        """.format(x1=float(x1.eval()),x2=float(x2.eval()),y1=float(y1.eval()),y2=float(y2.eval()),r=float(r.eval()),g=float(g.eval()),b=float(b.eval()),alpha=float(alpha.eval()), width=float(width.eval()))
+                call void @S2D_DrawLine(float {x1}, float {y1}, float {x2}, float {y2}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
+                """.format(x1=float(x1.eval()), x2=float(x2.eval()), y1=float(y1.eval()), y2=float(y2.eval()),
+                           r=float(r.eval()), g=float(g.eval()), b=float(b.eval()), alpha=float(alpha.eval()),
+                           width=float(width.eval()))
+
+    def s2d_draw_point(self, funk, args):
+        if len(args) != 6:
+            raise Exception('=== s2d_draw_point takes 6 parameters')
+
+        x1, y1, r, g, b, alpha = args
+        x2 = x1
+        y2 = y1
+
+        print('-----', x1.eval(), y1.eval(), x2.eval(), y2.eval(), r.eval(), g.eval(), b.eval(), alpha.eval())
+
+        self.code += """
+            call void @S2D_DrawLine(float {x1}, float {y1}, float {x2}, float {y2}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
+            """.format(x1=x1.eval(), x2=x2.eval(), y1=y1.eval(), y2=y2.eval(),
+            r=float(r.eval()), g=g.eval(), b=b.eval(), alpha=alpha.eval(),
+            width=1.0)
+
 

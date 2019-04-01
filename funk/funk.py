@@ -234,6 +234,6 @@ declare i32 @printf(i8*, ...) #1
         return head
 
     def create_variable_symbol(self, symbol, symbol_name):
-        allocation = self.emitter.alloc_tdata(symbol_name)
+        allocation = self.emitter.alloc_tnode(symbol_name)
         self.symbol_table[symbol_name] = '{}'.format(allocation)
         symbol.eval(result=allocation)

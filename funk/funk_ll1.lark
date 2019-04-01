@@ -147,7 +147,12 @@
 
     identifier: NAME
 
-    number: DEC_NUMBER    -> action_int_constant
+    number: sign digits
+
+    sign: "-" -> action_sign_negative
+           |  -> action_sign_positive
+
+    digits:  INT         -> action_int_constant
             | HEX_NUMBER  -> action_hex_constant
             | FLOAT       -> action_float_constant
 
@@ -157,11 +162,11 @@
     string: STRING
 
     STRING : /[ubf]?r?("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
-    DEC_NUMBER: /[0-9]\d*l?/i
+    //DEC_NUMBER: /-?[0-9]\d*l?/i
     HEX_NUMBER: /0x[\da-f]*l?/i
 
     %import common.FLOAT -> FLOAT
-    %import common.INT   -> _INT
+    %import common.INT   -> INT
     %import common.CNAME -> NAME
 
     %ignore /[\t \f]+/  // WS

@@ -18,20 +18,18 @@
 
 from . import funk_types
 
+
 def create_ast_named_symbol(name, funk, right):
+
     symbol_name = '{}__{}'.format(funk.function_scope.name, name)
 
     if symbol_name in funk.symbol_table:
         raise Exception('=== Variables are immutable \'{}\' '.format(name))
 
-    if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
-        funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, symbol_name)
-
-    elif isinstance(right, ArrayLiteral):
+    if isinstance(right, ArrayLiteral):
         funk.symbol_table[symbol_name] = funk.alloc_list_symbol(right, symbol_name)
     else:
-        funk.create_variable_symbol(right, symbol_name)
-
+        funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, symbol_name)
 
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
@@ -42,18 +40,18 @@ def create_ast_anon_symbol(funk, right):
     else:
         return right.eval()
 
-
 class IntegerConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
         self.type = funk_types.int
+        self.sign = 1
 
     def __repr__(self):
         return 'Integer({})'.format(self.value)
 
     def eval(self, result=None):
-        return int(self.value)
+        return self.sign * int(self.value)
 
 
 class FloatConstant:
@@ -61,12 +59,13 @@ class FloatConstant:
         self.value = value
         self.funk = funk
         self.type = funk_types.float
+        self.sign = 1
 
     def __repr__(self):
         return 'Float({})'.format(self.value)
 
     def eval(self, result=None):
-        return float(self.value)
+        return self.sign * float(self.value)
 
 
 class ArrayLiteral:
@@ -208,6 +207,7 @@ class BinaryOp:
         self.funk = funk
         self.left = left
         self.right = right
+        self.type  = None #TODO refactor to numeric_type (float, int, etc..)
 
 
 class Sum(BinaryOp):
@@ -223,7 +223,7 @@ class Mul(BinaryOp):
         return 'Mul({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.mul(self.left.eval(), self.right.eval())
+        return self.funk.emitter.mul(self.left.eval(), self.right.eval(), result_data=result)
 
 
 class Sub(BinaryOp):
@@ -231,7 +231,7 @@ class Sub(BinaryOp):
         return 'Sub({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        i = self.funk.emitter.sub(self.left.eval(), self.right.eval())
+        i = self.funk.emitter.sub(self.left.eval(), self.right.eval(),result_data=result)
         return i
 
 
@@ -337,9 +337,10 @@ class FunctionCall:
 
         self.system_functions = {
             'say': Print,
-            'sdl_window': SDLCreateWindow,
-            'sdl_line': SDLDrawLine,
-            'sdl_render': SDLRenderFunction, #void sdl_render(void)
+            's2d_window': S2DCreateWindow,
+            's2d_line': S2DDrawLine,
+            's2d_point': S2DDrawPoint,
+            's2d_render': S2DRenderFunction, #void s2d_render(void)
         }
 
     def __repr__(self):
@@ -392,7 +393,7 @@ class FunctionClause:
 
     def emit(self, index, arity):
         #TODO: refactor
-        if self.name in ['main','sdl_render']:
+        if self.name in ['main','s2d_render']:
             for stmt in self.body:
                 stmt.eval()
 
@@ -535,7 +536,7 @@ class Print:
     def eval(self, result=None):
         self.funk.emitter.print_funk(self.funk, self.arg_list)
 
-class SDLCreateWindow:
+class S2DCreateWindow:
     """
     Requires Simple2D to be installed.
     https://github.com/simple2d/simple2d
@@ -546,9 +547,9 @@ class SDLCreateWindow:
         self.arg_list = arg_list
 
     def eval(self, result=None):
-        self.funk.emitter.sdl_create_window(self.funk, self.arg_list)
+        self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
 
-class SDLRenderFunction:
+class S2DRenderFunction:
     """
         Requires Simple2D to be installed.
         https://github.com/simple2d/simple2d
@@ -560,10 +561,10 @@ class SDLRenderFunction:
         self.arg_list = arg_list
 
     def eval(self, result=None):
-        self.funk.emitter.sdl_render_callback(self.funk, self.arg_list)
+        self.funk.emitter.s2d_render_callback(self.funk, self.arg_list)
 
 
-class SDLDrawLine:
+class S2DDrawLine:
     """
         Requires Simple2D to be installed.
         https://github.com/simple2d/simple2d
@@ -575,4 +576,19 @@ class SDLDrawLine:
         self.arg_list = arg_list
 
     def eval(self, result=None):
-        self.funk.emitter.sdl_draw_line(self.funk, self.arg_list)
+        self.funk.emitter.s2d_draw_line(self.funk, self.arg_list)
+
+
+class S2DDrawPoint:
+    """
+            Requires Simple2D to be installed.
+            https://github.com/simple2d/simple2d
+
+            """
+
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.s2d_draw_point(self.funk, self.arg_list)
