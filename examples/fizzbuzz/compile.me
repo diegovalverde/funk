@@ -1,0 +1,12 @@
+#!/bin/sh
+LLC=/usr/local/Cellar/llvm/6.0.1/bin/llc
+
+echo "Compiling example fizzbuzz"
+
+rm -f *.o a.out
+python funky.py examples/fizzbuzz/fizzbuzz.f
+python funky.py util/foreach.f
+
+$LLC -filetype=obj fizzbuzz.ll
+$LLC -filetype=obj foreach.ll
+clang fizzbuzz.o funk/core/funk_core.o foreach.o
