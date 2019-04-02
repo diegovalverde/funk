@@ -146,7 +146,9 @@ declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sub_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 
-declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, float) #0 
+declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, float) #0
+declare void @funk_add_rf(%struct.tnode*, %struct.tnode*, float) #0 
+
  
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.float)
 

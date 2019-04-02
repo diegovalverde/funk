@@ -272,6 +272,14 @@ class Emitter:
             self.code += """
             call void @funk_add_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
             """.format(p_result=result, pA=a, pB=b)
+        elif isinstance(a, float):
+            self.code += """
+            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
+            """.format(p_result=result, pA=b, pB=self.enconde_float_to_ieee754_32(a))
+        elif isinstance(b, float):
+            self.code += """
+            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
+            """.format(p_result=result, pA=a, pB=self.enconde_float_to_ieee754_32(b))
         else:
             self.code += """
             call void @funk_add_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
