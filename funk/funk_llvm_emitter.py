@@ -171,6 +171,16 @@ class Emitter:
 
         return '%{}'.format(p[0])
 
+    def fcmp_signed(self, operation, val_rhs, val_lhs, result=None):
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1]
+
+        self.code += """
+        %{0} = fcmp {operation} float {val_rhs}, {val_lhs}
+        """.format(p[0],  operation=operation, val_rhs=val_rhs, val_lhs=val_lhs)
+
+        return "%{}".format(p[-1])
+
     def icmp_signed(self, operation, val_rhs, val_lhs, result=None):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1]
@@ -443,6 +453,7 @@ class Emitter:
 ;; ===            
 ;; ==========================
 define i32 @main() #0 {
+            call void @init_random_seed()
             """
             self.index = 1
         elif name == 's2d_render':

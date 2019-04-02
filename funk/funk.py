@@ -140,6 +140,7 @@ target datalayout = ""
 
 declare float @rand_float(float, float) #0
 declare i32 @rand_int(i32, i32) #0
+declare void @init_random_seed() #0
 declare void @print_scalar(%struct.tnode*) #0
 declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0

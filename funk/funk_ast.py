@@ -108,9 +108,6 @@ class Identifier:
         # Check the current function that we are building
         # To see if the identifier is a function argument
 
-        print(self.name, '!!!!!!', self.funk.function_scope.args)
-
-
         for arg in self.funk.function_scope.args:
             if arg == self.name:
                 idx = self.funk.function_scope.args.index(arg)
@@ -281,15 +278,15 @@ class And(BinaryOp):
 
 
 class BoolBinaryOp(BinaryOp):
-    def eval(self, result=None):
+    def eval(self, as_type, result=None):
         lval = self.left.eval()
         rval = self.right.eval()
 
         if isinstance(self.right, Identifier):
-            rval = self.funk.emitter.get_node_data_value(rval)
+            rval = self.funk.emitter.get_node_data_value(rval, as_type=as_type)
 
         if isinstance(self.left, Identifier):
-            lval = self.funk.emitter.get_node_data_value(lval)
+            lval = self.funk.emitter.get_node_data_value(lval, as_type=as_type)
 
         return lval, rval
 
@@ -299,8 +296,13 @@ class GreaterThan(BoolBinaryOp):
         return 'GreaterThan({} , {})'.format('sgt',self.left, self.right)
 
     def eval(self, result=None):
-        l, r = BoolBinaryOp.eval(self, result)
-        return self.funk.emitter.icmp_signed('sgt', l, r)
+
+        if isinstance(self.left, FloatConstant) or isinstance(self.right, FloatConstant):
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.float, result=result)
+            return self.funk.emitter.fcmp_signed('ogt', l, r)
+        else:
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
+            return self.funk.emitter.icmp_signed('sgt', l, r)
 
 
 class EqualThan(BoolBinaryOp):
@@ -318,7 +320,12 @@ class LessThan(BoolBinaryOp):
 
     def eval(self, result=None):
         l, r = BoolBinaryOp.eval(self, result)
-        return self.funk.emitter.icmp_signed('slt', l, r)
+        if isinstance(self.left, FloatConstant) or isinstance(self.right, FloatConstant):
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.float, result=result)
+            return self.funk.emitter.fcmp_signed('olt', l, r)
+        else:
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
+            return self.funk.emitter.icmp_signed('slt', l, r)
 
 
 class Assignment(BinaryOp):
@@ -678,5 +685,4 @@ class S2DDrawPoint:
             else:
                 uwrapped_args.append(self.funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.float))
 
-        print('uwrapped_args', uwrapped_args)
         self.funk.emitter.s2d_draw_point(self.funk, uwrapped_args)
