@@ -144,6 +144,7 @@ declare void @init_random_seed() #0
 declare void @print_scalar(%struct.tnode*) #0
 declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
+declare void @funk_sub_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 
 declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, float) #0 
  
