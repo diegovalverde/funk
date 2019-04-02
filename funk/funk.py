@@ -35,6 +35,7 @@ class FunctionScope:
         if args is None:
             args = []
         self.name = name
+        self.clause_idx = 0 # In case there are multiple clauses this makes sure variable names can be reused
         self.args = args
         self.tail_pairs = tail_pairs
         self.ret_val = ret_type
@@ -136,10 +137,14 @@ target datalayout = ""
 @.str_ERR_ARITH_TYPE = private unnamed_addr constant [36 x i8] c"-E- Unsupported Arithmetic Type %i\\0A\\00", align 1
 @.str_ERR_PRINT_TYPE = private unnamed_addr constant [33 x i8] c"-E- Unsupported Print Type   %i\\0A\\00", align 1
 
+
+declare float @rand_float(float, float) #0
+declare i32 @rand_int(i32, i32) #0
 declare void @print_scalar(%struct.tnode*) #0
 declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 
+declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, float) #0 
  
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.float)
 
@@ -207,7 +212,7 @@ declare i32 @printf(i8*, ...) #1
             ast_generator.function_map[fn].eval()
 
     def alloc_literal_symbol(self, symbol, symbol_name):
-        return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.type)
+        return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.get_compile_type())
 
     def alloc_list_symbol(self, symbol, symbol_name):
         elements = symbol.eval()
@@ -234,6 +239,6 @@ declare i32 @printf(i8*, ...) #1
         return head
 
     def create_variable_symbol(self, symbol, symbol_name):
-        allocation = self.emitter.alloc_tnode(symbol_name)
-        self.symbol_table[symbol_name] = '{}'.format(allocation)
+        allocation = self.emitter.alloc_tnode(symbol_name, data_type=symbol.get_compile_type())
         symbol.eval(result=allocation)
+        return allocation

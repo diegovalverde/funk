@@ -20,16 +20,19 @@ from . import funk_types
 
 
 def create_ast_named_symbol(name, funk, right):
-
-    symbol_name = '{}__{}'.format(funk.function_scope.name, name)
+    symbol_name = '{}_{}_{}'.format(funk.function_scope.name, funk.function_scope.clause_idx, name)
 
     if symbol_name in funk.symbol_table:
+        print('symbol table', funk.symbol_table)
         raise Exception('=== Variables are immutable \'{}\' '.format(name))
 
     if isinstance(right, ArrayLiteral):
         funk.symbol_table[symbol_name] = funk.alloc_list_symbol(right, symbol_name)
-    else:
+    elif isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
         funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, symbol_name)
+    else:
+        funk.symbol_table[symbol_name] = funk.create_variable_symbol(right, symbol_name)
+
 
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
@@ -40,12 +43,16 @@ def create_ast_anon_symbol(funk, right):
     else:
         return right.eval()
 
+
 class IntegerConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
-        self.type = funk_types.int
+        #self.type = funk_types.int
         self.sign = 1
+
+    def get_compile_type(self):
+        return funk_types.int
 
     def __repr__(self):
         return 'Integer({})'.format(self.value)
@@ -58,8 +65,11 @@ class FloatConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
-        self.type = funk_types.float
+        #self.type = funk_types.float
         self.sign = 1
+
+    def get_compile_type(self):
+        return funk_types.float
 
     def __repr__(self):
         return 'Float({})'.format(self.value)
@@ -98,6 +108,9 @@ class Identifier:
         # Check the current function that we are building
         # To see if the identifier is a function argument
 
+        print(self.name, '!!!!!!', self.funk.function_scope.args)
+
+
         for arg in self.funk.function_scope.args:
             if arg == self.name:
                 idx = self.funk.function_scope.args.index(arg)
@@ -113,7 +126,8 @@ class Identifier:
                 return tail_node
 
         global_symbol_name = '@{}'.format(self.name)
-        local_symbol_name = '{}__{}'.format(self.funk.function_scope.name, self.name)
+        local_symbol_name = '{}_{}_{}'.format(self.funk.function_scope.name, self.funk.function_scope.clause_idx,
+                                              self.name)
 
         # Now check to see if it is a local (function scope) variable
         if local_symbol_name in self.funk.symbol_table:
@@ -140,7 +154,6 @@ class HeadTail:
         return 'HeadTail({},{})'.format(self.head, self.tail)
 
     def eval(self, result=None):
-        print('$$$$$$$$$$$$$$$$ !!!!!! pop_arg_head')
         pass
 
 
@@ -207,7 +220,14 @@ class BinaryOp:
         self.funk = funk
         self.left = left
         self.right = right
-        self.type  = None #TODO refactor to numeric_type (float, int, etc..)
+       # self.type = None  # TODO refactor to numeric_type (float, int, etc..)
+
+    def get_compile_type(self):
+        # if either operand is float, then auto promote to float at compile time
+        if isinstance(self.right, FloatConstant) or isinstance(self.left, FloatConstant):
+            return funk_types.float
+        else:
+            return funk_types.int
 
 
 class Sum(BinaryOp):
@@ -223,7 +243,7 @@ class Mul(BinaryOp):
         return 'Mul({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.mul(self.left.eval(), self.right.eval(), result_data=result)
+        return self.funk.emitter.mul(self.left.eval(), self.right.eval(), result=result)
 
 
 class Sub(BinaryOp):
@@ -231,7 +251,7 @@ class Sub(BinaryOp):
         return 'Sub({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        i = self.funk.emitter.sub(self.left.eval(), self.right.eval(),result_data=result)
+        i = self.funk.emitter.sub(self.left.eval(), self.right.eval(), result_data=result)
         return i
 
 
@@ -251,22 +271,6 @@ class Mod(BinaryOp):
         return self.funk.emitter.srem(self.left.eval(), self.right.eval())
 
 
-class GreaterThan(BinaryOp):
-    def __repr__(self):
-        return 'GreaterThan({} , {})'.format(self.left, self.right)
-
-    def eval(self, result=None):
-        i = self.funk.emitter.icmp_signed('>', self.left.eval(), self.right.eval())
-        return i
-
-
-class EqualThan(BinaryOp):
-    def __repr__(self):
-        return 'Equal({} , {})'.format(self.left, self.right)
-
-    def eval(self, result=None):
-        return self.funk.emitter.icmp_signed(self.left.eval(), self.right.eval())
-
 
 class And(BinaryOp):
     def __repr__(self):
@@ -276,12 +280,45 @@ class And(BinaryOp):
         return self.funk.emitter.and_(self.left.eval(), self.right.eval())
 
 
-class LessThan(BinaryOp):
+class BoolBinaryOp(BinaryOp):
+    def eval(self, result=None):
+        lval = self.left.eval()
+        rval = self.right.eval()
+
+        if isinstance(self.right, Identifier):
+            rval = self.funk.emitter.get_node_data_value(rval)
+
+        if isinstance(self.left, Identifier):
+            lval = self.funk.emitter.get_node_data_value(lval)
+
+        return lval, rval
+
+
+class GreaterThan(BoolBinaryOp):
+    def __repr__(self):
+        return 'GreaterThan({} , {})'.format('sgt',self.left, self.right)
+
+    def eval(self, result=None):
+        l, r = BoolBinaryOp.eval(self, result)
+        return self.funk.emitter.icmp_signed('sgt', l, r)
+
+
+class EqualThan(BoolBinaryOp):
+    def __repr__(self):
+        return 'Equal({} , {})'.format(self.left, self.right)
+
+    def eval(self, result=None):
+        l, r = BoolBinaryOp.eval(self, result)
+        return self.funk.emitter.icmp_signed('eq', l, r)
+
+
+class LessThan(BoolBinaryOp):
     def __repr__(self):
         return 'LessThan({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.icmp_signed('<', self.left.eval(), self.right.eval())
+        l, r = BoolBinaryOp.eval(self, result)
+        return self.funk.emitter.icmp_signed('slt', l, r)
 
 
 class Assignment(BinaryOp):
@@ -334,14 +371,23 @@ class FunctionCall:
         self.funk = funk
         self.name = name
         self.args = args
+       # self.type = funk_types.int  # TODO refactor hack to make rand function work...
 
         self.system_functions = {
+            'rand_int': RandInt,
+            'rand_float': RandFloat,
             'say': Print,
             's2d_window': S2DCreateWindow,
             's2d_line': S2DDrawLine,
             's2d_point': S2DDrawPoint,
-            's2d_render': S2DRenderFunction, #void s2d_render(void)
+            's2d_render': S2DRenderFunction,  # void s2d_render(void)
         }
+
+    def get_compile_type(self):
+        if self.name in self.system_functions:
+            return self.system_functions[self.name].get_compile_type()
+        else:
+            return None
 
     def __repr__(self):
         return 'FunctionCall({})'.format(self.name)
@@ -350,14 +396,9 @@ class FunctionCall:
         found = False
         name = '@{}'.format(self.name)
 
-        # if self.name == 'say':
-        #     p = Print(self.funk, self.args)
-        #     return p.eval()
-        #
-
         if self.name in self.system_functions:
             p = self.system_functions[self.name](self.funk, self.args)
-            return p.eval()
+            return p.eval(result=result)
 
         # First check if this is globally defined function
         for fn in self.funk.functions:
@@ -391,9 +432,9 @@ class FunctionClause:
         self.tail_pairs = tail_pairs
         self.funk = funk
 
-    def emit(self, index, arity):
-        #TODO: refactor
-        if self.name in ['main','s2d_render']:
+    def emit(self, clause_idx, arity):
+        # TODO: refactor
+        if self.name in ['main', 's2d_render']:
             for stmt in self.body:
                 stmt.eval()
 
@@ -403,10 +444,10 @@ class FunctionClause:
             # I need some kind of clause_exit_label here...
             # check for clause arity
             name = self.name[1:]
-            clause_entry_label = '{}_{}_clause_entry'.format(name, index)
-            clause_exit_label = '{}_{}_clause_exit'.format(name, index)
-            clause_pm_label = '{}_{}_pattern_match'.format(name, index)
-            clause_precondition_label = '{}_{}_clause_precondition'.format(name, index)
+            clause_entry_label = '{}_{}_clause_entry'.format(name, clause_idx)
+            clause_exit_label = '{}_{}_clause_exit'.format(name, clause_idx)
+            clause_pm_label = '{}_{}_pattern_match'.format(name, clause_idx)
+            clause_precondition_label = '{}_{}_clause_precondition'.format(name, clause_idx)
 
             # check for arity
             label_next = clause_entry_label
@@ -417,7 +458,11 @@ class FunctionClause:
             else:
                 label_next = clause_entry_label
 
+            # So the first function arguments is always the pointer to the
+            # return value and the second (#1) is the arity (passed as a constant)
             self.funk.emitter.br_cond('eq', '%1', len(self.arguments), label_next, clause_exit_label)
+
+
 
             # check for clause pattern matches
             if self.pattern_matches is not None and len(self.pattern_matches) != 0:
@@ -433,7 +478,7 @@ class FunctionClause:
                     if last:
                         label_next = clause_entry_label
                     else:
-                        label_next = '{}_clause_{}_pattern_match_{}'.format(name, index, pm_count)
+                        label_next = '{}_clause_{}_pattern_match_{}'.format(name, clause_idx, pm_count)
 
                     if isinstance(pattern, PatternMatchEmptyList):
                         node_type = self.funk.emitter.get_node_type(arg)
@@ -442,7 +487,7 @@ class FunctionClause:
 
                     elif isinstance(pattern, PatternMatchLiteral):
                         label_match_literal_check_value = '{}_clause_{}_pattern_match_literal_check_value_{}'.format(
-                            name, index, pm_count)
+                            name, clause_idx, pm_count)
                         data_type = self.funk.emitter.get_node_data_type(arg)
                         self.funk.emitter.br_cond('ne', data_type, pattern.type, clause_exit_label,
                                                   label_match_literal_check_value)
@@ -460,12 +505,12 @@ class FunctionClause:
                 self.funk.emitter.add_label(clause_precondition_label)
                 self.funk.emitter.add_comment('{}'.format(self.preconditions))
                 result = self.preconditions.eval()
-                self.funk.emitter.br_cond('eq', result, len(self.arguments), clause_entry_label, clause_exit_label)
+                self.funk.emitter.br_cond_reg(result, clause_entry_label, clause_exit_label)
 
             self.funk.function_scope.args = self.arguments
             self.funk.function_scope.tail_pairs = self.tail_pairs
 
-            self.funk.emitter.add_comment('========= Emitting clause {} ========'.format(index))
+            self.funk.emitter.add_comment('========= Emitting clause {} ========'.format(clause_idx))
             self.funk.emitter.add_label(clause_entry_label)
 
             for stmt in self.body:
@@ -504,9 +549,11 @@ class FunctionMap:
 
         index = 0
         for clause in self.clauses:
+            self.funk.function_scope.clause_idx = index
             clause.emit(index, arity)
             index += 1
 
+        self.funk.function_scope.clause_idx = 0
         self.funk.emitter.close_function(self.funk.function_scope.name)
 
         return scope_name
@@ -536,18 +583,47 @@ class Print:
     def eval(self, result=None):
         self.funk.emitter.print_funk(self.funk, self.arg_list)
 
+
+class RandInt:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    @staticmethod
+    def get_compile_type():
+        return funk_types.int
+
+    def eval(self, result=None):
+        return self.funk.emitter.rand_int(self.funk, self.arg_list)
+
+
+class RandFloat:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    @staticmethod
+    def get_compile_type():
+        return funk_types.float
+
+    def eval(self, result=None):
+        return self.funk.emitter.rand_float(self.funk, self.arg_list, result=result)
+
+
 class S2DCreateWindow:
     """
     Requires Simple2D to be installed.
     https://github.com/simple2d/simple2d
 
     """
+
     def __init__(self, funk, arg_list):
         self.funk = funk
         self.arg_list = arg_list
 
     def eval(self, result=None):
         self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
+
 
 class S2DRenderFunction:
     """
@@ -591,4 +667,16 @@ class S2DDrawPoint:
         self.arg_list = arg_list
 
     def eval(self, result=None):
-        self.funk.emitter.s2d_draw_point(self.funk, self.arg_list)
+        """
+        This function must be provided the raw float/int
+        registers
+        """
+        uwrapped_args = []
+        for arg in self.arg_list:
+            if isinstance(arg,FloatConstant) or isinstance(arg,IntegerConstant):
+                uwrapped_args.append(arg.eval())
+            else:
+                uwrapped_args.append(self.funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.float))
+
+        print('uwrapped_args', uwrapped_args)
+        self.funk.emitter.s2d_draw_point(self.funk, uwrapped_args)

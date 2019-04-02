@@ -24,9 +24,6 @@ except ImportError:
     import lark, Transformer
 
 
-
-
-
 def flatten(x):
     if isinstance(x, collections.Iterable):
         return [a for i in x for a in flatten(i)]
@@ -80,7 +77,7 @@ class TreeToAst(Transformer):
             tail_pairs = []
             pattern_matches = []
             position = 0
-            print('fn_name',fn_name,'firm', firm)
+
             for arg in firm:
                 if isinstance(arg, funk_ast.HeadTail):
                     fn_arguments.append(arg.head)
@@ -211,6 +208,7 @@ class TreeToAst(Transformer):
         return funk_ast.Assignment(self.funk, None, rhs)
 
     def action_bool_mod(self, token):
+        #Note: this returns an integer (not a TNode)
         return funk_ast.Mod(self.funk, right=token[0])
 
     def action_bool_lt(self, token):
@@ -251,6 +249,7 @@ class TreeToAst(Transformer):
     declare i32 @S2D_Show(%struct.S2D_Window*) #1
     declare void @S2D_DrawTriangle(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
     declare void @S2D_DrawLine(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
+    declare void @S2D_DrawCircle(float, float , float, i32, float, float , float, float)
 
     %struct.S2D_Window = type { %struct.SDL_Window*, i8*, i8*, i8*, i8*, i32, i32, i8*, i8*, i32, i32, i32, i32, %struct.S2D_Viewport, void (...)*, void (...)*, i32, %struct.S2D_Mouse, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, i8, i32, %struct.S2D_Color, i8*, i32, i32, i32, i32, double, i8 }
     %struct.SDL_Window = type opaque

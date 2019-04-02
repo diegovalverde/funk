@@ -50,29 +50,52 @@ class Emitter:
         store i8 {funk_type}, i8* %{0}, align 8
         """.format(p[0], str_type=funk_types.to_str[funk_type], node=node, funk_type=funk_type)
 
-    def get_node_data_value(self, node):
+    def get_node_data_value(self, node, as_type=funk_types.int):
         p = [x for x in range(self.index, self.index + 4)]
         self.index = p[-1] + 1
-        self.code += """
-        ;; Get node.data.value
-        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
-        %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
-        %{2} = bitcast %union.data_type* %{1} to i32*
-        %{3} = load i32, i32* %{2}, align 8
-        """.format(p[0], p[1], p[2], p[3], node=node)
+
+        if as_type == funk_types.float:
+            self.code += """
+            ;; Get node.data.value
+            %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
+            %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
+            %{2} = bitcast %union.data_type* %{1} to float*
+            %{3} = load float, float* %{2}, align 8
+            """.format(p[0], p[1], p[2], p[3], node=node)
+        else:
+            self.code += """
+            ;; Get node.data.value
+            %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
+            %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
+            %{2} = bitcast %union.data_type* %{1} to i32*
+            %{3} = load i32, i32* %{2}, align 8
+            """.format(p[0], p[1], p[2], p[3], node=node)
 
         return '%{}'.format(p[-1])
 
-    def set_node_data_value(self, name, node, value):
+    def set_node_data_value(self, name, node, value, as_type):
         p = [x for x in range(self.index, self.index + 3)]
         self.index = p[-1] + 1
-        self.code += """
-        ;; {name}.data.value = {value}
+
+        if as_type == funk_types.float:
+            self.code += """
+        ;; {name}.data.value = {value} -- float
+        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
+        %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
+        %{2} = bitcast %union.data_type* %{1} to float*
+        store float {value}, float* %{2}, align 8
+         """.format(p[0], p[1], p[2], node=node, value=value, name=name)
+        else:
+            self.code += """
+        ;; {name}.data.value = {value} -- int
         %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
         %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
         %{2} = bitcast %union.data_type* %{1} to i32*
         store i32 {value}, i32* %{2}, align 8
         """.format(p[0], p[1], p[2], node=node, value=value, name=name)
+
+            #raise Exception('Unsupported type {}'.format(type))
+
 
     def get_node_data_type(self, node):
         p = [x for x in range(self.index, self.index + 4)]
@@ -148,14 +171,13 @@ class Emitter:
 
         return '%{}'.format(p[0])
 
-    def icmp_signed(self, val_rhs, val_lhs, result=None):
-        p = [x for x in range(self.index, self.index + 2)]
-        self.index = p[-1] + 1
+    def icmp_signed(self, operation, val_rhs, val_lhs, result=None):
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1]
 
         self.code += """
-        %{0} = icmp eq i32 {val_rhs}, {val_lhs}
-        %{1} = zext i1 %{0} to i32
-        """.format(p[0], p[1], val_rhs=val_rhs, val_lhs=val_lhs)
+        %{0} = icmp {operation} i32 {val_rhs}, {val_lhs}
+        """.format(p[0],  operation=operation, val_rhs=val_rhs, val_lhs=val_lhs)
 
         return "%{}".format(p[-1])
 
@@ -189,6 +211,14 @@ class Emitter:
         self.code += """
         br label %{label_true}
         """.format(label_true=label_true)
+
+    def br_cond_reg(self, reg, label_true, label_false):
+        p = [x for x in range(self.index, self.index + 2)]
+        self.index = p[-1]
+        self.code += """
+        br i1 {reg}, label %{label_true}, label %{label_false}
+       """.format(reg=reg, label_true=label_true, label_false=label_false)
+
 
     def br_cond(self, cond, a, b, label_true, label_false):
         p = [x for x in range(self.index, self.index + 2)]
@@ -239,7 +269,6 @@ class Emitter:
 
         return result
 
-
     def sub(self, a, b, result_data=None):
         result = result_data
 
@@ -261,8 +290,8 @@ class Emitter:
 
         return result
 
-    def mul(self, a, b, result_data=None):
-        if result_data is None:
+    def mul(self, a, b, result=None):
+        if result is None:
             result = self.alloc_tnode('mult result')
 
         if isinstance(a, int):
@@ -273,6 +302,14 @@ class Emitter:
             self.code += """
             call void @funk_mul_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
             """.format(p_result=result, pA=a, pB=b)
+        elif isinstance(a, float):
+            self.code += """
+            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
+            """.format(p_result=result, pA=b, pB=self.enconde_float_to_ieee754_32(a))
+        elif isinstance(b, float):
+            self.code += """
+            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
+            """.format(p_result=result, pA=a, pB=self.enconde_float_to_ieee754_32(b))
         else:
             self.code += """
             call void @funk_mul_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
@@ -290,7 +327,7 @@ class Emitter:
         self.index = p[-1] + 1
 
         self.code += """
-        ;; copy 
+        ;; copy node
         %{0} = bitcast %struct.tnode* {node_dst} to i8*
         %{1} = bitcast %struct.tnode* {node_src} to i8*
         call void @llvm.memcpy.p0i8.p0i8.i64(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
@@ -499,7 +536,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         self.index = p[-1] + 1
         if value is not None:
-            self.set_node_data_value(name, node, value)
+            self.set_node_data_value(name, node, value, data_type)
 
         if data_type is not None:
             self.set_node_data_type(name, node, data_type)
@@ -601,6 +638,43 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         """.format(p[0])
         self.index = p[-1] + 1
 
+    def rand_int(self, funk, args):
+        if len(args) != 2:
+            raise Exception('=== rand_int takes 2 parameters')
+
+        lower, upper = args
+
+        p = [x for x in range(self.index, self.index + 1)]
+        self.code += """
+              ;;
+              %{0} = call i32 @rand_int(i32 {lower}, i32 {upper})
+              
+              """.format(p[0], lower=lower.eval(), upper=upper.eval())
+        self.index = p[-1] + 1
+
+        return '%{}'.format(p[0])
+
+    def rand_float(self, funk, args, result=None):
+        if len(args) != 2:
+            raise Exception('=== rand_float takes 2 parameters')
+
+        lower, upper = args
+
+        p = [x for x in range(self.index, self.index + 1)]
+        self.code += """
+        ;;
+        %{0} = call float @rand_float(float {lower}, float {upper})
+        """.format(p[0], lower=lower.eval(), upper=upper.eval())
+        self.index = p[-1] + 1
+
+        node_val = '%{}'.format(p[-1])
+
+        if result is None:
+            result = self.alloc_tnode(name='rand_float_result', value=node_val, data_type=funk_types.float)
+        else:
+            self.set_node_data_value('rand_float_result', result, node_val, as_type=funk_types.float)
+
+        return result
 
     def s2d_create_window(self, funk, args):
 
@@ -627,7 +701,8 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             %{3} = load %struct.S2D_Window*, %struct.S2D_Window** %{1}, align 8
             %{4} = call i32 @S2D_Show(%struct.S2D_Window* %{3})
             """.format(
-            p[0],p[1],p[2],p[3],p[4], format_len=format_len, cnt=funk.strings_count, height=height, width=width, callback_fn='@s2d_render')
+            p[0], p[1], p[2], p[3], p[4], format_len=format_len, cnt=funk.strings_count, height=height, width=width,
+            callback_fn='@s2d_render')
 
         funk.strings_count += 1
 
@@ -648,15 +723,9 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             raise Exception('=== s2d_draw_point takes 6 parameters')
 
         x1, y1, r, g, b, alpha = args
-        x2 = x1
-        y2 = y1
-
-        print('-----', x1.eval(), y1.eval(), x2.eval(), y2.eval(), r.eval(), g.eval(), b.eval(), alpha.eval())
 
         self.code += """
-            call void @S2D_DrawLine(float {x1}, float {y1}, float {x2}, float {y2}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
-            """.format(x1=x1.eval(), x2=x2.eval(), y1=y1.eval(), y2=y2.eval(),
-            r=float(r.eval()), g=g.eval(), b=b.eval(), alpha=alpha.eval(),
-            width=1.0)
+            call void @S2D_DrawCircle(float {x1}, float {y1}, float 1.0, i32 4, float {r}, float {g}, float {b}, float {alpha})
+            """.format(x1=x1, y1=y1, r=float(r), g=g, b=b, alpha=alpha)
 
 
