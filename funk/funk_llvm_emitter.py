@@ -54,13 +54,13 @@ class Emitter:
         p = [x for x in range(self.index, self.index + 4)]
         self.index = p[-1] + 1
 
-        if as_type == funk_types.float:
+        if as_type == funk_types.double:
             self.code += """
             ;; Get node.data.value
             %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
             %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
-            %{2} = bitcast %union.data_type* %{1} to float*
-            %{3} = load float, float* %{2}, align 8
+            %{2} = bitcast %union.data_type* %{1} to double*
+            %{3} = load double, double* %{2}, align 8
             """.format(p[0], p[1], p[2], p[3], node=node)
         else:
             self.code += """
@@ -77,14 +77,14 @@ class Emitter:
         p = [x for x in range(self.index, self.index + 3)]
         self.index = p[-1] + 1
 
-        if as_type == funk_types.float:
+        if as_type == funk_types.double:
             self.code += """
-        ;; {name}.data.value = {value} -- float
+        ;; {name}.data.value = {value} -- double
         %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
         %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
-        %{2} = bitcast %union.data_type* %{1} to float*
-        store float {value}, float* %{2}, align 8
-         """.format(p[0], p[1], p[2], node=node, value=value, name=name)
+        %{2} = bitcast %union.data_type* %{1} to double*
+        store double {value}, double* %{2}, align 8
+         """.format(p[0], p[1], p[2], node=node, value=self.enconde_double_to_ieee754_32(value), name=name)
         else:
             self.code += """
         ;; {name}.data.value = {value} -- int
@@ -176,7 +176,7 @@ class Emitter:
         self.index = p[-1]
 
         self.code += """
-        %{0} = fcmp {operation} float {val_rhs}, {val_lhs}
+        %{0} = fcmp {operation} double {val_rhs}, {val_lhs}
         """.format(p[0],  operation=operation, val_rhs=val_rhs, val_lhs=val_lhs)
 
         return "%{}".format(p[-1])
@@ -274,12 +274,12 @@ class Emitter:
             """.format(p_result=result, pA=a, pB=b)
         elif isinstance(a, float):
             self.code += """
-            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
-            """.format(p_result=result, pA=b, pB=self.enconde_float_to_ieee754_32(a))
+            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
+            """.format(p_result=result, pA=b, pB=self.enconde_double_to_ieee754_32(a))
         elif isinstance(b, float):
             self.code += """
-            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
-            """.format(p_result=result, pA=a, pB=self.enconde_float_to_ieee754_32(b))
+            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
+            """.format(p_result=result, pA=a, pB=self.enconde_double_to_ieee754_32(b))
         else:
             self.code += """
             call void @funk_add_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
@@ -322,12 +322,12 @@ class Emitter:
             """.format(p_result=result, pA=a, pB=b)
         elif isinstance(a, float):
             self.code += """
-            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
-            """.format(p_result=result, pA=b, pB=self.enconde_float_to_ieee754_32(a))
+            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
+            """.format(p_result=result, pA=b, pB=self.enconde_double_to_ieee754_32(a))
         elif isinstance(b, float):
             self.code += """
-            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, float {pB} )
-            """.format(p_result=result, pA=a, pB=self.enconde_float_to_ieee754_32(b))
+            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
+            """.format(p_result=result, pA=a, pB=self.enconde_double_to_ieee754_32(b))
         else:
             self.code += """
             call void @funk_mul_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
@@ -518,10 +518,11 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
          ret void
     }}""".format(result=self.scope_result_idx)
 
-    def enconde_float_to_ieee754_32(self, value):
-        # For obscure historical reasons, llvm float literals are represented as
-        # if they were doubles, but with the precision of a float.
-        return hex(struct.unpack('Q', struct.pack('d', float(value)))[0])[:-8] + '00000000'
+    def enconde_double_to_ieee754_32(self, value):
+        # For obscure historical reasons, llvm double literals are represented as
+        # if they were doubles, but with the precision of a double.
+        #return hex(struct.unpack('Q', struct.pack('d', double(value)))[0])[:-8] + '00000000'
+        return value
 
     def load_global_function_to_data(self, data, global_symbol):
         p = [x for x in range(self.index, self.index + 2)]
@@ -621,7 +622,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
     def print_funk(self, funk, args):
         """
         Just call 1 print for each argument...
-        disp('I am a float ', x ,'and I am an int', y)
+        disp('I am a double ', x ,'and I am an int', y)
         """
 
         for arg_expr in args:
@@ -673,25 +674,25 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[0])
 
-    def rand_float(self, funk, args, result=None):
+    def rand_double(self, funk, args, result=None):
         if len(args) != 2:
-            raise Exception('=== rand_float takes 2 parameters')
+            raise Exception('=== rand_double takes 2 parameters')
 
         lower, upper = args
 
         p = [x for x in range(self.index, self.index + 1)]
         self.code += """
         ;;
-        %{0} = call float @rand_float(float {lower}, float {upper})
+        %{0} = call double @rand_double(double {lower}, double {upper})
         """.format(p[0], lower=lower.eval(), upper=upper.eval())
         self.index = p[-1] + 1
 
         node_val = '%{}'.format(p[-1])
 
         if result is None:
-            result = self.alloc_tnode(name='rand_float_result', value=node_val, data_type=funk_types.float)
+            result = self.alloc_tnode(name='rand_double_result', value=node_val, data_type=funk_types.double)
         else:
-            self.set_node_data_value('rand_float_result', result, node_val, as_type=funk_types.float)
+            self.set_node_data_value('rand_double_result', result, node_val, as_type=funk_types.double)
 
         return result
 
@@ -732,19 +733,35 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         x1, y1, x2, y2, r, g, b, alpha, width = args
 
         self.code += """
-                call void @S2D_DrawLine(float {x1}, float {y1}, float {x2}, float {y2}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
-                """.format(x1=float(x1.eval()), x2=float(x2.eval()), y1=float(y1.eval()), y2=float(y2.eval()),
-                           r=float(r.eval()), g=float(g.eval()), b=float(b.eval()), alpha=float(alpha.eval()),
-                           width=float(width.eval()))
+                call void @S2D_DrawLine(double {x1}, double {y1}, double {x2}, double {y2}, double {width}, double {r}, double {g},double {b}, double {alpha}, double {r}, double {g}, double {b}, double {alpha}, double {r}, double {g}, double {b}, double {alpha}, double {r}, double {g}, double {b}, double {alpha})
+                """.format(x1=double(x1.eval()), x2=double(x2.eval()), y1=double(y1.eval()), y2=double(y2.eval()),
+                           r=double(r.eval()), g=double(g.eval()), b=double(b.eval()), alpha=double(alpha.eval()),
+                           width=double(width.eval()))
 
     def s2d_draw_point(self, funk, args):
         if len(args) != 6:
             raise Exception('=== s2d_draw_point takes 6 parameters')
 
         x1, y1, r, g, b, alpha = args
+        p = [x for x in range(self.index, self.index + 2)]
+        self.index = p[-1] + 1
 
         self.code += """
-            call void @S2D_DrawCircle(float {x1}, float {y1}, float 1.0, i32 4, float {r}, float {g}, float {b}, float {alpha})
-            """.format(x1=x1, y1=y1, r=float(r), g=g, b=b, alpha=alpha)
+            %{0} = fptrunc double {x1} to float
+            %{1} = fptrunc double {y1} to float
+            call void @S2D_DrawCircle(float %{0}, float %{1}, float 1.0, i32 4, float {r}, float {g}, float {b}, float {alpha})
+            """.format(p[0], p[1], x1=x1, y1=y1, r=float(r), g=g, b=b, alpha=alpha)
 
+    def sleep(self, funk, args):
 
+        if len(args) != 1:
+            raise Exception('=== sleep takes 1 parameter')
+
+        useconds = args[0]
+
+        p = [x for x in range(self.index, self.index + 1)]
+        self.code += """
+        %{0} = call i32 @"\\01_usleep"(i32 {useconds})
+        """.format(p[0], useconds=useconds.eval())
+
+        self.index = p[-1] + 1

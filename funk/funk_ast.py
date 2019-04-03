@@ -69,7 +69,7 @@ class FloatConstant:
         self.sign = 1
 
     def get_compile_type(self):
-        return funk_types.float
+        return funk_types.double
 
     def __repr__(self):
         return 'Float({})'.format(self.value)
@@ -186,7 +186,7 @@ class PatternMatchLiteral(PatternMatch):
         if isinstance(value, IntegerConstant):
             self.type = funk_types.int
         elif isinstance(value, FloatConstant):
-            self.type = funk_types.float
+            self.type = funk_types.double
         else:
             self.type = funk_types.invalid
 
@@ -222,7 +222,7 @@ class BinaryOp:
     def get_compile_type(self):
         # if either operand is float, then auto promote to float at compile time
         if isinstance(self.right, FloatConstant) or isinstance(self.left, FloatConstant):
-            return funk_types.float
+            return funk_types.double
         else:
             return funk_types.int
 
@@ -298,7 +298,7 @@ class GreaterThan(BoolBinaryOp):
     def eval(self, result=None):
 
         if isinstance(self.left, FloatConstant) or isinstance(self.right, FloatConstant):
-            l, r = BoolBinaryOp.eval(self, as_type=funk_types.float, result=result)
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.double, result=result)
             return self.funk.emitter.fcmp_signed('ogt', l, r)
         else:
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
@@ -321,7 +321,7 @@ class LessThan(BoolBinaryOp):
     def eval(self, result=None):
         l, r = BoolBinaryOp.eval(self, result)
         if isinstance(self.left, FloatConstant) or isinstance(self.right, FloatConstant):
-            l, r = BoolBinaryOp.eval(self, as_type=funk_types.float, result=result)
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.double, result=result)
             return self.funk.emitter.fcmp_signed('olt', l, r)
         else:
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
@@ -378,9 +378,9 @@ class FunctionCall:
         self.funk = funk
         self.name = name
         self.args = args
-       # self.type = funk_types.int  # TODO refactor hack to make rand function work...
 
         self.system_functions = {
+            'sleep': Sleep,
             'rand_int': RandInt,
             'rand_float': RandFloat,
             'say': Print,
@@ -611,10 +611,23 @@ class RandFloat:
 
     @staticmethod
     def get_compile_type():
-        return funk_types.float
+        return funk_types.double
 
     def eval(self, result=None):
-        return self.funk.emitter.rand_float(self.funk, self.arg_list, result=result)
+        return self.funk.emitter.rand_double(self.funk, self.arg_list, result=result)
+
+
+class Sleep:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    @staticmethod
+    def get_compile_type():
+        return funk_types.int
+
+    def eval(self, result=None):
+        return self.funk.emitter.sleep(self.funk, self.arg_list)
 
 
 class S2DCreateWindow:
@@ -683,6 +696,6 @@ class S2DDrawPoint:
             if isinstance(arg,FloatConstant) or isinstance(arg,IntegerConstant):
                 uwrapped_args.append(arg.eval())
             else:
-                uwrapped_args.append(self.funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.float))
+                uwrapped_args.append(self.funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.double))
 
         self.funk.emitter.s2d_draw_point(self.funk, uwrapped_args)

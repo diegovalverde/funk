@@ -17,7 +17,7 @@
 
 invalid = 0
 int = 1
-float = 2
+double = 2
 array = 3
 empty_array = 4
 scalar = 5

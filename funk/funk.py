@@ -138,7 +138,7 @@ target datalayout = ""
 @.str_ERR_PRINT_TYPE = private unnamed_addr constant [33 x i8] c"-E- Unsupported Print Type   %i\\0A\\00", align 1
 
 
-declare float @rand_float(float, float) #0
+declare double @rand_double(double, double) #0
 declare i32 @rand_int(i32, i32) #0
 declare void @init_random_seed() #0
 declare void @print_scalar(%struct.tnode*) #0
@@ -146,11 +146,11 @@ declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sub_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0 
-declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, float) #0
-declare void @funk_add_rf(%struct.tnode*, %struct.tnode*, float) #0 
-
+declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, double) #0
+declare void @funk_add_rf(%struct.tnode*, %struct.tnode*, double) #0 
+declare i32 @"\\01_usleep"(i32) #1
  
-            """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.float)
+            """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
         self.post_amble = \
             """
