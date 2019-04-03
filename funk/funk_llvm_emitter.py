@@ -732,11 +732,23 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         x1, y1, x2, y2, r, g, b, alpha, width = args
 
+        x1 = self.get_node_data_value(x1.eval(), as_type=funk_types.double)
+        x2 = self.get_node_data_value(x2.eval(), as_type=funk_types.double)
+        y1 = self.get_node_data_value(y1.eval(), as_type=funk_types.double)
+        y2 = self.get_node_data_value(y2.eval(), as_type=funk_types.double)
+
+        p = [x for x in range(self.index, self.index + 4)]
+        self.index = p[-1] + 1
+
         self.code += """
-                call void @S2D_DrawLine(double {x1}, double {y1}, double {x2}, double {y2}, double {width}, double {r}, double {g},double {b}, double {alpha}, double {r}, double {g}, double {b}, double {alpha}, double {r}, double {g}, double {b}, double {alpha}, double {r}, double {g}, double {b}, double {alpha})
-                """.format(x1=double(x1.eval()), x2=double(x2.eval()), y1=double(y1.eval()), y2=double(y2.eval()),
-                           r=double(r.eval()), g=double(g.eval()), b=double(b.eval()), alpha=double(alpha.eval()),
-                           width=double(width.eval()))
+            %{0} = fptrunc double {x1} to float
+            %{1} = fptrunc double {y1} to float
+            %{2} = fptrunc double {x2} to float
+            %{3} = fptrunc double {y2} to float
+            call void @S2D_DrawLine(float %{0}, float %{1}, float %{2}, float %{3}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
+            """.format(p[0], p[1], p[2], p[3], x1=x1, x2=x2, y1=y1, y2=y2,
+                       r=float(r.eval()), g=float(g.eval()), b=float(b.eval()), alpha=float(alpha.eval()),
+                       width=float(width.eval()))
 
     def s2d_draw_point(self, funk, args):
         if len(args) != 6:
