@@ -1,12 +1,14 @@
 #!/bin/sh
 LLC=/usr/local/Cellar/llvm/6.0.1/bin/llc
-
-echo "Compiling example fizzbuzz"
+module=fizzbuzz
+echo "Compiling example " $module
 
 rm -f *.o a.out
-python funky.py examples/fizzbuzz/fizzbuzz.f
+python funky.py examples/${module}/${module}.f
 python funky.py util/foreach.f
 
-$LLC -filetype=obj fizzbuzz.ll
+$LLC -filetype=obj ${module}.ll
 $LLC -filetype=obj foreach.ll
-clang fizzbuzz.o funk/core/funk_core.o foreach.o
+$LLC -filetype=obj funk/core/funk_core.ll
+clang ${module}.o funk/core/funk_core.o foreach.o `simple2d --libs`
+
