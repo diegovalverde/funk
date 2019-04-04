@@ -1,12 +1,12 @@
 #!/bin/sh
 LLC=/usr/local/Cellar/llvm/6.0.1/bin/llc
-
-echo "Compiling example barnsley_fern"
+module=barnsley_fern
+echo "Compiling example " $module
 
 rm -f *.o a.out
-python funky.py examples/barnsley_fern/barnsley_fern.f
+python funky.py examples/${module}/${module}.f
 
 
-$LLC -filetype=obj barnsley_fern.ll
+$LLC -filetype=obj ${module}.ll
 $LLC -filetype=obj funk/core/funk_core.ll
-clang barnsley_fern.o funk/core/funk_core.o `simple2d --libs`
+clang ${module}.o funk/core/funk_core.o `simple2d --libs`
