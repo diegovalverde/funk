@@ -226,7 +226,7 @@ declare i32 @printf(i8*, ...) #1
         node = None
         for i in range(n):
             node = self.emitter.alloc_tnode(name='list[{}]'.format(i),
-                                            value=elements[i].eval(),
+                                            value=elements[i],
                                             data_type=funk_types.int,
                                             node_type=funk_types.array)
             if prev is not None:

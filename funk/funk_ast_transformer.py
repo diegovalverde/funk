@@ -207,6 +207,10 @@ class TreeToAst(Transformer):
         rhs = children[0]
         return funk_ast.Assignment(self.funk, None, rhs)
 
+    def action_list_concat_head(self, children):
+        rhs = children[0]
+        return funk_ast.ListConcatHead(self.funk, None, rhs)
+
     def action_bool_mod(self, token):
         #Note: this returns an integer (not a TNode)
         return funk_ast.Mod(self.funk, right=token[0])

@@ -377,6 +377,8 @@ class Emitter:
         call void %{2}(%struct.tnode* {result}, i32 {n}, %struct.tnode* {args})
         """.format(p[0], p[1], p[2], fn_data=fn_data, result=result, n=n, args=head)
 
+        return result
+
     def allocate_fn_return_node(self):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
@@ -407,6 +409,8 @@ class Emitter:
          ;;call the function
          call void {fn}(%struct.tnode* {result}, i32 {n}, %struct.tnode* {arguments})
         """.format(result=result, fn=fn, arguments=head, n=n)
+
+        return result
 
     def get_result_pointer(self):
 
@@ -476,8 +480,9 @@ define void @s2d_render() #0 {
             self.code += """
 ;; ======== {fn_name} Function implementation =========
 ;; The first input argument is a pointer to the result
-;; The second argument is a list of nodes containing zero or more arguments
-;; Arguments are 
+;; The second argument contains the arity of the function
+;; The third argument is a list of nodes containing zero or more arguments
+
 
 define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         """.format(fn_name=name, ret_type=ret_type)

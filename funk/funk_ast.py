@@ -19,6 +19,16 @@
 from . import funk_types
 
 
+def list_concat_head(funk, left, right):
+
+    if not isinstance(right, ArrayLiteral):
+        raise Exception('rhs shall be Array ')
+
+    funk.emitter.add_comment('Concatenating head to array')
+    funk.emitter.set_next_node(left.eval(), right.eval()[0])
+
+
+
 def create_ast_named_symbol(name, funk, right):
     symbol_name = '{}_{}_{}'.format(funk.function_scope.name, funk.function_scope.clause_idx, name)
 
@@ -48,7 +58,6 @@ class IntegerConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
-        #self.type = funk_types.int
         self.sign = 1
 
     def get_compile_type(self):
@@ -65,7 +74,6 @@ class FloatConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
-        #self.type = funk_types.float
         self.sign = 1
 
     def get_compile_type(self):
@@ -92,7 +100,11 @@ class ArrayLiteral:
         return 'ArrayLiteral({})'.format(self.elements)
 
     def eval(self, result=None):
-        return self.elements
+        ret_list = []
+        for element in self.elements:
+            ret_list.append(element.eval())
+
+        return ret_list
 
 
 class Identifier:
@@ -328,6 +340,14 @@ class LessThan(BoolBinaryOp):
             return self.funk.emitter.icmp_signed('slt', l, r)
 
 
+class ListConcatHead(BinaryOp):
+    def __repr__(self):
+        return 'ListConcatHead({} , {})'.format(self.left, self.right)
+
+    def eval(self, result=None):
+        list_concat_head(self.funk, self.left, self.right)
+
+
 class Assignment(BinaryOp):
     def __repr__(self):
         return 'Assignment({} , {})'.format(self.left, self.right)
@@ -408,9 +428,9 @@ class FunctionCall:
             return p.eval(result=result)
 
         # First check if this is globally defined function
-        for fn in self.funk.functions:
-            if fn == name:
-                return self.funk.emitter.call(fn, [create_ast_anon_symbol(self.funk, a) for a in self.args])
+        if name in self.funk.functions:
+            return self.funk.emitter.call(name, [create_ast_anon_symbol(self.funk, a) for a in self.args])
+
         # Now check if this is an input argument containing a function pointer
         i = 0
         for arg in self.funk.function_scope.args:

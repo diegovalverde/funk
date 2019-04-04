@@ -26,7 +26,7 @@
 
     statement: expr
 
-    expr: term (expr_rhs | expr_rhs_cond)
+    expr: term (expr_rhs | expr_rhs_cond )
 
     ///////////////////////////////////////////
     // Conditional Expressions
@@ -42,6 +42,7 @@
 
 
     expr_rhs: "<-" expr -> action_lhs_assignment
+              | "~>" list -> action_list_concat_head
               | [expr_]  //TODO: Check this production ...
 
 
@@ -86,9 +87,7 @@
 
     list_initialization: list_elements
                         | list_comprehension
-                        | list_concatenation
 
-    list_concatenation: identifier "~>" list
 
     list_comprehension: expr "|" list_comprehension_range [list_comprehension_conditions] -> action_list_comprehension
 
