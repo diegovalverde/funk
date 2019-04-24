@@ -377,7 +377,17 @@ class Range:
         # create as many Integers as necessary
         if isinstance(self.lhs, IntegerConstant) and isinstance(self.rhs, IntegerConstant):
             integers = []
-            for i in range(self.lhs.eval(), self.rhs.eval()):
+            range_start = self.lhs.eval()
+
+            if self.lhs_type == '<':
+                range_start += 1
+
+            range_end = self.rhs.eval()
+
+            if self.rhs_type == '<=':
+                range_end += 1
+
+            for i in range(range_start, range_end):
                 integers.append(IntegerConstant(self.funk, i))
 
             return integers
