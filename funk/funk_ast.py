@@ -24,9 +24,13 @@ def list_concat_head(funk, left, right):
     if not isinstance(right, ArrayLiteral):
         raise Exception('rhs shall be Array ')
 
+    p_next = funk.emitter.allocate_in_heap()
     funk.emitter.add_comment('Concatenating head to array')
-    funk.emitter.set_next_node(left.eval(), right.eval()[0])
+    ptr_right = funk.emitter.allocate_in_heap()
+    #funk.emitter.garbage_collector_register_allocation(ptr_right)
 
+    funk.emitter.set_next_node(left.eval(), ptr_right)
+    right.eval(result=ptr_right)
 
 
 def create_ast_named_symbol(name, funk, right):
@@ -429,7 +433,7 @@ class FunctionCall:
 
         # First check if this is globally defined function
         if name in self.funk.functions:
-            return self.funk.emitter.call(name, [create_ast_anon_symbol(self.funk, a) for a in self.args])
+            return self.funk.emitter.call(name, [create_ast_anon_symbol(self.funk, a) for a in self.args], result=result)
 
         # Now check if this is an input argument containing a function pointer
         i = 0

@@ -41,8 +41,8 @@
 
 
 
-    expr_rhs: "<-" expr -> action_lhs_assignment
-              | "~>" list -> action_list_concat_head
+    expr_rhs: "<-" expr     -> action_lhs_assignment
+              | "~>" list   -> action_list_concat_head
               | [expr_]  //TODO: Check this production ...
 
 

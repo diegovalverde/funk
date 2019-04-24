@@ -390,7 +390,7 @@ class Emitter:
 
         return '%{}'.format(p[0])
 
-    def call(self, fn, arguments):
+    def call(self, fn, arguments, result=None):
         self.add_comment('====== call function {} {}'.format(fn, arguments))
 
         n = len(arguments)
@@ -403,7 +403,8 @@ class Emitter:
 
         head = self.get_array_element(array, 0, n)
 
-        result = self.allocate_fn_return_node()
+        if result is None:
+            result = self.allocate_fn_return_node()
 
         self.code += """
          ;;call the function
@@ -539,6 +540,25 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         %{1} = bitcast %union.data_type* %{0} to void (%struct.tnode*, i32, %struct.tnode*)**
         store void (%struct.tnode*, i32, %struct.tnode*)* {global_symbol}, void (%struct.tnode*, i32, %struct.tnode*)**  %{1}, align 8
         """.format(p[0], p[1], data=data, global_symbol=global_symbol)
+
+    def garbage_collector_register_allocation(self, ptr):
+        self.code += """
+           call void @registerHeapAllocation(%struct.tnode* {ptr})
+           """.format(ptr=ptr)
+
+    def allocate_in_heap(self):
+
+        p = [x for x in range(self.index, self.index + 2)]
+        self.index = p[-1] + 1
+
+        self.code += """
+        %{0} = call i8* @malloc(i64 32) #3
+        %{1} = bitcast i8* %{0} to %struct.tnode*
+  
+        """.format(p[0], p[1])
+
+        return '%{}'.format(p[1])
+
 
     def alloc_tnode_pointer(self):
         p = [x for x in range(self.index, self.index + 1)]
