@@ -229,7 +229,6 @@ class Emitter:
         br i1 {reg}, label %{label_true}, label %{label_false}
        """.format(reg=reg, label_true=label_true, label_false=label_false)
 
-
     def br_cond(self, cond, a, b, label_true, label_false):
         p = [x for x in range(self.index, self.index + 2)]
         self.index = p[-1]
@@ -351,10 +350,11 @@ class Emitter:
         call void @llvm.memcpy.p0i8.p0i8.i64(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
         """.format(p[0], p[1], node_dst=node_dst, node_src=node_src)
 
-    def call_fn_ptr(self, fn_node, arguments):
+    def call_fn_ptr(self, fn_node, arguments, result=None):
         n = len(arguments)
 
-        result = self.allocate_fn_return_node()
+        if result is None:
+            result = self.allocate_fn_return_node()
 
         self.add_comment('Create the argument array')
         array = self.alloc_array(n)
@@ -415,7 +415,7 @@ class Emitter:
 
     def get_result_pointer(self):
 
-        p = [x for x in range(self.index, self.index + 4)]
+        p = [x for x in range(self.index, self.index + 2)]
 
         self.code += """     
               ;;; Get a pointer to the pointer to the result
@@ -423,14 +423,10 @@ class Emitter:
               store %struct.tnode* %0, %struct.tnode** %{0}, align 8
               ;;Now get the actual data
               %{1} = load %struct.tnode*, %struct.tnode** %{0}, align 8
-              %{2} = getelementptr inbounds %struct.tnode, %struct.tnode* %{1}, i32 0, i32 1
-              ;;**** %{3} has the pointer to result data ****
-              %{3} = load %struct.tdata*, %struct.tdata** %{2}, align 8
-
-
-              """.format(p[0], p[1], p[2], p[3])
+              """.format(p[0], p[1])
 
         self.index = p[-1] + 1
+        return '%{}'.format(p[1])
 
     def get_function_argument_tnode(self, idx):
         p = [x for x in range(self.index, self.index + 2)]
@@ -645,10 +641,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
          """.format(p[0], next_node=next_node, node=node)
 
     def print_funk(self, funk, args):
-        """
-        Just call 1 print for each argument...
-        disp('I am a double ', x ,'and I am an int', y)
-        """
 
         for arg_expr in args:
             arg = arg_expr.eval()

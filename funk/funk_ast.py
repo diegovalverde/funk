@@ -19,17 +19,15 @@
 from . import funk_types
 
 
-def list_concat_head(funk, left, right):
+def list_concat_head(funk, left, right, result=None):
 
     if not isinstance(right, ArrayLiteral):
         raise Exception('rhs shall be Array ')
 
-    p_next = funk.emitter.allocate_in_heap()
     funk.emitter.add_comment('Concatenating head to array')
     ptr_right = funk.emitter.allocate_in_heap()
-    #funk.emitter.garbage_collector_register_allocation(ptr_right)
-
-    funk.emitter.set_next_node(left.eval(), ptr_right)
+    
+    funk.emitter.set_next_node(left.eval(result=result), ptr_right)
     right.eval(result=ptr_right)
 
 
@@ -106,7 +104,7 @@ class ArrayLiteral:
     def eval(self, result=None):
         ret_list = []
         for element in self.elements:
-            ret_list.append(element.eval())
+            ret_list.append(element.eval(result=result))
 
         return ret_list
 
@@ -349,7 +347,7 @@ class ListConcatHead(BinaryOp):
         return 'ListConcatHead({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        list_concat_head(self.funk, self.left, self.right)
+        list_concat_head(self.funk, self.left, self.right, result=result)
 
 
 class Assignment(BinaryOp):
@@ -450,7 +448,8 @@ class FunctionCall:
         for arg in self.funk.function_scope.args:
             if arg == self.name:
                 fn = self.funk.emitter.get_function_argument_tnode(i)
-                return self.funk.emitter.call_fn_ptr(fn, [create_ast_anon_symbol(self.funk, a) for a in self.args])
+                return self.funk.emitter.call_fn_ptr(fn, [create_ast_anon_symbol(self.funk, a) for a in self.args],
+                                                     result=result)
             i += 1
 
         if not found:
@@ -554,8 +553,12 @@ class FunctionClause:
             self.funk.emitter.add_comment('========= Emitting clause {} ========'.format(clause_idx))
             self.funk.emitter.add_label(clause_entry_label)
 
-            for stmt in self.body:
+            for stmt in self.body[:-1]:
                 stmt.eval()
+
+            self.funk.emitter.add_comment('This is the last instruction in the function')
+            self.funk.emitter.add_comment('The outcome of this instruction becomes the result')
+            self.body[-1].eval(self.funk.emitter.get_result_pointer())
 
             self.funk.emitter.ret()
 
