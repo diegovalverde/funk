@@ -226,7 +226,7 @@ declare i32 @printf(i8*, ...) #1
     def alloc_literal_symbol(self, symbol, symbol_name):
         return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.get_compile_type())
 
-    def alloc_list_symbol(self, symbol, symbol_name):
+    def alloc_list_symbol(self, symbol, name):
         elements = symbol.eval()
         n = len(elements)
         prev = None
@@ -247,6 +247,7 @@ declare i32 @printf(i8*, ...) #1
         tail = self.emitter.alloc_tnode(name='list_tail',
                                         node_type=funk_types.empty_array)
 
+        self.emitter.set_next_node(tail, 'null')
         self.emitter.set_next_node(node, tail)
         return head
 

@@ -131,16 +131,6 @@ class Emitter:
 
         return '%{}'.format(p[-1])
 
-    def set_node_next(self, p_node, p_node_next):
-        p = [x for x in range(self.index, self.index + 1)]
-        self.index = p[-1] + 1
-
-        self.code += """
-        ;; set next node
-        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* %{p_node}, i32 0, i32 2
-        store %struct.tnode* %{p_node_next}, %struct.tnode** %{0}, align 8
-        """.format(p[0], p_node=p_node, p_node_next=p_node_next)
-
     def get_node_type(self, node):
 
         p = [x for x in range(self.index, self.index + 3)]
@@ -413,17 +403,20 @@ class Emitter:
 
         return result
 
-    def get_result_pointer(self):
+    def set_null_result(self):
+        self.set_node_type('%0', funk_types.empty_array)
+
+    def get_result_data_pointer(self):
 
         p = [x for x in range(self.index, self.index + 2)]
 
         self.code += """     
-              ;;; Get a pointer to the pointer to the result
-              %{0} = alloca %struct.tnode*, align 8
-              store %struct.tnode* %0, %struct.tnode** %{0}, align 8
-              ;;Now get the actual data
-              %{1} = load %struct.tnode*, %struct.tnode** %{0}, align 8
-              """.format(p[0], p[1])
+          ;;; Get a pointer to the pointer to the result
+          %{0} = alloca %struct.tnode*, align 8
+          store %struct.tnode* %0, %struct.tnode** %{0}, align 8
+          ;;Now get the actual data
+          %{1} = load %struct.tnode*, %struct.tnode** %{0}, align 8
+          """.format(p[0], p[1])
 
         self.index = p[-1] + 1
         return '%{}'.format(p[1])

@@ -504,8 +504,6 @@ class FunctionClause:
             # return value and the second (#1) is the arity (passed as a constant)
             self.funk.emitter.br_cond('eq', '%1', len(self.arguments), label_next, clause_exit_label)
 
-
-
             # check for clause pattern matches
             if self.pattern_matches is not None and len(self.pattern_matches) != 0:
                 self.funk.emitter.add_label(clause_pm_label)
@@ -561,10 +559,15 @@ class FunctionClause:
             self.funk.emitter.add_comment('This is the last instruction in the function')
             self.funk.emitter.add_comment('The outcome of this instruction becomes the result')
 
-            p_result = self.funk.emitter.get_result_pointer()
+            p_result = self.funk.emitter.get_result_data_pointer()
             self.funk.emitter.set_next_node(p_result, 'null')
-            self.body[-1].eval(p_result)
 
+            last_insn = self.body[-1]
+            if isinstance(last_insn, ArrayLiteral) and len(last_insn.elements) == 0:
+                # set result to null
+                self.funk.emitter.set_null_result()
+            else:
+                last_insn.eval(p_result)
 
             self.funk.emitter.ret()
 
