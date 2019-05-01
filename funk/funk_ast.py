@@ -26,7 +26,9 @@ def list_concat_head(funk, left, right, result=None):
 
     funk.emitter.add_comment('Concatenating head to array')
     ptr_right = funk.emitter.allocate_in_heap()
-    
+    funk.emitter.set_next_node(ptr_right, 'null') # set next to NULL
+    funk.emitter.set_node_data_type('p->next',ptr_right,funk_types.empty_array)
+
     funk.emitter.set_next_node(left.eval(result=result), ptr_right)
     right.eval(result=ptr_right)
 
@@ -558,7 +560,11 @@ class FunctionClause:
 
             self.funk.emitter.add_comment('This is the last instruction in the function')
             self.funk.emitter.add_comment('The outcome of this instruction becomes the result')
-            self.body[-1].eval(self.funk.emitter.get_result_pointer())
+
+            p_result = self.funk.emitter.get_result_pointer()
+            self.funk.emitter.set_next_node(p_result, 'null')
+            self.body[-1].eval(p_result)
+
 
             self.funk.emitter.ret()
 
