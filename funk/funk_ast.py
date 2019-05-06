@@ -26,6 +26,9 @@ def list_concat_head(funk, left, right, result=None):
 
     funk.emitter.add_comment('Concatenating head to array')
     ptr_right = funk.emitter.allocate_in_heap()
+
+    funk.emitter.garbage_collector_register_allocation(ptr_right)
+
     funk.emitter.set_next_node(ptr_right, 'null') # set next to NULL
     funk.emitter.set_node_data_type('p->next',ptr_right,funk_types.empty_array)
 

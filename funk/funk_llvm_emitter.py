@@ -455,7 +455,10 @@ class Emitter:
 ;; ===            
 ;; ==========================
 define i32 @main() #0 {
-            call void @init_random_seed()
+        call void @init_random_seed()
+        
+        ;; Init the garbage collector
+        call void @initGarbageCollector()
             """
             self.index = 1
         elif name == 's2d_render':
