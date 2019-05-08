@@ -287,7 +287,6 @@ class Mod(BinaryOp):
         return self.funk.emitter.srem(self.left.eval(), self.right.eval())
 
 
-
 class And(BinaryOp):
     def __repr__(self):
         return 'And({} , {})'.format(self.left, self.right)
@@ -394,6 +393,9 @@ class Range:
                 integers.append(IntegerConstant(self.funk, i))
 
             return integers
+        else:
+            print('funk_ast.py line 397, TODO: variable ranges')
+            exit(1)
 
 
 class ExternalFunction:

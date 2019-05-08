@@ -211,6 +211,12 @@ class TreeToAst(Transformer):
         rhs = children[0]
         return funk_ast.ListConcatHead(self.funk, None, rhs)
 
+    def action_bool_and(self, token):
+        return funk_ast.And(self.funk, right=token[0])
+
+    def action_bool_or(self, token):
+        return funk_ast.And(self.funk, right=token[0])
+
     def action_bool_mod(self, token):
         #Note: this returns an integer (not a TNode)
         return funk_ast.Mod(self.funk, right=token[0])
@@ -317,18 +323,6 @@ class TreeToAst(Transformer):
     def more_fn_firm_elements(token):
         return token
 
-    def bool_gt(self, token):
-        return self.bin_op(token, funk_ast.GreaterThan)
-
-    def bool_and(self, token):
-        return self.bin_op(token, funk_ast.And)
-
-    def bool_eq(self, token):
-        return self.bin_op(token, funk_ast.EqualThan)
-
-    def bool_lt(self, token):
-        return self.bin_op(token, funk_ast.LessThan)
-
     @staticmethod
     def boolean_binary_term_(self, token):
         if len(token) == 2:
@@ -388,6 +382,9 @@ class TreeToAst(Transformer):
     def action_int_constant(self, token):
         return funk_ast.IntegerConstant(self.funk, token[0].value)
 
+    def action_range_exclusive_rhs(self, token):
+        return funk_ast.Range(self.funk, rhs=token[0], rhs_type='<')
+
     def action_range_inclusive_rhs(self, token):
         return funk_ast.Range(self.funk, rhs=token[0], rhs_type='<=')
 
@@ -396,6 +393,13 @@ class TreeToAst(Transformer):
         range = token[1]
         range.identifier = identifier
         range.lhs_type = '<='
+        return range
+
+    def action_exclusive_range_lhs(self, token):
+        identifier = token[0]
+        range = token[1]
+        range.identifier = identifier
+        range.lhs_type = '<'
         return range
 
     def action_list_comprehension_range(self, token):

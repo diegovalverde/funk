@@ -181,6 +181,20 @@ class Emitter:
 
         return "%{}".format(p[-1])
 
+    def and_(self, left, right):
+        self.add_comment('{} AND {}'.format(left, right))
+        val_left = self.get_node_data_value(left)
+        val_right = self.get_node_data_value(right)
+
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+
+        self.code += """
+                %{0} = and i32 {l} , {r}
+                """.format(p[0], l=val_left, r=val_right)
+
+        return '%{}'.format(p[-1])
+
     def srem(self, node, lit):
         self.add_comment('{} MOD {}'.format(node, lit))
         val = self.get_node_data_value(node)

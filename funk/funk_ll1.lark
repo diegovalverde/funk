@@ -64,8 +64,8 @@
 
     boolean_expr: boolean_binary_term [boolean_expr_]
 
-    boolean_expr_:  "&" boolean_binary_term [boolean_expr_]    -> action_bool_and
-                   | "or" boolean_binary_term [boolean_expr_]  -> action_bool_or
+    boolean_expr_:  "/\\" boolean_binary_term [boolean_expr_]    -> action_bool_and
+                   | "\\/" boolean_binary_term [boolean_expr_]  -> action_bool_or
 
     boolean_binary_term: rhs_bool_factor boolean_binary_term_
 
