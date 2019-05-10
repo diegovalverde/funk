@@ -21,9 +21,6 @@ from . import funk_types
 
 def list_concat_head(funk, left, right, result=None):
 
-    if not isinstance(right, ArrayLiteral):
-        raise Exception('rhs shall be Array ')
-
     funk.emitter.add_comment('Concatenating head to array')
     ptr_right = funk.emitter.allocate_in_heap()
 
@@ -43,8 +40,8 @@ def create_ast_named_symbol(name, funk, right):
         print('symbol table', funk.symbol_table)
         raise Exception('=== Variables are immutable \'{}\' '.format(name))
 
-    if isinstance(right, ArrayLiteral):
-        funk.symbol_table[symbol_name] = funk.alloc_list_symbol(right, symbol_name)
+    if isinstance(right, List):
+        funk.symbol_table[symbol_name] = right.eval()
     elif isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
         funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, symbol_name)
     else:
@@ -54,9 +51,6 @@ def create_ast_named_symbol(name, funk, right):
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
         return funk.alloc_literal_symbol(right, 'anon')
-
-    elif isinstance(right, ArrayLiteral):
-        return funk.alloc_list_symbol(right, 'anon')
     else:
         return right.eval()
 
@@ -93,7 +87,37 @@ class FloatConstant:
         return self.sign * float(self.value)
 
 
-class ArrayLiteral:
+class List:
+    def __init__(self, funk, name, elements):
+        self.funk = funk
+        self.name = name
+        self.elements = elements
+
+    def __repr__(self):
+        return 'List({})'.format(self.elements)
+
+
+class VariableList(List):
+    """
+    Essentially a NULL terminated linked list
+    """
+
+    def __init__(self, funk, name, start, end):
+        self.funk = funk
+        self.name = name
+        self.start = start
+        self.end = end
+
+    def __repr__(self):
+        return 'VariableList({},{})'.format(self.start, self.end)
+
+    def eval(self, result=None):
+        # some kind of FOR loop goes here
+
+        return self.funk.alloc_variable_list_symbol(self.start.eval(), self.end.eval())
+
+
+class LiteralList(List):
     """
     Essentially a NULL terminated linked list
     """
@@ -104,14 +128,14 @@ class ArrayLiteral:
         self.elements = elements
 
     def __repr__(self):
-        return 'ArrayLiteral({})'.format(self.elements)
+        return 'LiteralList({})'.format(self.elements)
 
     def eval(self, result=None):
-        ret_list = []
+        literal_list = []
         for element in self.elements:
-            ret_list.append(element.eval(result=result))
+            literal_list.append(element.eval(result=result))
 
-        return ret_list
+        return self.funk.alloc_literal_list_symbol(literal_list)
 
 
 class Identifier:
@@ -375,7 +399,7 @@ class Range:
     def __repr__(self):
         return 'Range({} {} {} {} {})'.format(self.lhs, self.lhs_type, self.identifier, self.rhs_type, self.rhs)
 
-    def emit(self):
+    def eval(self):
         # create as many Integers as necessary
         if isinstance(self.lhs, IntegerConstant) and isinstance(self.rhs, IntegerConstant):
             integers = []
@@ -392,10 +416,12 @@ class Range:
             for i in range(range_start, range_end):
                 integers.append(IntegerConstant(self.funk, i))
 
-            return integers
+            return LiteralList(self.funk,'',integers)
         else:
+            result = ['%666']
             print('funk_ast.py line 397, TODO: variable ranges')
-            exit(1)
+            return VariableList(self.funk, 'var_list', self.lhs, self.rhs)
+            #exit(1)
 
 
 class ExternalFunction:
@@ -568,7 +594,7 @@ class FunctionClause:
             self.funk.emitter.set_next_node(p_result, 'null')
 
             last_insn = self.body[-1]
-            if isinstance(last_insn, ArrayLiteral) and len(last_insn.elements) == 0:
+            if isinstance(last_insn, LiteralList) and len(last_insn.elements) == 0:
                 # set result to null
                 self.funk.emitter.set_null_result()
             else:

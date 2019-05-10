@@ -228,8 +228,11 @@ declare i32 @printf(i8*, ...) #1
     def alloc_literal_symbol(self, symbol, symbol_name):
         return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.get_compile_type())
 
-    def alloc_list_symbol(self, symbol, name):
-        elements = symbol.eval()
+    def alloc_variable_list_symbol(self, start, end):
+        pass
+
+
+    def alloc_literal_list_symbol(self, elements):
         n = len(elements)
         prev = None
         head = None

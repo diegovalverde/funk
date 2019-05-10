@@ -297,11 +297,15 @@ class TreeToAst(Transformer):
             return None
 
     def list(self, tokens):
-        elements = flatten(tokens)
+        if len(tokens) == 0:
+            return [funk_ast.Identifier(self.funk,'empty'), funk_ast.LiteralList(self.funk,'anon-empty-list',[])]
 
-        # A Null terminated linked list
+        e = flatten(tokens)[0]
 
-        return funk_ast.ArrayLiteral(self.funk, '<un-named>', elements)
+        if isinstance(e, funk_ast.Range):
+            return [e.eval()]
+        else:
+            return e
 
     @staticmethod
     def list_elements(token):
@@ -408,9 +412,6 @@ class TreeToAst(Transformer):
         range.lhs = expr
         return range
 
-    def action_list_comprehension(self, token):
-        expr = token[0]
-        range = token[1]
-        # conditions = token[2]
+    def action_list_comprehension(self,token):
+        return token[1]
 
-        return range.emit()
