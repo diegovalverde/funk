@@ -47,6 +47,7 @@ def create_ast_named_symbol(name, funk, right):
     else:
         funk.symbol_table[symbol_name] = funk.create_variable_symbol(right, symbol_name)
 
+    #funk.emitter.init_stack_variable(funk.symbol_table[symbol_name])
 
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
@@ -112,8 +113,6 @@ class VariableList(List):
         return 'VariableList({},{})'.format(self.start, self.end)
 
     def eval(self, result=None):
-        # some kind of FOR loop goes here
-
         return self.funk.alloc_variable_list_symbol(self.start.eval(), self.end.eval())
 
 
@@ -418,10 +417,8 @@ class Range:
 
             return LiteralList(self.funk,'',integers)
         else:
-            result = ['%666']
-            print('funk_ast.py line 397, TODO: variable ranges')
             return VariableList(self.funk, 'var_list', self.lhs, self.rhs)
-            #exit(1)
+
 
 
 class ExternalFunction:

@@ -97,16 +97,29 @@ class Emitter:
             #raise Exception('Unsupported type {}'.format(type))
 
 
-    def get_node_data_type(self, node):
-        p = [x for x in range(self.index, self.index + 4)]
-        self.index = p[-1] + 1
-        self.code += """
-        ;;Get node.data.type
-        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
-        %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 0
-        %{2} = load i8, i8* %{1}, align 8
-        %{3} = zext i8 %{2} to i32
-        """.format(p[0], p[1], p[2], p[3], node=node)
+
+    def get_node_data_type(self, node, ret_i8=False):
+
+        if ret_i8:
+            p = [x for x in range(self.index, self.index + 3)]
+            self.index = p[-1] + 1
+            self.code += """
+            ;;Get node.data.type
+            %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
+            %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 0
+            %{2} = load i8, i8* %{1}, align 8
+            """.format(p[0], p[1], p[2], node=node)
+
+        else:
+            p = [x for x in range(self.index, self.index + 4)]
+            self.index = p[-1] + 1
+            self.code += """
+            ;;Get node.data.type
+            %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
+            %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 0
+            %{2} = load i8, i8* %{1}, align 8
+            %{3} = zext i8 %{2} to i32
+            """.format(p[0], p[1], p[2], p[3], node=node)
 
         return '%{}'.format(p[-1])
 
@@ -463,6 +476,9 @@ class Emitter:
 
         if name == 'main':
             self.code += """
+@.str_TRACE = private unnamed_addr constant [5 x i8] c"--->\00", align 1
+
+
 ;; ==========================
 ;; ===            
 ;; ======= M A I N ==========
@@ -565,7 +581,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[1])
 
-
     def alloc_tnode_pointer(self):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
@@ -650,6 +665,17 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         store %struct.tnode* {next_node}, %struct.tnode** %{0}, align 8
          """.format(p[0], next_node=next_node, node=node)
 
+    def print_trace(self):
+        p = [x for x in range(self.index, self.index + 1)]
+
+        self.code += """
+                ;;Print a string         
+                %{0} = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_TRACE , i32 0, i32 0))""".format(
+            p[0], format_len=5)
+
+        self.index = p[-1] + 1
+
+
     def print_funk(self, funk, args):
 
         for arg_expr in args:
@@ -684,6 +710,32 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         ;;============ [END] Print ====
         """.format(p[0])
         self.index = p[-1] + 1
+
+    def init_stack_variable(self, node):
+
+        self.code += """
+        call void @createLhsStackVar(%struct.tnode* {node})
+        """.format(node=node)
+
+    def alloc_variable_linked_list(self, start, end):
+
+        # self.print_trace()
+        start_val = self.get_node_data_value(start)
+        end_val = self.get_node_data_value(end)
+        start_type = self.get_node_data_type(start, ret_i8=True)
+
+        p = [x for x in range(self.index, self.index + 1)]
+        self.code += """
+        ;;
+        %{0} = call %struct.tnode* @createLinkedList(i32 {start}, i32 {end}, i8 zeroext {type})
+
+        """.format(p[0], start=start_val, end=end_val,
+                   type=start_type)
+        self.index = p[-1] + 1
+
+        #self.print_trace()
+
+        return '%{}'.format(p[0])
 
     def rand_int(self, funk, args):
         if len(args) != 2:
