@@ -103,17 +103,28 @@ class VariableList(List):
     Essentially a NULL terminated linked list
     """
 
-    def __init__(self, funk, name, start, end):
+    def __init__(self, funk, name, start, end, start_inclusive, end_inclusive):
         self.funk = funk
         self.name = name
         self.start = start
         self.end = end
+        self.start_inclusive = start_inclusive == '<='
+        self.end_inclusive = end_inclusive == '<='
 
     def __repr__(self):
         return 'VariableList({},{})'.format(self.start, self.end)
 
     def eval(self, result=None):
-        return self.funk.alloc_variable_list_symbol(self.start.eval(), self.end.eval())
+        start = self.start.eval()
+        end = self.end.eval()
+
+        if not self.start_inclusive:
+            start = self.funk.emitter.add(start, 1)
+
+        if not self.end_inclusive:
+            end = self.funk.emitter.sub(end, 1)
+
+        return self.funk.alloc_variable_list_symbol(start, end)
 
 
 class LiteralList(List):
@@ -417,7 +428,7 @@ class Range:
 
             return LiteralList(self.funk,'',integers)
         else:
-            return VariableList(self.funk, 'var_list', self.lhs, self.rhs)
+            return VariableList(self.funk, 'var_list', self.lhs, self.rhs, self.lhs_type, self.rhs_type)
 
 
 
