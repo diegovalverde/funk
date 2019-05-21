@@ -218,7 +218,7 @@ class TreeToAst(Transformer):
         return funk_ast.And(self.funk, right=token[0])
 
     def action_bool_mod(self, token):
-        #Note: this returns an integer (not a TNode)
+        # Note: this returns an integer (not a TNode)
         return funk_ast.Mod(self.funk, right=token[0])
 
     def action_bool_lt(self, token):

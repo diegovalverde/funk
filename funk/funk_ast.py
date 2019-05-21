@@ -285,7 +285,7 @@ class Sum(BinaryOp):
         return 'Sum({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.add(self.left.eval(), self.right.eval(), result_data=result)
+        return self.funk.emitter.add(self.left.eval(), self.right.eval(), result=result)
 
 
 class Mul(BinaryOp):
@@ -301,7 +301,7 @@ class Sub(BinaryOp):
         return 'Sub({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        i = self.funk.emitter.sub(self.left.eval(), self.right.eval(), result_data=result)
+        i = self.funk.emitter.sub(self.left.eval(), self.right.eval(), result=result)
         return i
 
 
@@ -310,7 +310,7 @@ class Div(BinaryOp):
         return 'Div({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.sdiv(self.left.eval(), self.right.eval())
+        return self.funk.emitter.sdiv(self.left.eval(), self.right.eval(), result)
 
 
 class Mod(BinaryOp):
@@ -318,7 +318,7 @@ class Mod(BinaryOp):
         return 'Mod({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.srem(self.left.eval(), self.right.eval())
+        return self.funk.emitter.srem(self.left.eval(), self.right.eval(), result)
 
 
 class And(BinaryOp):
@@ -333,12 +333,6 @@ class BoolBinaryOp(BinaryOp):
     def eval(self, as_type, result=None):
         lval = self.left.eval()
         rval = self.right.eval()
-
-        if isinstance(self.right, Identifier):
-            rval = self.funk.emitter.get_node_data_value(rval, as_type=as_type)
-
-        if isinstance(self.left, Identifier):
-            lval = self.funk.emitter.get_node_data_value(lval, as_type=as_type)
 
         return lval, rval
 
@@ -374,7 +368,7 @@ class LessThan(BoolBinaryOp):
         l, r = BoolBinaryOp.eval(self, result)
         if isinstance(self.left, FloatConstant) or isinstance(self.right, FloatConstant):
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.double, result=result)
-            return self.funk.emitter.fcmp_signed('olt', l, r)
+            return self.funk.emitter.fcmp_signed('flt', l, r)
         else:
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
             return self.funk.emitter.icmp_signed('slt', l, r)
@@ -460,6 +454,7 @@ class FunctionCall:
             's2d_window': S2DCreateWindow,
             's2d_line': S2DDrawLine,
             's2d_point': S2DDrawPoint,
+            's2d_quad': S2DDrawQuad,
             's2d_render': S2DRenderFunction,  # void s2d_render(void)
         }
 
@@ -584,7 +579,7 @@ class FunctionClause:
                 self.funk.emitter.add_label(clause_precondition_label)
                 self.funk.emitter.add_comment('{}'.format(self.preconditions))
                 result = self.preconditions.eval()
-                self.funk.emitter.br_cond_reg(result, clause_entry_label, clause_exit_label)
+                self.funk.emitter.br_cond('eq', self.funk.emitter.get_node_data_value(result), 1, clause_entry_label, clause_exit_label)
 
             self.funk.function_scope.args = self.arguments
             self.funk.function_scope.tail_pairs = self.tail_pairs
@@ -743,6 +738,21 @@ class S2DRenderFunction:
 
     def eval(self, result=None):
         self.funk.emitter.s2d_render_callback(self.funk, self.arg_list)
+
+
+class S2DDrawQuad:
+    """
+            Requires Simple2D to be installed.
+            https://github.com/simple2d/simple2d
+
+            """
+
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.s2d_quad(self.funk, self.arg_list)
 
 
 class S2DDrawLine:

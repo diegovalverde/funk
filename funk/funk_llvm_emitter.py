@@ -174,25 +174,11 @@ class Emitter:
 
         return '%{}'.format(p[0])
 
-    def fcmp_signed(self, operation, val_rhs, val_lhs, result=None):
-        p = [x for x in range(self.index, self.index + 1)]
-        self.index = p[-1]
+    def fcmp_signed(self, operation, a, b, result=None):
+        return self.arith_helper(a, b, operation, result)
 
-        self.code += """
-        %{0} = fcmp {operation} double {val_rhs}, {val_lhs}
-        """.format(p[0],  operation=operation, val_rhs=val_rhs, val_lhs=val_lhs)
-
-        return "%{}".format(p[-1])
-
-    def icmp_signed(self, operation, val_rhs, val_lhs, result=None):
-        p = [x for x in range(self.index, self.index + 1)]
-        self.index = p[-1]
-
-        self.code += """
-        %{0} = icmp {operation} i32 {val_rhs}, {val_lhs}
-        """.format(p[0],  operation=operation, val_rhs=val_rhs, val_lhs=val_lhs)
-
-        return "%{}".format(p[-1])
+    def icmp_signed(self, operation, a, b, result=None):
+        return self.arith_helper(a, b, operation,result)
 
     def and_(self, left, right):
         self.add_comment('{} AND {}'.format(left, right))
@@ -205,19 +191,6 @@ class Emitter:
         self.code += """
                 %{0} = and i32 {l} , {r}
                 """.format(p[0], l=val_left, r=val_right)
-
-        return '%{}'.format(p[-1])
-
-    def srem(self, node, lit):
-        self.add_comment('{} MOD {}'.format(node, lit))
-        val = self.get_node_data_value(node)
-
-        p = [x for x in range(self.index, self.index + 1)]
-        self.index = p[-1] + 1
-
-        self.code += """
-        %{0} = srem i32 {val} , {lit}
-        """.format(p[0], val=val, lit=lit)
 
         return '%{}'.format(p[-1])
 
@@ -273,81 +246,47 @@ class Emitter:
     {label}:
         """.format(label=label)
 
-    def add(self, a, b, result_data=None):
+    def add(self, a, b, result=None):
+        return self.arith_helper(a, b, 'add', result)
 
-        result = result_data
+    def sub(self, a, b, result):
+        return self.arith_helper(a, b, 'sub', result)
 
-        if result_data is None:
-            result = self.alloc_tnode('addition result')
+    def srem(self, a, b, result=None):
+        return self.arith_helper(a, b, 'mod', result)
 
-        if isinstance(a, int):
-            self.code += """
-            call void @funk_add_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=b, pB=a)
-        elif isinstance(b, int):
-            self.code += """
-            call void @funk_add_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=a, pB=b)
-        elif isinstance(a, float):
-            self.code += """
-            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
-            """.format(p_result=result, pA=b, pB=self.enconde_double_to_ieee754_32(a))
-        elif isinstance(b, float):
-            self.code += """
-            call void @funk_add_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
-            """.format(p_result=result, pA=a, pB=self.enconde_double_to_ieee754_32(b))
-        else:
-            self.code += """
-            call void @funk_add_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
-            """.format(p_result=result, pA=a, pB=b)
-
-        return result
-
-    def sub(self, a, b, result_data=None):
-        result = result_data
-
-        if result_data is None:
-            result = self.alloc_tnode('subtraction result')
-
-        if isinstance(a, int):
-            self.code += """
-            call void @funk_sub_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=b, pB=a)
-        elif isinstance(b, int):
-            self.code += """
-            call void @funk_sub_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=a, pB=b)
-        else:
-            self.code += """
-            call void @funk_sub_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
-            """.format(p_result=result, pA=a, pB=b)
-
-        return result
+    def sdiv(self, a, b, result=None):
+        return self.arith_helper(a, b, 'div', result)
 
     def mul(self, a, b, result=None):
+        return self.arith_helper(a, b, 'mul', result)
+
+    def arith_helper(self, a, b, operation, result):
+        self.add_comment('{} {} {}'.format(a, operation, b))
+
         if result is None:
-            result = self.alloc_tnode('mult result')
+            result = self.alloc_tnode('{} result'.format(operation))
 
         if isinstance(a, int):
             self.code += """
-            call void @funk_mul_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=b, pB=a)
+            call void @funk_{operartion}_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
+            """.format(p_result=result, pA=b, pB=a, operartion=operation)
         elif isinstance(b, int):
             self.code += """
-            call void @funk_mul_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=a, pB=b)
+            call void @funk_{operartion}_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
+            """.format(p_result=result, pA=a, pB=b, operartion=operation)
         elif isinstance(a, float):
             self.code += """
-            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
-            """.format(p_result=result, pA=b, pB=self.enconde_double_to_ieee754_32(a))
+            call void @funk_{operartion}_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
+            """.format(p_result=result, pA=b, pB=a, operartion=operation)
         elif isinstance(b, float):
             self.code += """
-            call void @funk_mul_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
-            """.format(p_result=result, pA=a, pB=self.enconde_double_to_ieee754_32(b))
+            call void @funk_{operartion}_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
+            """.format(p_result=result, pA=a, pB=b, operartion=operation)
         else:
             self.code += """
-            call void @funk_mul_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
-            """.format(p_result=result, pA=a, pB=b)
+            call void @funk_{operartion}_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
+            """.format(p_result=result, pA=a, pB=b, operartion=operation)
 
         return result
 
@@ -842,6 +781,24 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             %{1} = fptrunc double {y1} to float
             call void @S2D_DrawCircle(float %{0}, float %{1}, float 1.0, i32 4, float {r}, float {g}, float {b}, float {alpha})
             """.format(p[0], p[1], x1=x1, y1=y1, r=float(r), g=g, b=b, alpha=alpha)
+
+    def s2d_quad(self, funk, args):
+        if len(args) != 12:
+            raise Exception('=== s2d_quad takes 12 parameters')
+
+        x1, y1, x2, y2, x3, y3, x4, y4, r, g, b, alpha = args
+        p = [x for x in range(self.index, self.index + 4)]
+        self.index = p[-1] + 1
+
+        self.code += """
+            %{0} = fptrunc double {x1} to float
+            %{1} = fptrunc double {y1} to float
+            %{2} = fptrunc double {x2} to float
+            %{3} = fptrunc double {y2} to float
+            call void @S2D_DrawQuad( float {x1}, float {y1},float {r}, float {g}, float {b}, float {alpha},float {x2}, float {y2},float {r}, float {g}, float {b}, float {alpha},float {x3}, float {y3},float {r}, float {g}, float {b}, float {alpha},float {x4}, float {y4},float {r}, float {g}, float {b}, float {alpha})
+            """.format(p[0], p[1], p[2], p[3],
+                       x1=x1, y1=y1, x2=x2, y2=y2, x3=x3, y3=y3, x4=x4, y4=y4,
+                       r=r, g=g, b=b, alpha=alpha)
 
     def sleep(self, funk, args):
 
