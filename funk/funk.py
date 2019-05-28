@@ -159,6 +159,9 @@ declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_mul_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0 
 declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_add_rf(%struct.tnode*, %struct.tnode*, double) #0
+declare void @funk_sub_rf(%struct.tnode*, %struct.tnode*, double) #0
+declare void @funk_div_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
+declare  void @funk_mod_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0  
 declare void @registerHeapAllocation(%struct.tnode*) #0 
 declare void @initGarbageCollector() #0
 declare i32 @"\\01_usleep"(i32) #1

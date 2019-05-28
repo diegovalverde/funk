@@ -17,7 +17,7 @@
 
 
 from . import funk_types
-import struct
+from . import funk_ast
 
 
 class Emitter:
@@ -786,19 +786,30 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         if len(args) != 12:
             raise Exception('=== s2d_quad takes 12 parameters')
 
-        x1, y1, x2, y2, x3, y3, x4, y4, r, g, b, alpha = args
-        p = [x for x in range(self.index, self.index + 4)]
-        self.index = p[-1] + 1
+        v = []
+        for arg in args:
+            if isinstance(arg, funk_ast.FloatConstant):
+                x = arg.eval()
+            elif isinstance(arg, funk_ast.IntegerConstant):
+                x = float(arg.eval())
+            else:
+                y = funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.double)
+                self.code += '%{0} = fptrunc double {x} to float\n'.format(self.index,x=y)
+                x = '%{}'.format(self.index)
+                self.index += 1
+
+
+            v.append(x)
+
 
         self.code += """
-            %{0} = fptrunc double {x1} to float
-            %{1} = fptrunc double {y1} to float
-            %{2} = fptrunc double {x2} to float
-            %{3} = fptrunc double {y2} to float
-            call void @S2D_DrawQuad( float {x1}, float {y1},float {r}, float {g}, float {b}, float {alpha},float {x2}, float {y2},float {r}, float {g}, float {b}, float {alpha},float {x3}, float {y3},float {r}, float {g}, float {b}, float {alpha},float {x4}, float {y4},float {r}, float {g}, float {b}, float {alpha})
-            """.format(p[0], p[1], p[2], p[3],
-                       x1=x1, y1=y1, x2=x2, y2=y2, x3=x3, y3=y3, x4=x4, y4=y4,
-                       r=r, g=g, b=b, alpha=alpha)
+        ;; s2d_quad
+        call void @S2D_DrawQuad( float {x1}, float {y1},float {r}, float {g}, float {b}, float {alpha},float {x2}, float {y2},float {r}, float {g}, float {b}, float {alpha},float {x3}, float {y3},float {r}, float {g}, float {b}, float {alpha},float {x4}, float {y4},float {r}, float {g}, float {b}, float {alpha})
+        """.format(
+                x1=v[0], y1=v[1], x2=v[2], y2=v[3], x3=v[4], y3=v[5], x4=v[6],
+                y4=v[7], r=v[8], g=v[9], b=v[10], alpha=v[11])
+
+
 
     def sleep(self, funk, args):
 

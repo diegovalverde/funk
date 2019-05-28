@@ -260,6 +260,7 @@ class TreeToAst(Transformer):
     declare void @S2D_DrawTriangle(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
     declare void @S2D_DrawLine(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
     declare void @S2D_DrawCircle(float, float , float, i32, float, float , float, float)
+    declare void @S2D_DrawQuad( float, float, float, float, float, float, float , float ,float , float , float , float ,float , float ,float , float , float , float ,float , float ,float , float , float , float ) #1
 
     %struct.S2D_Window = type { %struct.SDL_Window*, i8*, i8*, i8*, i8*, i32, i32, i8*, i8*, i32, i32, i32, i32, %struct.S2D_Viewport, void (...)*, void (...)*, i32, %struct.S2D_Mouse, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, i8, i32, %struct.S2D_Color, i8*, i32, i32, i32, i32, double, i8 }
     %struct.SDL_Window = type opaque

@@ -82,7 +82,7 @@ class FloatConstant:
         return funk_types.double
 
     def __repr__(self):
-        return 'Float({})'.format(self.value)
+        return 'FloatConstant({})'.format(self.value)
 
     def eval(self, result=None):
         return self.sign * float(self.value)
