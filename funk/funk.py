@@ -161,12 +161,14 @@ declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_add_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_sub_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_div_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare  void @funk_mod_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0  
+declare  void @funk_mod_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
+declare %struct.tnode* @funk_CreateLinkedListConstInt(i32, i32, i32) #0  
 declare void @registerHeapAllocation(%struct.tnode*) #0 
 declare void @initGarbageCollector() #0
 declare i32 @"\\01_usleep"(i32) #1
 declare %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0 
-declare void @createLhsStackVar(%struct.tnode*) #0 
+declare void @createLhsStackVar(%struct.tnode*) #0
+declare float @funk_ToFloat(%struct.tnode*) #0  
 
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
@@ -236,8 +238,8 @@ declare i32 @printf(i8*, ...) #1
     def alloc_literal_symbol(self, symbol, symbol_name):
         return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.get_compile_type())
 
-    def alloc_variable_list_symbol(self, p_start, p_end):
-        return self.emitter.alloc_variable_linked_list(p_start, p_end)
+    def alloc_variable_list_symbol(self, p_start, p_end, expr):
+        return self.emitter.alloc_variable_linked_list(p_start, p_end, expr)
 
     def alloc_literal_list_symbol(self, elements):
         n = len(elements)

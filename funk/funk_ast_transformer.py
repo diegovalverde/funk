@@ -304,7 +304,7 @@ class TreeToAst(Transformer):
         e = flatten(tokens)[0]
 
         if isinstance(e, funk_ast.Range):
-            return [e.eval()]
+            return [e]
         else:
             return e
 
@@ -413,6 +413,7 @@ class TreeToAst(Transformer):
         range.lhs = expr
         return range
 
-    def action_list_comprehension(self,token):
-        return token[1]
+    def action_list_comprehension(self, token):
+        token[1].expr = token[0]
+        return token[1].eval()
 

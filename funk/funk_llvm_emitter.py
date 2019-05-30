@@ -178,7 +178,7 @@ class Emitter:
         return self.arith_helper(a, b, operation, result)
 
     def icmp_signed(self, operation, a, b, result=None):
-        return self.arith_helper(a, b, operation,result)
+        return self.arith_helper(a, b, operation, result)
 
     def and_(self, left, right):
         self.add_comment('{} AND {}'.format(left, right))
@@ -656,25 +656,35 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         call void @createLhsStackVar(%struct.tnode* {node})
         """.format(node=node)
 
-    def alloc_variable_linked_list(self, start, end):
-
-        # self.print_trace()
+    def alloc_variable_linked_list(self, start, end, expr):
         start_val = self.get_node_data_value(start)
         end_val = self.get_node_data_value(end)
-        start_type = self.get_node_data_type(start, ret_i8=True)
 
-        p = [x for x in range(self.index, self.index + 1)]
-        self.code += """
-        ;;
-        %{0} = call %struct.tnode* @createLinkedList(i32 {start}, i32 {end}, i8 zeroext {type})
+        if isinstance(expr,funk_ast.IntegerConstant):
+            p = [x for x in range(self.index, self.index + 1)]
+            self.code += """
+                    ;;
+                    %{0} = call %struct.tnode* @funk_CreateLinkedListConstInt(i32 {start}, i32 {end}, i32 {val})
 
-        """.format(p[0], start=start_val, end=end_val,
-                   type=start_type)
-        self.index = p[-1] + 1
+                    """.format(p[0], start=start_val, end=end_val,
+                               val=expr.eval())
+            self.index = p[-1] + 1
+            return '%{}'.format(p[0])
+        else:
+            # TODO: Include expression here somehow...
 
-        #self.print_trace()
 
-        return '%{}'.format(p[0])
+            start_type = self.get_node_data_type(start, ret_i8=True)
+
+            p = [x for x in range(self.index, self.index + 1)]
+            self.code += """
+            ;;
+            %{0} = call %struct.tnode* @createLinkedList(i32 {start}, i32 {end}, i8 zeroext {type})
+    
+            """.format(p[0], start=start_val, end=end_val,
+                       type=start_type)
+            self.index = p[-1] + 1
+            return '%{}'.format(p[0])
 
     def rand_int(self, funk, args):
         if len(args) != 2:
@@ -793,18 +803,23 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             elif isinstance(arg, funk_ast.IntegerConstant):
                 x = float(arg.eval())
             else:
-                y = funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.double)
-                self.code += '%{0} = fptrunc double {x} to float\n'.format(self.index,x=y)
-                x = '%{}'.format(self.index)
-                self.index += 1
+
+                x = arg.eval()
+                p = [i for i in range(self.index, self.index + 1)]
+                self.code += """
+                %{0} = call float @funk_ToFloat(%struct.tnode* {x})
+                """.format(p[0], x=x)
+                x = '%{}'.format(p[-1])
+                self.index = p[-1] + 1
 
 
             v.append(x)
 
-
         self.code += """
         ;; s2d_quad
-        call void @S2D_DrawQuad( float {x1}, float {y1},float {r}, float {g}, float {b}, float {alpha},float {x2}, float {y2},float {r}, float {g}, float {b}, float {alpha},float {x3}, float {y3},float {r}, float {g}, float {b}, float {alpha},float {x4}, float {y4},float {r}, float {g}, float {b}, float {alpha})
+        call void @S2D_DrawQuad( float {x1}, float {y1},float {r}, float {g}, float {b}, float {alpha},float {x2}, \
+        float {y2},float {r}, float {g}, float {b}, float {alpha},float {x3}, float {y3},float {r}, float {g}, \
+        float {b}, float {alpha},float {x4}, float {y4},float {r}, float {g}, float {b}, float {alpha})
         """.format(
                 x1=v[0], y1=v[1], x2=v[2], y2=v[3], x3=v[4], y3=v[5], x4=v[6],
                 y4=v[7], r=v[8], g=v[9], b=v[10], alpha=v[11])

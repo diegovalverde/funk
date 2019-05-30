@@ -103,13 +103,14 @@ class VariableList(List):
     Essentially a NULL terminated linked list
     """
 
-    def __init__(self, funk, name, start, end, start_inclusive, end_inclusive):
+    def __init__(self, funk, name, start, end, start_inclusive, end_inclusive, expr):
         self.funk = funk
         self.name = name
         self.start = start
         self.end = end
         self.start_inclusive = start_inclusive == '<='
         self.end_inclusive = end_inclusive == '<='
+        self.expr = expr
 
     def __repr__(self):
         return 'VariableList({},{})'.format(self.start, self.end)
@@ -124,7 +125,7 @@ class VariableList(List):
         if not self.end_inclusive:
             end = self.funk.emitter.sub(end, 1)
 
-        return self.funk.alloc_variable_list_symbol(start, end)
+        return self.funk.alloc_variable_list_symbol(start, end, expr)
 
 
 class LiteralList(List):
@@ -392,20 +393,26 @@ class Assignment(BinaryOp):
 
 
 class Range:
-    def __init__(self, funk, rhs=None, lhs=None, identifier=None, rhs_type='<', lhs_type='<'):
+    def __init__(self, funk, rhs=None, lhs=None, identifier=None, expr=None, rhs_type='<', lhs_type='<'):
         self.funk = funk
         self.identifier = identifier
         self.rhs = rhs
         self.lhs_type = lhs_type
         self.rhs_type = rhs_type
         self.lhs = lhs
+        self.expr = expr
 
     def __repr__(self):
         return 'Range({} {} {} {} {})'.format(self.lhs, self.lhs_type, self.identifier, self.rhs_type, self.rhs)
 
     def eval(self):
         # create as many Integers as necessary
-        if isinstance(self.lhs, IntegerConstant) and isinstance(self.rhs, IntegerConstant):
+        if isinstance(self.lhs, IntegerConstant) and\
+           isinstance(self.rhs, IntegerConstant) and\
+          (isinstance(self.expr, IntegerConstant) or\
+           isinstance(self.expr, FloatConstant) or\
+           isinstance(self.expr, Identifier)): # if the expr is an identifier then use IOTA
+
             integers = []
             range_start = self.lhs.eval()
 
@@ -417,13 +424,16 @@ class Range:
             if self.rhs_type == '<=':
                 range_end += 1
 
-            for i in range(range_start, range_end):
-                integers.append(IntegerConstant(self.funk, i))
+            if isinstance(self.expr, Identifier):
+                for i in range(range_start, range_end):
+                    integers.append(IntegerConstant(self.funk, i))
+            else:
+                for i in range(range_start, range_end):
+                    integers.append(self.expr)
 
-            return LiteralList(self.funk,'',integers)
+            return LiteralList(self.funk, '', integers)
         else:
             return VariableList(self.funk, 'var_list', self.lhs, self.rhs, self.lhs_type, self.rhs_type)
-
 
 
 class ExternalFunction:
