@@ -125,7 +125,7 @@ class VariableList(List):
         if not self.end_inclusive:
             end = self.funk.emitter.sub(end, 1)
 
-        return self.funk.alloc_variable_list_symbol(start, end, expr)
+        return self.funk.alloc_variable_list_symbol(start, end, self.expr)
 
 
 class LiteralList(List):
@@ -433,7 +433,7 @@ class Range:
 
             return LiteralList(self.funk, '', integers)
         else:
-            return VariableList(self.funk, 'var_list', self.lhs, self.rhs, self.lhs_type, self.rhs_type)
+            return VariableList(self.funk, 'var_list', self.lhs, self.rhs, self.lhs_type, self.rhs_type, self.expr)
 
 
 class ExternalFunction:

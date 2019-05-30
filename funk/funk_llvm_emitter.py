@@ -249,7 +249,7 @@ class Emitter:
     def add(self, a, b, result=None):
         return self.arith_helper(a, b, 'add', result)
 
-    def sub(self, a, b, result):
+    def sub(self, a, b, result=None):
         return self.arith_helper(a, b, 'sub', result)
 
     def srem(self, a, b, result=None):
@@ -660,7 +660,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         start_val = self.get_node_data_value(start)
         end_val = self.get_node_data_value(end)
 
-        if isinstance(expr,funk_ast.IntegerConstant):
+        if isinstance(expr, funk_ast.IntegerConstant):
             p = [x for x in range(self.index, self.index + 1)]
             self.code += """
                     ;;
