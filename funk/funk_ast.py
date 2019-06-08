@@ -173,6 +173,8 @@ class Identifier:
             if arg == self.name:
                 idx = self.funk.function_scope.args.index(arg)
                 node = self.funk.emitter.get_function_argument_tnode(idx)
+                if result is not None:
+                    self.funk.emitter.copy_node(node, result)
                 return node
 
         for head_tail in self.funk.function_scope.tail_pairs:
@@ -181,6 +183,8 @@ class Identifier:
                 idx = self.funk.function_scope.args.index(head)
                 head_node = self.funk.emitter.get_function_argument_tnode(idx)
                 tail_node = self.funk.emitter.get_next_node(head_node)
+                if result is not None:
+                    self.funk.emitter.copy_node(tail_node, result)
                 return tail_node
 
         global_symbol_name = '@{}'.format(self.name)
@@ -189,13 +193,18 @@ class Identifier:
 
         # Now check to see if it is a local (function scope) variable
         if local_symbol_name in self.funk.symbol_table:
-            return self.funk.symbol_table[local_symbol_name]
+            node = self.funk.symbol_table[local_symbol_name]
+            if result is not None:
+                self.funk.emitter.copy_node(node, result)
+            return node
 
         if global_symbol_name in self.funk.symbol_table:
             self.funk.emitter.add_comment('creating reference to global function {}'.format(global_symbol_name))
             node = self.funk.emitter.alloc_tnode('global_symbol_ref', value=0, data_type=funk_types.function)
             data = self.funk.emitter.get_node_data(node)
             self.funk.emitter.load_global_function_to_data(data, global_symbol_name)
+            if result is not None:
+                self.funk.emitter.copy_node(node, result)
             return node
 
         return global_symbol_name
