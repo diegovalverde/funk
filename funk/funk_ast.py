@@ -330,7 +330,15 @@ class And(BinaryOp):
         return 'And({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        return self.funk.emitter.and_(self.left.eval(), self.right.eval())
+        return self.funk.emitter.boolean_op('and',self.left.eval(), self.right.eval(), result)
+
+
+class Or(BinaryOp):
+    def __repr__(self):
+        return 'Or({} , {})'.format(self.left, self.right)
+
+    def eval(self, result=None):
+        return self.funk.emitter.boolean_op('or', self.left.eval(), self.right.eval(), result)
 
 
 class BoolBinaryOp(BinaryOp):
