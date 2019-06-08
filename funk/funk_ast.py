@@ -69,7 +69,11 @@ class IntegerConstant:
         return 'Integer({})'.format(self.value)
 
     def eval(self, result=None):
-        return self.sign * int(self.value)
+        val = self.sign * int(self.value)
+        if result is not None:
+            self.funk.emitter.set_node_data_value('', result, val, as_type=funk_types.int)
+
+        return val
 
 
 class FloatConstant:
@@ -85,7 +89,11 @@ class FloatConstant:
         return 'FloatConstant({})'.format(self.value)
 
     def eval(self, result=None):
-        return self.sign * float(self.value)
+        val = self.sign * float(self.value)
+        if result is not None:
+            self.funk.emitter.set_node_data_value('', result, val, as_type=funk_types.double)
+
+        return val
 
 
 class List:
