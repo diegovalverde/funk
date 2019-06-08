@@ -170,6 +170,7 @@ declare %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0
 declare void @createLhsStackVar(%struct.tnode*) #0
 declare float @funk_ToFloat(%struct.tnode*) #0  
 declare void @funk_slt_ri(%struct.tnode*, %struct.tnode*, i32) #0
+declare void @funk_sgt_ri(%struct.tnode*, %struct.tnode*, i32) #0
 
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
