@@ -155,6 +155,9 @@ class Identifier:
         self.name = name
         self.is_literal = False
 
+    def get_compile_type(self):
+        return None
+
     def __repr__(self):
         return 'Identifier({})'.format(self.name)
 
