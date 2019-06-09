@@ -350,6 +350,7 @@ class Emitter:
 
         if result is None:
             result = self.allocate_fn_return_node()
+            self.set_node_data_type('result', result, funk_types.int)
 
         self.code += """
          ;;call the function

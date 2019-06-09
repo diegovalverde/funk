@@ -295,7 +295,6 @@ class BinaryOp:
         self.funk = funk
         self.left = left
         self.right = right
-       # self.type = None  # TODO refactor to numeric_type (float, int, etc..)
 
     def get_compile_type(self):
         # if either operand is float, then auto promote to float at compile time
