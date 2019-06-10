@@ -35,7 +35,7 @@ class FunctionScope:
         if args is None:
             args = []
         self.name = name
-        self.clause_idx = 0 # In case there are multiple clauses this makes sure variable names can be reused
+        self.clause_idx = 0  # In case there are multiple clauses this makes sure variable names can be reused
         self.args = args
         self.tail_pairs = tail_pairs
         self.ret_val = ret_type
@@ -80,15 +80,12 @@ class Funk:
             funk_grammar = myfile.read()
 
         self.grammar = Lark(funk_grammar)
-
-        self.symbol_table = {}
-        self.strings_count = 0
+        self.strings_count = 0  # used to declare constant strings as unique globals
         self.triple = binding.get_default_triple()
-
-        main_scope = '_function__{}'.format('main')
-        self.symbol_table = {}
-        self.function_scope = None
+        self.symbol_table = {}  # the symbol table
+        self.function_scope = None  # The function scope that we are currently building
         self.functions = []
+        self.empty_arg_count = 0  # essentially all of the '_' shall be uniquely identifiable
         self.preamble = \
             """
 ;; =============================================================== ;;

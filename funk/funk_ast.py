@@ -26,7 +26,7 @@ def list_concat_head(funk, left, right, result=None):
 
     funk.emitter.garbage_collector_register_allocation(ptr_right)
 
-    funk.emitter.set_next_node(ptr_right, 'null') # set next to NULL
+    funk.emitter.set_next_node(ptr_right, 'null')  # set next to NULL
     funk.emitter.set_node_data_type('p->next',ptr_right,funk_types.empty_array)
 
     funk.emitter.set_next_node(left.eval(result=result), ptr_right)
@@ -160,7 +160,12 @@ class LiteralList(List):
 class Identifier:
     def __init__(self, funk, name):
         self.funk = funk
-        self.name = name
+
+        if name == '_':
+            self.name = '_{}'.format(self.funk.empty_arg_count)
+            self.funk.empty_arg_count += 1
+        else:
+            self.name = name
         self.is_literal = False
 
     def get_compile_type(self):

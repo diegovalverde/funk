@@ -19,7 +19,7 @@ from . import funk_ast
 import collections
 
 try:
-    from lark import Lark,Transformer
+    from lark import Lark, Transformer
 except ImportError:
     import lark, Transformer
 
@@ -35,7 +35,6 @@ def remove_invalid(l):
     return [x for x in l if x is not None]
 
 
-# TODO Move this tree to another file
 class TreeToAst(Transformer):
 
     def __init__(self, funk, debug=False):
@@ -90,7 +89,6 @@ class TreeToAst(Transformer):
                     fn_arguments.append(arg.name)
                 position += 1
 
-            arity = len(fn_arguments)
             fn_body = flatten(tree[2])
             function_key = '@{}'.format(fn_name)
 
