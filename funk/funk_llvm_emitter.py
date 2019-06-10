@@ -788,7 +788,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         v = []
         for arg in args:
-            if isinstance(arg, funk_ast.FloatConstant):
+            if isinstance(arg, funk_ast.DoubleConstant):
                 x = arg.eval()
             elif isinstance(arg, funk_ast.IntegerConstant):
                 x = float(arg.eval())

@@ -20,6 +20,14 @@ from . import funk_types
 
 
 def list_concat_head(funk, left, right, result=None):
+    """
+    This corresponds to:
+        X ~> [MyArray]
+
+    Note that this operation will allocate the resulting
+    list in the Heap.
+
+    """
 
     funk.emitter.add_comment('Concatenating head to array')
     ptr_right = funk.emitter.allocate_in_heap()
@@ -27,9 +35,12 @@ def list_concat_head(funk, left, right, result=None):
     funk.emitter.garbage_collector_register_allocation(ptr_right)
 
     funk.emitter.set_next_node(ptr_right, 'null')  # set next to NULL
-    funk.emitter.set_node_data_type('p->next',ptr_right,funk_types.empty_array)
+    funk.emitter.set_node_data_type('p->next', ptr_right, funk_types.empty_array)
 
-    funk.emitter.set_next_node(left.eval(result=result), ptr_right)
+    ptr_left = left.eval(result=result)
+    funk.emitter.set_next_node(ptr_left, ptr_right)
+    left_type = funk.emitter.get_node_data_type(ptr_left)
+    funk.emitter.set_node_data_type('ptr_right', ptr_right, funk_types.int)
     right.eval(result=ptr_right)
 
 
@@ -42,7 +53,7 @@ def create_ast_named_symbol(name, funk, right):
 
     if isinstance(right, List):
         funk.symbol_table[symbol_name] = right.eval()
-    elif isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
+    elif isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
         funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, symbol_name)
     else:
         funk.symbol_table[symbol_name] = funk.create_variable_symbol(right, symbol_name)
@@ -50,7 +61,7 @@ def create_ast_named_symbol(name, funk, right):
     #funk.emitter.init_stack_variable(funk.symbol_table[symbol_name])
 
 def create_ast_anon_symbol(funk, right):
-    if isinstance(right, IntegerConstant) or isinstance(right, FloatConstant):
+    if isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
         return funk.alloc_literal_symbol(right, 'anon')
     else:
         return right.eval()
@@ -71,12 +82,13 @@ class IntegerConstant:
     def eval(self, result=None):
         val = self.sign * int(self.value)
         if result is not None:
-            self.funk.emitter.set_node_data_value('', result, val, as_type=funk_types.int)
+            self.funk.emitter.set_node_data_value('result element', result, val, as_type=funk_types.int)
+            self.funk.emitter.set_node_data_type('result element', result, funk_types.int)
 
         return val
 
 
-class FloatConstant:
+class DoubleConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
@@ -86,12 +98,13 @@ class FloatConstant:
         return funk_types.double
 
     def __repr__(self):
-        return 'FloatConstant({})'.format(self.value)
+        return 'DoubleConstant({})'.format(self.value)
 
     def eval(self, result=None):
         val = self.sign * float(self.value)
         if result is not None:
-            self.funk.emitter.set_node_data_value('', result, val, as_type=funk_types.double)
+            self.funk.emitter.set_node_data_value('result element', result, val, as_type=funk_types.double)
+            self.funk.emitter.set_node_data_type('result element', result, funk_types.double)
 
         return val
 
@@ -268,7 +281,7 @@ class PatternMatchLiteral(PatternMatch):
 
         if isinstance(value, IntegerConstant):
             self.type = funk_types.int
-        elif isinstance(value, FloatConstant):
+        elif isinstance(value, DoubleConstant):
             self.type = funk_types.double
         else:
             self.type = funk_types.invalid
@@ -303,7 +316,7 @@ class BinaryOp:
 
     def get_compile_type(self):
         # if either operand is float, then auto promote to float at compile time
-        if isinstance(self.right, FloatConstant) or isinstance(self.left, FloatConstant):
+        if isinstance(self.right, DoubleConstant) or isinstance(self.left, DoubleConstant):
             return funk_types.double
         else:
             return funk_types.int
@@ -380,7 +393,7 @@ class GreaterThan(BoolBinaryOp):
 
     def eval(self, result=None):
 
-        if isinstance(self.left, FloatConstant) or isinstance(self.right, FloatConstant):
+        if isinstance(self.left, DoubleConstant) or isinstance(self.right, DoubleConstant):
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.double, result=result)
             return self.funk.emitter.fcmp_signed('ogt', l, r)
         else:
@@ -403,7 +416,7 @@ class LessThan(BoolBinaryOp):
 
     def eval(self, result=None):
         l, r = BoolBinaryOp.eval(self, result)
-        if isinstance(self.left, FloatConstant) or isinstance(self.right, FloatConstant):
+        if isinstance(self.left, DoubleConstant) or isinstance(self.right, DoubleConstant):
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.double, result=result)
             return self.funk.emitter.fcmp_signed('flt', l, r)
         else:
@@ -445,8 +458,8 @@ class Range:
         # create as many Integers as necessary
         if isinstance(self.lhs, IntegerConstant) and\
            isinstance(self.rhs, IntegerConstant) and\
-          (isinstance(self.expr, IntegerConstant) or\
-           isinstance(self.expr, FloatConstant) or\
+          (isinstance(self.expr, IntegerConstant) or \
+           isinstance(self.expr, DoubleConstant) or \
            isinstance(self.expr, Identifier)): # if the expr is an identifier then use IOTA
 
             integers = []
@@ -834,7 +847,7 @@ class S2DDrawPoint:
         """
         uwrapped_args = []
         for arg in self.arg_list:
-            if isinstance(arg,FloatConstant) or isinstance(arg,IntegerConstant):
+            if isinstance(arg, DoubleConstant) or isinstance(arg, IntegerConstant):
                 uwrapped_args.append(arg.eval())
             else:
                 uwrapped_args.append(self.funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.double))

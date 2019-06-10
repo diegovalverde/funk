@@ -380,7 +380,7 @@ class TreeToAst(Transformer):
         return 1
 
     def action_float_constant(self, token):
-        return funk_ast.FloatConstant(self.funk, token[0].value)
+        return funk_ast.DoubleConstant(self.funk, token[0].value)
 
     def action_int_constant(self, token):
         return funk_ast.IntegerConstant(self.funk, token[0].value)
