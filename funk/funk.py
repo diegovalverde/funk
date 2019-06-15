@@ -110,7 +110,7 @@ target datalayout = ""
 ;; then the appropiate bitcast is used to inform the compiler about
 ;; the corresponding data type for a given symbol
 
-%union.data_type = type {{ {{}}* }}
+%union.data_type = type {{ double }}
 
 ;; This a primitive data type. It contains a type tag (i8) followed by
 ;; the actual data represented as a union
@@ -120,7 +120,7 @@ target datalayout = ""
 ;; These are nodes of a linked list. These are used to present lists
 ;; as well are function arguments (which are essentially lists)
 
-%struct.tnode = type {{ i8, %struct.tdata, %struct.tnode* }}
+%struct.tnode = type {{ i8, %struct.tdata, %struct.tnode*, i32 }}
 
 
 ;; =============================================================== ;;
@@ -170,6 +170,7 @@ declare void @funk_slt_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sgt_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_or_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_mul_ri(%struct.tnode*, %struct.tnode*, i32) 
+declare void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32) #0 
 
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
@@ -177,7 +178,8 @@ declare void @funk_mul_ri(%struct.tnode*, %struct.tnode*, i32)
             """
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #2
+declare void @memcpy(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #3
+
 
 
 declare i32 @printf(i8*, ...) #1

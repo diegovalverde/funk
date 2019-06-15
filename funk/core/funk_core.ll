@@ -32,7 +32,6 @@ target triple = "x86_64-apple-macosx10.14.0"
 @.str.19 = private unnamed_addr constant [6 x i8] c"null\0A\00", align 1
 @.str.20 = private unnamed_addr constant [2 x i8] c"+\00", align 1
 @.str.21 = private unnamed_addr constant [30 x i8] c"register alloc %p ref_cnt %d\0A\00", align 1
-@.str.22 = private unnamed_addr constant [26 x i8] c"Model creation sucessful\0A\00", align 1
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_slt_ri(%struct.tnode*, %struct.tnode*, i32) #0 {
@@ -2738,6 +2737,51 @@ define %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32) #0 {
+  %4 = alloca %struct.tnode*, align 8
+  %5 = alloca %struct.tnode*, align 8
+  %6 = alloca i32, align 4
+  %7 = alloca i32, align 4
+  store %struct.tnode* %0, %struct.tnode** %4, align 8
+  store %struct.tnode* %1, %struct.tnode** %5, align 8
+  store i32 %2, i32* %6, align 4
+  store i32 0, i32* %7, align 4
+  br label %8
+
+; <label>:8:                                      ; preds = %23, %3
+  %9 = load i32, i32* %7, align 4
+  %10 = load i32, i32* %6, align 4
+  %11 = icmp slt i32 %9, %10
+  br i1 %11, label %12, label %26
+
+; <label>:12:                                     ; preds = %8
+  %13 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %14 = load i32, i32* %7, align 4
+  %15 = sext i32 %14 to i64
+  %16 = getelementptr inbounds %struct.tnode, %struct.tnode* %13, i64 %15
+  %17 = load %struct.tnode*, %struct.tnode** %5, align 8
+  %18 = load i32, i32* %7, align 4
+  %19 = sext i32 %18 to i64
+  %20 = getelementptr inbounds %struct.tnode, %struct.tnode* %17, i64 %19
+  %21 = bitcast %struct.tnode* %16 to i8*
+  %22 = bitcast %struct.tnode* %20 to i8*
+  call void @memcpy(i8* align 8 %21, i8* align 8 %22, i64 40, i1 false)
+  br label %23
+
+; <label>:23:                                     ; preds = %12
+  %24 = load i32, i32* %7, align 4
+  %25 = add nsw i32 %24, 1
+  store i32 %25, i32* %7, align 4
+  br label %8
+
+; <label>:26:                                     ; preds = %8
+  ret void
+}
+
+; Function Attrs: argmemonly nounwind
+declare void @memcpy(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #3
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
 define float @funk_ToFloat(%struct.tnode*) #0 {
   %2 = alloca float, align 4
   %3 = alloca %struct.tnode*, align 8
@@ -2792,17 +2836,11 @@ define float @funk_ToFloat(%struct.tnode*) #0 {
   ret float %36
 }
 
-
-
-; Function Attrs: noreturn
-declare void @exit(i32) #3
-
 attributes #0 = { noinline nounwind optnone ssp uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { allocsize(0) "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { noreturn "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #3 = { argmemonly nounwind }
 attributes #4 = { allocsize(0) }
-attributes #5 = { noreturn }
 
 !llvm.module.flags = !{!0, !1, !2}
 !llvm.ident = !{!3}

@@ -574,6 +574,7 @@ class FunctionClause:
                 stmt.eval()
 
         else:
+            start_label = 'start_{}'.format(self.name[1:])
 
             # print('-I- Emitting clause ', self.arguments, self.name, self.pattern_matches, self.pattern_matches)
             # I need some kind of clause_exit_label here...
@@ -659,12 +660,27 @@ class FunctionClause:
             if isinstance(last_insn, LiteralList) and len(last_insn.elements) == 0:
                 # set result to null
                 self.funk.emitter.set_null_result()
+                self.funk.emitter.br(clause_exit_label)
+            elif isinstance(last_insn, FunctionCall) and last_insn.name == self.name[1:]:
+                self.funk.emitter.add_comment('========== Applying TAIL RECURSION =========')
+                # Essentially
+                # 1- leave the result pointer alone
+                # 2- Store your vals in the pointer to argument list
+                # goto <function>_start
+
+                for i in range(len(last_insn.args)):
+                    arg_tnode = self.funk.emitter.get_function_argument_tnode(i)
+                    val = last_insn.args[i].eval()
+                    self.funk.emitter.copy_node(val, arg_tnode)
+
+
+                self.funk.emitter.br(start_label)
             else:
                 last_insn.eval(p_result)
+                self.funk.emitter.ret()
+                self.funk.emitter.br(clause_exit_label)
 
-            self.funk.emitter.ret()
 
-            self.funk.emitter.br(clause_exit_label)
             self.funk.emitter.add_label(clause_exit_label)
 
 
@@ -691,7 +707,7 @@ class FunctionMap:
         self.funk.set_function_scope(scope_name)
 
         # Now implement the function
-        arity = self.funk.emitter.open_function(self.name)
+        arity = self.funk.emitter.open_function(self.name, len(self.arguments))
 
         index = 0
         for clause in self.clauses:

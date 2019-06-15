@@ -169,7 +169,7 @@ class Emitter:
         %{2} = load %struct.tnode*, %struct.tnode** %{1}, align 8
         %{3} = bitcast %struct.tnode* %{0} to i8*
         %{4} = bitcast %struct.tnode* %{2} to i8*
-        call void @llvm.memcpy.p0i8.p0i8.i64(i8* %{3}, i8* %{4}, i64 32, i32 8, i1 false)
+        call void @memcpy(i8* align 8  %{3}, i8* align 8  %{4}, i64 40, i1 false)
         """.format(p[0], p[1], p[2], p[3], p[4], node=node)
 
         return '%{}'.format(p[0])
@@ -292,7 +292,7 @@ class Emitter:
         ;; copy node
         %{0} = bitcast %struct.tnode* {node_dst} to i8*
         %{1} = bitcast %struct.tnode* {node_src} to i8*
-        call void @llvm.memcpy.p0i8.p0i8.i64(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
+        call void @memcpy(i8* align 8  %{0}, i8* align 8  %{1}, i64 40, i1 false)
         """.format(p[0], p[1], node_dst=node_dst, node_src=node_src)
 
     def call_fn_ptr(self, fn_node, arguments, result=None):
@@ -397,7 +397,7 @@ class Emitter:
         self.index = p[-1] + 1
         return '%{}'.format(p[-1])
 
-    def open_function(self, name, ret_type='void'):
+    def open_function(self, name, arg_count, ret_type='void'):
         self.index = 0
         self.scope_arg_map = {}
         self.scope_result_idx = None
@@ -452,12 +452,27 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
             self.add_comment('pointer to argument list')
             p_arglist = self.alloc_tnode_pointer()
+            self.p_fn_args = p_arglist
 
             self.code += """
         store %struct.tnode* %2, %struct.tnode** {p_arglist}, align 8
-            """.format(p_arglist=p_arglist)
+                """.format(p_arglist=p_arglist)
 
-            self.p_fn_args = p_arglist
+            self.add_comment('Create the argument array')
+            array = self.alloc_array(arg_count)
+
+            array_ptr = self.get_array_element(array, 0, arg_count)
+            self.code += """
+            call void @funk_memcp_arr(%struct.tnode* {dst}, %struct.tnode* {src}, i32 {n})
+            """.format(dst=array_ptr, src='%2', n=arg_count)
+
+            self.code += """
+            store %struct.tnode* {src}, %struct.tnode** {dst}, align 8
+            """.format(src=array_ptr, dst=self.p_fn_args)
+            start_label = 'start_{}'.format(name[1:])
+
+            self.br(start_label)
+            self.add_label(start_label)
 
             return arity
 
@@ -661,9 +676,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.index = p[-1] + 1
             return '%{}'.format(p[0])
         else:
-            # TODO: Include expression here somehow...
-
-
             start_type = self.get_node_data_type(start, ret_i8=True)
 
             p = [x for x in range(self.index, self.index + 1)]

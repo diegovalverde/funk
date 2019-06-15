@@ -533,6 +533,12 @@ struct tnode * createLinkedList(int start, int end, unsigned char type ){
    return head;
 }
 
+void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n){
+  for (int i = 0; i < n; ++i){
+      dst[i] = src[i];
+  }
+
+}
 
 float funk_ToFloat(struct tnode * n){
   if (n->pd.type == type_int){
@@ -543,37 +549,4 @@ float funk_ToFloat(struct tnode * n){
     n->pd.type = type_invalid;
     return 0.0f;
   }
-}
-
-int main(void)
-{
-  struct tnode  foo,bar;
-  foo.next = NULL;
-  printf("Model creation sucessful\n");
-  //memcpy(&foo,&bar,sizeof(struct tnode));
-  exit(0);
-
-
-  //struct tnode * p = (struct tnode*)malloc(sizeof(struct tnode));
-  initGarbageCollector( );
-
-  struct tnode start, end, * list;
-  createLhsStackVar(&start);
-  createLhsStackVar(&end);
-  start.pd.type = 0;
-  start.pd.data.i = 0;
-  end.pd.type = 0;
-  end.pd.data.i = 10;
-  list = createLinkedList(start.pd.data.i,  end.pd.data.i ,
-  start.pd.type);
-
-  struct tnode * p = list;
-  while (p){
-    printf("p = %d", p->pd.data.i);
-    p = p->next;
-  }
-
-  collectGarbage();
-
-
 }
