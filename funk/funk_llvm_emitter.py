@@ -17,6 +17,7 @@
 
 
 from . import funk_types
+from . import funk_constants
 from . import funk_ast
 
 
@@ -169,8 +170,8 @@ class Emitter:
         %{2} = load %struct.tnode*, %struct.tnode** %{1}, align 8
         %{3} = bitcast %struct.tnode* %{0} to i8*
         %{4} = bitcast %struct.tnode* %{2} to i8*
-        call void @memcpy(i8* align 8  %{3}, i8* align 8  %{4}, i64 40, i1 false)
-        """.format(p[0], p[1], p[2], p[3], p[4], node=node)
+        call void @memcpy(i8* align 8  %{3}, i8* align 8  %{4}, i64 {tnode_size}, i1 false)
+        """.format(p[0], p[1], p[2], p[3], p[4], node=node, tnode_size=funk_constants.tnode_size_bytes)
 
         return '%{}'.format(p[0])
 
@@ -292,8 +293,8 @@ class Emitter:
         ;; copy node
         %{0} = bitcast %struct.tnode* {node_dst} to i8*
         %{1} = bitcast %struct.tnode* {node_src} to i8*
-        call void @memcpy(i8* align 8  %{0}, i8* align 8  %{1}, i64 40, i1 false)
-        """.format(p[0], p[1], node_dst=node_dst, node_src=node_src)
+        call void @memcpy(i8* align 8  %{0}, i8* align 8  %{1}, i64 {tnode_size}, i1 false)
+        """.format(p[0], p[1], node_dst=node_dst, node_src=node_src, tnode_size=funk_constants.tnode_size_bytes)
 
     def call_fn_ptr(self, fn_node, arguments, result=None):
         n = len(arguments)
@@ -518,10 +519,10 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.index = p[-1] + 1
 
         self.code += """
-        %{0} = call i8* @malloc(i64 32) #3
+        %{0} = call i8* @malloc(i64 {tnode_size}) #3
         %{1} = bitcast i8* %{0} to %struct.tnode*
   
-        """.format(p[0], p[1])
+        """.format(p[0], p[1], tnode_size=funk_constants.tnode_size_bytes)
 
         return '%{}'.format(p[1])
 
