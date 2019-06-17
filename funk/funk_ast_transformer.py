@@ -87,6 +87,7 @@ class TreeToAst(Transformer):
                     pattern_matches.append(arg)
                 else:
                     fn_arguments.append(arg.name)
+
                 position += 1
 
             fn_body = flatten(tree[2])

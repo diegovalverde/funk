@@ -30,18 +30,11 @@ def list_concat_head(funk, left, right, result=None):
     """
 
     funk.emitter.add_comment('Concatenating head to array')
-    ptr_right = funk.emitter.allocate_in_heap()
-
-    funk.emitter.garbage_collector_register_allocation(ptr_right)
-
-    funk.emitter.set_next_node(ptr_right, 'null')  # set next to NULL
-    funk.emitter.set_node_data_type('p->next', ptr_right, funk_types.empty_array)
-
     ptr_left = left.eval(result=result)
-    funk.emitter.set_next_node(ptr_left, ptr_right)
-    left_type = funk.emitter.get_node_data_type(ptr_left)
-    funk.emitter.set_node_data_type('ptr_right', ptr_right, funk_types.int)
+    ptr_right = funk.emitter.malloc_right_node(ptr_left)
+    funk.emitter.garbage_collector_register_allocation(ptr_right)
     right.eval(result=ptr_right)
+
 
 
 def create_ast_named_symbol(name, funk, right):
@@ -660,7 +653,7 @@ class FunctionClause:
             if isinstance(last_insn, LiteralList) and len(last_insn.elements) == 0:
                 # set result to null
                 self.funk.emitter.set_null_result()
-                self.funk.emitter.br(clause_exit_label)
+                self.funk.emitter.br('l_{}_end'.format(name))
             elif isinstance(last_insn, FunctionCall) and last_insn.name == self.name[1:]:
                 self.funk.emitter.add_comment('========== Applying TAIL RECURSION =========')
                 # Essentially
@@ -678,7 +671,7 @@ class FunctionClause:
             else:
                 last_insn.eval(p_result)
                 self.funk.emitter.ret()
-                self.funk.emitter.br(clause_exit_label)
+                self.funk.emitter.br('l_{}_end'.format(name))
 
 
             self.funk.emitter.add_label(clause_exit_label)

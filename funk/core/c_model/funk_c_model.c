@@ -11,7 +11,7 @@ type_double = 2,
 type_array = 3,
 type_empty_array = 4,
 type_scalar = 5,
-type_function = 5,
+type_function = 6,
 };
 
 struct tdata
@@ -441,6 +441,54 @@ void printCollectorStatus(){
   }
 }
 
+char * printNodeType(int type){
+  switch(type){
+    case type_invalid: return "invalid_type"; break;
+    case type_int: return "int"; break;
+    case type_double: return "double"; break;
+    case type_array: return "array"; break;
+    case type_empty_array: return "empty_array"; break;
+    case type_scalar: return "scalar"; break;
+    case type_function: return "function"; break;
+    default:
+      return "unknown";
+  }
+}
+
+void funk_debug_printNode(struct tnode * n){
+
+  if (NULL == n){
+    printf("Node = nullptr\n");
+    return;
+  }
+  switch(n->pd.type){
+    case type_invalid:
+      printf("addr: %p  data_type 'invalid_type' value %d node_type %s ref_cnt: %d\n ",n,0,printNodeType(n->type),n->refCount);
+      break;
+    case type_int:
+      printf("addr: %p  data_type 'int' value %d node_type %s ref_cnt: %d\n ",n,n->pd.data.i,printNodeType(n->type),n->refCount);
+      break;
+    case type_double:
+      printf("addr: %p  data_type 'double' value %f node_type %s ref_cnt: %d\n ",n,n->pd.data.f,printNodeType(n->type),n->refCount);
+      break;
+    case type_array:
+      printf("addr: %p  data_type 'array' value n/a node_type %s ref_cnt: %d\n ",n,printNodeType(n->type),n->refCount);
+      break;
+    case type_empty_array:
+      printf("addr: %p  data_type 'empty_array' value %d node_type %s ref_cnt: %d\n ",n,n->pd.data.i,printNodeType(n->type),n->refCount);
+      break;
+    case type_scalar:
+      printf("addr: %p  data_type 'scalar' value %d node_type %s ref_cnt: %d\n ",n,n->pd.data.i,printNodeType(n->type),n->refCount);
+      break;
+    case type_function:
+      printf("addr: %p  data_type 'function' node_type %s ref_cnt: %d\n ",n, printNodeType(n->type),n->refCount);
+      break;
+    default:
+      printf("addr: %p  data_type '?' value %d node_type %s ref_cnt: %d\n ",n,0,printNodeType(n->type),n->refCount);
+  }
+
+}
+
 void registerHeapAllocation(struct tnode * n){
 
   n->refCount = 1;
@@ -449,10 +497,27 @@ void registerHeapAllocation(struct tnode * n){
   gCollector.tail = gCollector.tail->next;
   gCollector.tail->next = NULL;
   gCollector.tail->ptr = n;
-  printf("register alloc %p ref_cnt %d\n", n, n->refCount);
+
+
+  //funk_debug_printNode(n);
+
 
 }
 
+
+struct tnode * funk_mallocNodeRight(struct tnode * head){
+
+  struct tnode* p_right = (struct tnode*)malloc(sizeof(struct tnode));
+  p_right->next = NULL;
+
+  head->next = p_right;
+  head->type = type_array;
+  p_right->pd.type = head->pd.type;
+  p_right->pd.data.i = -1;
+  p_right->type = type_array;
+
+  return p_right;
+}
 
 struct tnode funk_listFillerIota(int i){
   struct tnode node;
@@ -483,8 +548,8 @@ struct tnode * funk_CreateLinkedListConstInt(int start, int end, int val ){
   }
 
    struct tnode * tail = (struct tnode*)malloc(sizeof(struct tnode));
-   tail->type = 4; //empty_array
-   tail->pd.type = type_int;
+   tail->type = type_empty_array;
+   tail->pd.type = type_empty_array;
 
    if (node != NULL)
       node->next = tail;

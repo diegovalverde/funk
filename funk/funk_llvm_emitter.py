@@ -317,6 +317,8 @@ class Emitter:
         p = [x for x in range(self.index, self.index + 3)]
         self.index = p[-1] + 1
         self.code += """
+        ;; call Function Pointer
+        
         %{0} = getelementptr inbounds %struct.tdata, %struct.tdata* {fn_data}, i32 0, i32 1
         %{1} = bitcast %union.data_type* %{0} to void (%struct.tnode*, i32, %struct.tnode*)**
         %{2} = load void (%struct.tnode*, i32, %struct.tnode*)*, void (%struct.tnode*, i32, %struct.tnode*)** %{1}, align 8
@@ -488,13 +490,15 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.code += """ 
         ;; Remember we return void because a pointer to the result
         ;; is passed as argument
+        br label %l_{name}_end
+    l_{name}_end:
          ret void
-    }}""".format(result=self.scope_result_idx)
+    }}""".format(result=self.scope_result_idx, name=name[1:])
 
     def enconde_double_to_ieee754_32(self, value):
         # For obscure historical reasons, llvm double literals are represented as
         # if they were doubles, but with the precision of a double.
-        #return hex(struct.unpack('Q', struct.pack('d', double(value)))[0])[:-8] + '00000000'
+        # return hex(struct.unpack('Q', struct.pack('d', double(value)))[0])[:-8] + '00000000'
         return value
 
     def load_global_function_to_data(self, data, global_symbol):
@@ -510,8 +514,18 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
     def garbage_collector_register_allocation(self, ptr):
         self.code += """
-           call void @registerHeapAllocation(%struct.tnode* {ptr})
-           """.format(ptr=ptr)
+       call void @registerHeapAllocation(%struct.tnode* {ptr})
+       """.format(ptr=ptr)
+
+    def malloc_right_node(self, ptr_left):
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+
+        self.code += """
+        %{0} = call %struct.tnode* @funk_mallocNodeRight(%struct.tnode* {ptr_left})
+        """.format(p[0], ptr_left=ptr_left)
+
+        return '%{}'.format(p[-1])
 
     def allocate_in_heap(self):
 

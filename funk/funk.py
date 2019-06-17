@@ -171,6 +171,7 @@ declare void @funk_sgt_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_or_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_mul_ri(%struct.tnode*, %struct.tnode*, i32) 
 declare void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32) #0 
+declare %struct.tnode* @funk_mallocNodeRight(%struct.tnode*) #0
 
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
