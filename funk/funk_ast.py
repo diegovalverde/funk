@@ -36,7 +36,6 @@ def list_concat_head(funk, left, right, result=None):
     right.eval(result=ptr_right)
 
 
-
 def create_ast_named_symbol(name, funk, right):
     symbol_name = '{}_{}_{}'.format(funk.function_scope.name, funk.function_scope.clause_idx, name)
 
@@ -51,7 +50,6 @@ def create_ast_named_symbol(name, funk, right):
     else:
         funk.symbol_table[symbol_name] = funk.create_variable_symbol(right, symbol_name)
 
-    #funk.emitter.init_stack_variable(funk.symbol_table[symbol_name])
 
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
@@ -577,6 +575,8 @@ class FunctionClause:
             clause_exit_label = '{}_{}_clause_exit'.format(name, clause_idx)
             clause_pm_label = '{}_{}_pattern_match'.format(name, clause_idx)
             clause_precondition_label = '{}_{}_clause_precondition'.format(name, clause_idx)
+            self.funk.function_scope.args = self.arguments
+            self.funk.function_scope.tail_pairs = self.tail_pairs
 
             # check for arity
             label_next = clause_entry_label
@@ -634,8 +634,6 @@ class FunctionClause:
                 result = self.preconditions.eval()
                 self.funk.emitter.br_cond('eq', self.funk.emitter.get_node_data_value(result), 1, clause_entry_label, clause_exit_label)
 
-            self.funk.function_scope.args = self.arguments
-            self.funk.function_scope.tail_pairs = self.tail_pairs
 
             self.funk.emitter.add_comment('========= Emitting clause {} ========'.format(clause_idx))
             self.funk.emitter.add_label(clause_entry_label)
