@@ -461,6 +461,15 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         store %struct.tnode* %2, %struct.tnode** {p_arglist}, align 8
                 """.format(p_arglist=p_arglist)
 
+            # Note that all of the input arguments to the function
+            # are copied into a new vector (sequential in memory) under
+            # the function stack frame. The reason for this is:
+            #   1 - In case of tail recursion we want to update this same vector
+            #   2 - We don't wan't the callee to modify the caller's stack thus the copy
+            # Note that this does not incur in additional stack space since this
+            # is done only once in case of tail recursion (which is the most used
+            # pattern in Funk
+            
             self.add_comment('Create the argument array')
             array = self.alloc_array(arg_count)
 
