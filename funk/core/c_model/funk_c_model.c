@@ -35,6 +35,63 @@ struct tnode
   int refCount;
 };
 
+
+char * printNodeType(int type){
+  switch(type){
+    case type_invalid: return "invalid_type"; break;
+    case type_int: return "int"; break;
+    case type_double: return "double"; break;
+    case type_array: return "array"; break;
+    case type_empty_array: return "empty_array"; break;
+    case type_scalar: return "scalar"; break;
+    case type_function: return "function"; break;
+    default:
+      return "unknown";
+  }
+}
+
+void funk_debug_printNode(struct tnode * n){
+
+  if (NULL == n){
+    printf("Node = nullptr\n");
+    return;
+  }
+  printf("addr: %p ",n);
+  switch(n->pd.type){
+    case type_invalid:
+       printf("data_type 'invalid_type' node_type %s \n ",printNodeType(n->type));
+      break;
+    case type_int:
+      printf("data_type 'int' value %d node_type %s \n ",n->pd.data.i,printNodeType(n->type));
+      break;
+    case type_double:
+      printf("data_type 'double' value %f node_type %s \n ",n->pd.data.f,printNodeType(n->type));
+      break;
+    case type_array:
+      printf("data_type 'array'node_type %s \n ",printNodeType(n->type));
+      break;
+    case type_empty_array:
+      printf("data_type 'empty_array' node_type %s \n ",printNodeType(n->type));
+      break;
+    case type_scalar:
+      printf("data_type 'scalar' value %d node_type %s \n ",n->pd.data.i,printNodeType(n->type));
+      break;
+    case type_function:
+      printf("data_type 'function' node_type %s \n ",printNodeType(n->type));
+      break;
+    default:
+      printf("data_type '?' node_type %s \n ",printNodeType(n->type));
+  }
+
+  if (n->refCount == -1){
+    printf(" [variable in the STACK]\n");
+  } else {
+    printf("ref_cnt %d\n", n->refCount);
+  }
+
+}
+
+
 void funk_slt_ri(struct tnode * r, struct tnode * n1, int lit){
   if (n1->pd.type == type_int){
       r->pd.data.i = (n1->pd.data.i < lit) ? 1 : 0;
@@ -241,6 +298,22 @@ void funk_mul_ri(struct tnode * r, struct tnode * n1, int lit){
 }
 
 
+void funk_div_ri(struct tnode * r, struct tnode * n1, int lit){
+  if (n1->pd.type == type_int ){
+      r->pd.data.i = n1->pd.data.i / lit;
+      r->pd.type = type_int;
+  } else if (n1->pd.type == type_double ){
+    r->pd.data.f = n1->pd.data.f / ((double)lit);
+    r->pd.type = type_double;
+  } else {
+    //Invalid data
+    printf("-E- funk_div_ri: invalid types %d\n ", n1->pd.type);
+    r->pd.type = type_invalid;
+  }
+
+}
+
+
 void funk_mul_rf(struct tnode * r, struct tnode * n1, double lit){
   if (n1->pd.type == type_int ){
       r->pd.data.f = ((double)n1->pd.data.i) * lit;
@@ -339,6 +412,9 @@ void init_random_seed(void){
 
 
 void print_scalar(struct tnode * n){
+  printf("print_scalar:");
+  funk_debug_printNode(n);
+
   switch( n->pd.type ){
     case type_int:
       printf("%d", n->pd.data.i);
@@ -441,54 +517,6 @@ void printCollectorStatus(){
   }
 }
 
-char * printNodeType(int type){
-  switch(type){
-    case type_invalid: return "invalid_type"; break;
-    case type_int: return "int"; break;
-    case type_double: return "double"; break;
-    case type_array: return "array"; break;
-    case type_empty_array: return "empty_array"; break;
-    case type_scalar: return "scalar"; break;
-    case type_function: return "function"; break;
-    default:
-      return "unknown";
-  }
-}
-
-void funk_debug_printNode(struct tnode * n){
-
-  if (NULL == n){
-    printf("Node = nullptr\n");
-    return;
-  }
-  switch(n->pd.type){
-    case type_invalid:
-      printf("addr: %p  data_type 'invalid_type' value %d node_type %s ref_cnt: %d\n ",n,0,printNodeType(n->type),n->refCount);
-      break;
-    case type_int:
-      printf("addr: %p  data_type 'int' value %d node_type %s ref_cnt: %d\n ",n,n->pd.data.i,printNodeType(n->type),n->refCount);
-      break;
-    case type_double:
-      printf("addr: %p  data_type 'double' value %f node_type %s ref_cnt: %d\n ",n,n->pd.data.f,printNodeType(n->type),n->refCount);
-      break;
-    case type_array:
-      printf("addr: %p  data_type 'array' value n/a node_type %s ref_cnt: %d\n ",n,printNodeType(n->type),n->refCount);
-      break;
-    case type_empty_array:
-      printf("addr: %p  data_type 'empty_array' value %d node_type %s ref_cnt: %d\n ",n,n->pd.data.i,printNodeType(n->type),n->refCount);
-      break;
-    case type_scalar:
-      printf("addr: %p  data_type 'scalar' value %d node_type %s ref_cnt: %d\n ",n,n->pd.data.i,printNodeType(n->type),n->refCount);
-      break;
-    case type_function:
-      printf("addr: %p  data_type 'function' node_type %s ref_cnt: %d\n ",n, printNodeType(n->type),n->refCount);
-      break;
-    default:
-      printf("addr: %p  data_type '?' value %d node_type %s ref_cnt: %d\n ",n,0,printNodeType(n->type),n->refCount);
-  }
-
-}
-
 void registerHeapAllocation(struct tnode * n){
 
   n->refCount = 1;
@@ -515,6 +543,8 @@ struct tnode * funk_mallocNodeRight(struct tnode * head){
   p_right->pd.type = head->pd.type;
   p_right->pd.data.i = -1;
   p_right->type = type_array;
+
+  funk_debug_printNode(head);
 
   return p_right;
 }
@@ -598,9 +628,12 @@ struct tnode * createLinkedList(int start, int end, unsigned char type ){
    return head;
 }
 
-void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n){
+void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n, unsigned char dst_on_stack){
   for (int i = 0; i < n; ++i){
       dst[i] = src[i];
+      if (dst_on_stack == 1){
+        dst[i].refCount = -1; //Just mark it to be on the stack
+      }
   }
 
 }

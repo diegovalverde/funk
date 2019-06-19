@@ -303,7 +303,7 @@ class Emitter:
             result = self.allocate_fn_return_node()
 
         self.add_comment('Create the argument array')
-        array = self.alloc_array(n)
+        array = self.alloc_array_on_stack(n)
 
         prev = None
         for i in range(n):
@@ -343,7 +343,7 @@ class Emitter:
 
         n = len(arguments)
         self.add_comment('Create the argument array')
-        array = self.alloc_array(n)
+        array = self.alloc_array_on_stack(n)
 
         for i in range(n):
             p_element = self.get_array_element(array, i, n)
@@ -445,6 +445,8 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.add_comment('pointer to result')
             p_result = self.alloc_tnode_pointer()
 
+            # TODO: Arity is already a copy, why do I
+            # TODO: need yet another copy on the stack?
             self.add_comment('function arity')
             arity = self.alloc_i32()
 
@@ -469,13 +471,13 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             # Note that this does not incur in additional stack space since this
             # is done only once in case of tail recursion (which is the most used
             # pattern in Funk
-            
+
             self.add_comment('Create the argument array')
-            array = self.alloc_array(arg_count)
+            array = self.alloc_array_on_stack(arg_count)
 
             array_ptr = self.get_array_element(array, 0, arg_count)
             self.code += """
-            call void @funk_memcp_arr(%struct.tnode* {dst}, %struct.tnode* {src}, i32 {n})
+            call void @funk_memcp_arr(%struct.tnode* {dst}, %struct.tnode* {src}, i32 {n}, i8 1)
             """.format(dst=array_ptr, src='%2', n=arg_count)
 
             self.code += """
@@ -590,7 +592,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[-1])
 
-    def alloc_array(self, length):
+    def alloc_array_on_stack(self, length):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
 
