@@ -59,28 +59,28 @@ void funk_debug_printNode(struct tnode * n){
   printf("addr: %p ",n);
   switch(n->pd.type){
     case type_invalid:
-       printf("data_type 'invalid_type' node_type %s \n ",printNodeType(n->type));
+       printf("data_type 'invalid_type' node_type %s",printNodeType(n->type));
       break;
     case type_int:
-      printf("data_type 'int' value %d node_type %s \n ",n->pd.data.i,printNodeType(n->type));
+      printf("data_type 'int' value %d node_type %s",n->pd.data.i,printNodeType(n->type));
       break;
     case type_double:
-      printf("data_type 'double' value %f node_type %s \n ",n->pd.data.f,printNodeType(n->type));
+      printf("data_type 'double' value %f node_type %s",n->pd.data.f,printNodeType(n->type));
       break;
     case type_array:
-      printf("data_type 'array'node_type %s \n ",printNodeType(n->type));
+      printf("data_type 'array'node_type %s",printNodeType(n->type));
       break;
     case type_empty_array:
-      printf("data_type 'empty_array' node_type %s \n ",printNodeType(n->type));
+      printf("data_type 'empty_array' node_type %s",printNodeType(n->type));
       break;
     case type_scalar:
-      printf("data_type 'scalar' value %d node_type %s \n ",n->pd.data.i,printNodeType(n->type));
+      printf("data_type 'scalar' value %d node_type %s",n->pd.data.i,printNodeType(n->type));
       break;
     case type_function:
-      printf("data_type 'function' node_type %s \n ",printNodeType(n->type));
+      printf("data_type 'function' node_type %s",printNodeType(n->type));
       break;
     default:
-      printf("data_type '?' node_type %s \n ",printNodeType(n->type));
+      printf("data_type '?' node_type %s",printNodeType(n->type));
   }
 
   if (n->refCount == -1){
@@ -412,9 +412,7 @@ void init_random_seed(void){
 
 
 void print_scalar(struct tnode * n){
-  printf("print_scalar:");
-  funk_debug_printNode(n);
-
+  
   switch( n->pd.type ){
     case type_int:
       printf("%d", n->pd.data.i);
