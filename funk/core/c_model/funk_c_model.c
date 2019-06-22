@@ -412,7 +412,7 @@ void init_random_seed(void){
 
 
 void print_scalar(struct tnode * n){
-  
+
   switch( n->pd.type ){
     case type_int:
       printf("%d", n->pd.data.i);
@@ -523,10 +523,7 @@ void registerHeapAllocation(struct tnode * n){
   gCollector.tail = gCollector.tail->next;
   gCollector.tail->next = NULL;
   gCollector.tail->ptr = n;
-
-
-  //funk_debug_printNode(n);
-
+  
 
 }
 

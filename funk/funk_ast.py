@@ -50,6 +50,10 @@ def create_ast_named_symbol(name, funk, right):
     else:
         funk.symbol_table[symbol_name] = funk.create_variable_symbol(right, symbol_name)
 
+    if isinstance(right, FunctionCall) or isinstance(right,List):
+        funk.function_scope.lhs_symbols.append(funk.symbol_table[symbol_name])
+
+    #funk.emitter.init_stack_variable(funk.symbol_table[symbol_name])
 
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
@@ -671,6 +675,21 @@ class FunctionClause:
                 self.funk.emitter.ret()
                 self.funk.emitter.br('l_{}_end'.format(name))
 
+            # Call the garbage collector
+            # The way it works is this: we will collect all of the
+            # LSH symbols under this function scope that have a refcount <= 0
+            # notice that this will not affect the return value since it is an
+            # un-named value, thus not part of the function named-symbol list
+
+            # First clear all of the LHS symbols
+            for lhs_symbol in self.funk.function_scope.lhs_symbols:
+                #ptr = self.funk.emitter.get_node_pointer(lhs_symbol)
+                self.funk.emitter.mark_node_for_garbage_collection(lhs_symbol )
+
+            # Now call the garbage collector
+            self.funk.emitter.collect_garbage()
+
+            self.funk.emitter.ret()
 
             self.funk.emitter.add_label(clause_exit_label)
 
@@ -707,6 +726,14 @@ class FunctionMap:
             index += 1
 
         self.funk.function_scope.clause_idx = 0
+
+        for lhs_symbol in self.funk.function_scope.lhs_symbols:
+            self.funk.emitter.mark_node_for_garbage_collection(lhs_symbol)
+        #if len(self.funk.function_scope.lhs_symbols) > 0:
+        #    self.funk.emitter.mark_node_for_garbage_collection(self.funk.function_scope.lhs_symbols[1])
+
+        self.funk.emitter.collect_garbage()
+
         self.funk.emitter.close_function(self.funk.function_scope.name)
 
         return scope_name

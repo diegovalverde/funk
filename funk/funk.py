@@ -37,6 +37,7 @@ class FunctionScope:
         self.name = name
         self.clause_idx = 0  # In case there are multiple clauses this makes sure variable names can be reused
         self.args = args
+        self.lhs_symbols = [] # This contains a list IR regs used
         self.tail_pairs = tail_pairs
         self.ret_val = ret_type
         self.emitter = Emitter()
@@ -56,13 +57,13 @@ class FunctionScope:
                 args_string += ', '
 
         firm = """
-        
+
 define {ret_val} @{name}({args}) #0 {{
 """.format(ret_val=self.ret_val, name=self.name, args=args_string)
 
         post_amble = """
-        
-        ;; Each function has a  return statement      
+
+        ;; Each function has a  return statement
         {0}
 }}
 
@@ -90,7 +91,7 @@ class Funk:
             """
 ;; =============================================================== ;;
 ;;
-;; *** F U N K ! *** Runtime embedded environment 
+;; *** F U N K ! *** Runtime embedded environment
 ;;
 ;;
 ;; https://llvm.org/docs/LangRef.html
@@ -154,25 +155,28 @@ declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sub_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_div_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_mul_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0 
+declare void @funk_mul_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_add_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_sub_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_div_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare  void @funk_mod_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare %struct.tnode* @funk_CreateLinkedListConstInt(i32, i32, i32) #0  
-declare void @registerHeapAllocation(%struct.tnode*) #0 
+declare %struct.tnode* @funk_CreateLinkedListConstInt(i32, i32, i32) #0
+declare void @registerHeapAllocation(%struct.tnode*) #0
 declare void @initGarbageCollector() #0
+declare void @collectGarbage() #0
 declare i32 @"\\01_usleep"(i32) #1
-declare %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0 
+declare %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0
 declare void @createLhsStackVar(%struct.tnode*) #0
-declare float @funk_ToFloat(%struct.tnode*) #0  
+declare float @funk_ToFloat(%struct.tnode*) #0
 declare void @funk_slt_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sgt_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_or_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_mul_ri(%struct.tnode*, %struct.tnode*, i32) 
-declare void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32, i8 zeroext) #0 
+declare void @funk_mul_ri(%struct.tnode*, %struct.tnode*, i32)
 declare %struct.tnode* @funk_mallocNodeRight(%struct.tnode*) #0
+declare void @markNodeForGarbageCollection(%struct.tnode*) #0
+declare void @printCollectorStatus() #0
+declare void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32, i8 zeroext) #0
 
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
