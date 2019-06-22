@@ -14,6 +14,10 @@ type_scalar = 5,
 type_function = 6,
 };
 
+int g_funk_print_array_element_per_row = 50;
+
+
+
 struct tdata
 {
   unsigned char type;
@@ -370,7 +374,7 @@ void funk_sub_ri(struct tnode * r, struct tnode * n1, int i){
     r->pd.data.i = n1->pd.data.i - i;
     r->pd.type = type_int;
   } else {
-    //Invalid data
+    printf("-E- funk_sub_ri: invalid types %d\n ", n1->pd.type);
     r->pd.type = type_invalid;
   }
 
@@ -391,8 +395,8 @@ void funk_mod_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
     r->pd.data.f = n1->pd.data.i % ((int)n2->pd.data.f);
     r->pd.type = 1;
   } else {
-    //Invalid data
-    r->pd.type = 0;
+    printf("-E- funk_mod_rr: invalid types %d\n ", n1->pd.type);
+    r->pd.type = type_invalid;
   }
 
 }
@@ -406,23 +410,42 @@ int rand_range(int lower, int upper){
 
 void init_random_seed(void){
   unsigned int seed = (unsigned int)time(NULL);
-  printf("-I- init_random_seed: %d\n", seed);
+  //printf("-I- init_random_seed: %d\n", seed);
   srand(seed);
 }
 
+void funk_print_scalar_element(struct tnode * n){
+
+    switch( n->pd.type ){
+      case type_int:
+        printf(" %d ", n->pd.data.i);
+        break;
+      case type_double:
+        printf(" %f ", n->pd.data.f);
+        break;
+      default:
+        printf("-E- Cannot print type %d\n", n->pd.type);
+    }
+}
 
 void print_scalar(struct tnode * n){
 
-  switch( n->pd.type ){
-    case type_int:
-      printf("%d", n->pd.data.i);
-      break;
-    case type_double:
-      printf("%f", n->pd.data.f);
-      break;
-    default:
-      printf("-E- Cannot print type %d\n", n->pd.type);
+  if (n->type == type_array){
+    struct tnode * p = n;
+    int cnt = 0;
+    while(p->next !=NULL){
+      funk_print_scalar_element(p);
+      if (cnt > 0 && ((cnt % g_funk_print_array_element_per_row) == 0)){
+        printf("\n");
+      }
+      p = p->next;
+      cnt++;
+    }
+
+  } else {
+    funk_print_scalar_element(n);
   }
+
 }
 
 double rand_double(double lower, double upper){
@@ -457,7 +480,6 @@ void initGarbageCollector( void ){
 
   while (p && p->next){
     if (p->ptr && p->ptr->refCount <= 0){
-      printf(".");
       free(p->ptr);
       prev->next = p->next;
       free(p);
@@ -509,7 +531,7 @@ void printCollectorStatus(){
 
  void markNodeForGarbageCollection(struct tnode * p){
   while (p){
-    printf("+");
+
     p->refCount = 0;
     p = p->next;
   }
@@ -523,7 +545,7 @@ void registerHeapAllocation(struct tnode * n){
   gCollector.tail = gCollector.tail->next;
   gCollector.tail->next = NULL;
   gCollector.tail->ptr = n;
-  
+
 
 }
 
@@ -539,7 +561,7 @@ struct tnode * funk_mallocNodeRight(struct tnode * head){
   p_right->pd.data.i = -1;
   p_right->type = type_array;
 
-  funk_debug_printNode(head);
+  //funk_debug_printNode(head);
 
   return p_right;
 }
