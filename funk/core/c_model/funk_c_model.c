@@ -41,6 +41,18 @@ struct tnode
 };
 
 
+void funk_set_config_param(int id, int value){
+  printf("-I- Setting conf parameter %d to value %d\n", id, value);
+  switch (id){
+    case 0:
+      g_funk_print_array_max_elements = value;
+      break;
+    defaut:
+      break;
+  };
+
+}
+
 char * printNodeType(int type){
   switch(type){
     case type_invalid: return "invalid_type"; break;
@@ -461,6 +473,10 @@ void print_scalar(struct tnode * n){
       }
       p = p->next;
       cnt++;
+    }
+
+    if (p->next != NULL){
+      printf(" ... ");
     }
     printf(" ]");
 
