@@ -18,31 +18,32 @@ update_cell(alive, cnt | alive = 0 /\ cnt = 3 ):
 # All others: ie. dead cells with no neighbours remain dead
 update_cell(_, _  ): 0.
 
-update_board(_ , _ , br | len(br) < 5):
+update_board(_ , _ , br, i | len(br) < 5):
         say(len(br), ' =========== STOP ==========')
         [].
 
-update_board(_ <~ [tr], _ <~ [mr], _ <~ [br] ):
-    # say('len(tr) ', len(tr))
-    # say('len(mr) ', len(mr))
-    # say('len(br) ', len(br))
-
-
+update_board(_ <~ [tr], _ <~ [mr], _ <~ [br], i ):
     cnt <- accumn(tr,  3) + accumn(br, 3) + mr + nth(mr, 2)
     # change syntax to say('cell',[mr],'cnt =',cnt)
 
-    say('cell',mr,'cnt =',cnt)
+    say(i, 'cell',mr,'cnt =',cnt)
 
 
-    update_cell(mr, cnt) ~> [update_board( tr, mr, br  )].
+    update_cell(mr, cnt) ~> [update_board( tr, mr, br, i + 1  )].
 
 
 s2d_render():
     w <- 50
 
-    board <-  set_k(set_k(set_k([0 | 0 <= cell < 2000 ], 210, 1),211,1),212,1)
+    board <-  set_k(set_k(set_k(set_k([0 | 0 <= cell < 2000 ], 210, 1),211,1),212,1),50,666)
 
-    new_board <- update_board(board, nth(board,w), nth(board,2*w))
+    #board <-  set_k(set_k(set_k([cell | 0 <= cell < 2000 ], 2, 77),3,78),4,79)
+    # say(board)
+    say( '50 ->',nth(board, 50))
+    # say( '211 ->',nth(board, 211))
+    # say( '212 ->',nth(board, 212))
+
+    new_board <- update_board(board, nth(board,w), nth(board,2*w), w)
 
 
 
@@ -50,4 +51,5 @@ s2d_render():
 
 
 main():
+    funk_set_config(0,3)
     s2d_window('the game of life', 800, 600 ).

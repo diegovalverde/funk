@@ -501,6 +501,7 @@ class FunctionCall:
         self.args = args
 
         self.system_functions = {
+            'funk_set_config': SetConfigParam,
             'sleep': Sleep,
             'rand_int': RandInt,
             'rand_float': RandFloat,
@@ -787,6 +788,19 @@ class RandFloat:
 
     def eval(self, result=None):
         return self.funk.emitter.rand_double(self.funk, self.arg_list, result=result)
+
+
+class SetConfigParam:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    @staticmethod
+    def get_compile_type():
+        return funk_types.int
+
+    def eval(self, result=None):
+        return self.funk.emitter.set_config_parameter(self.arg_list)
 
 
 class Sleep:

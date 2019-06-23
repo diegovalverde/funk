@@ -576,6 +576,18 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[0])
 
+    def set_config_parameter(self, args):
+
+        if len(args) != 2:
+            raise Exception('=== set_config_parameter takes 2 parameters')
+
+        id = args[0]
+        value = args[1]
+
+        self.code += """
+        call void @funk_set_config_param(i32 {}, i32 {})
+        """.format(id.eval(), value.eval())
+
     def alloc_tnode(self, name, value=None, data_type=None, node_type=None):
         p = [x for x in range(self.index, self.index + 1)]
 
@@ -869,8 +881,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         """.format(
                 x1=v[0], y1=v[1], x2=v[2], y2=v[3], x3=v[4], y3=v[5], x4=v[6],
                 y4=v[7], r=v[8], g=v[9], b=v[10], alpha=v[11])
-
-
 
     def sleep(self, funk, args):
 
