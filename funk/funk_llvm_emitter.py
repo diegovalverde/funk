@@ -595,6 +595,8 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         if node_type is not None:
             self.set_node_type(node, node_type)
+        else:
+            self.set_node_type(node,  funk_types.scalar)
 
         return node
 
