@@ -14,6 +14,7 @@ type_scalar = 5,
 type_function = 6,
 };
 
+int g_funk_print_array_max_elements = 3;
 int g_funk_print_array_element_per_row = 50;
 
 
@@ -154,15 +155,16 @@ void funk_mod_ri(struct tnode * r, struct tnode * n1, int lit){
 }
 
 void funk_eq_ri(struct tnode * r, struct tnode * n1, int lit){
-  if (n1->pd.type == 2){
+  if (n1->pd.type == type_double){
       r->pd.data.f = n1->pd.data.f * (float)lit;
-      r->pd.type = 2;
-  } else if (n1->pd.type == 1 ){
+      r->pd.type = type_double;
+  } else if (n1->pd.type == type_int ){
     r->pd.data.i = (n1->pd.data.i == lit) ? 1 : 0;
-    r->pd.type = 1;
+    r->pd.type = type_int;
   } else {
     //Invalid data
-    r->pd.type = 0;
+    printf("funk_eq_ri: invalid types %d\n ", n1->pd.type);
+    r->pd.type = type_invalid;
   }
 
 }
@@ -172,10 +174,28 @@ void funk_or_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
       r->pd.data.i = ((n1->pd.data.i != 0) || (n2->pd.data.i != 0)) ? 1 : 0;
       r->pd.type = type_int;
   } else if (n1->pd.type == type_double && n2->pd.type == type_double){
-    r->pd.data.f= ((n1->pd.data.i != 0.0f) || (n2->pd.data.i != 0.0f)) ? 1.0f : 0.0f;
+    r->pd.data.f= ((n1->pd.data.f != 0.0f) || (n2->pd.data.f != 0.0f)) ? 1.0f : 0.0f;
     r->pd.type = type_double;
   } else if (n1->pd.type != n2->pd.type){
-    //Invalid data
+
+    printf("funk_or_rr: invalid types %d, %d\n ", n1->pd.type, n2->pd.type);
+    r->pd.type = type_invalid;
+  } else {
+    r->pd.type = type_invalid;
+  }
+}
+
+
+void funk_and_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
+
+  if (n1->pd.type == type_int && n2->pd.type == type_int){
+      r->pd.data.i = ((n1->pd.data.i != 0) && (n2->pd.data.i != 0)) ? 1 : 0;
+      r->pd.type = type_int;
+  } else if (n1->pd.type == type_double && n2->pd.type == type_double){
+    r->pd.data.f= ((n1->pd.data.f != 0.0f) && (n2->pd.data.f != 0.0f)) ? 1.0f : 0.0f;
+    r->pd.type = type_double;
+  } else if (n1->pd.type != n2->pd.type){
+    printf("funk_and_rr: invalid types %d, %d\n ", n1->pd.type, n2->pd.type);
     r->pd.type = type_invalid;
   } else {
     r->pd.type = type_invalid;
@@ -433,7 +453,8 @@ void print_scalar(struct tnode * n){
   if (n->type == type_array){
     struct tnode * p = n;
     int cnt = 0;
-    while(p->next !=NULL){
+    printf("[ ");
+    while(p->next !=NULL && cnt < g_funk_print_array_max_elements){
       funk_print_scalar_element(p);
       if (cnt > 0 && ((cnt % g_funk_print_array_element_per_row) == 0)){
         printf("\n");
@@ -441,6 +462,7 @@ void print_scalar(struct tnode * n){
       p = p->next;
       cnt++;
     }
+    printf(" ]");
 
   } else {
     funk_print_scalar_element(n);
