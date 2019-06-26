@@ -533,6 +533,17 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
        call void @registerHeapAllocation(%struct.tnode* {ptr})
        """.format(ptr=ptr)
 
+    def concat_list(self,left,right):
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+
+        self.code += """
+        %{0} = call %struct.tnode* @funk_concatenate_lists(%struct.tnode* {left}, %struct.tnode* {right})
+        """.format(p[0], left=left, right=right)
+
+        return '%{}'.format(p[-1])
+
+
     def malloc_right_node(self, ptr_left):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1

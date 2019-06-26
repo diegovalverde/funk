@@ -202,13 +202,39 @@ class TreeToAst(Transformer):
     def action_arith_mod(self, token):
         return self.bin_op(token[0], funk_ast.Mod)
 
+    def action_assignment(self, children):
+        if len(children) != 2:
+            raise Exception('Malformed assignment statement')
+
+        lhs, rhs = children
+
+        if isinstance(lhs, funk_ast.List):
+            rhs.left = lhs.name
+            rhs.direction = funk_ast.ListConcat.tail
+        else:
+            rhs.left = lhs
+
+        return rhs
+
+    def action_assignment_lhs(self,tokens):
+        return tokens[0]
+
     def action_lhs_assignment(self, children):
         rhs = children[0]
         return funk_ast.Assignment(self.funk, None, rhs)
 
-    def action_list_concat_head(self, children):
+    def action_list_concat_lsh(self, children):
+        lhs = children[0]
+
+        return funk_ast.List(self.funk, lhs, None)
+
+    def action_list_concat_rhs(self, children):
+        if len(children) != 1:
+            raise Exception('Malformed list concatenation statement')
+
         rhs = children[0]
-        return funk_ast.ListConcatHead(self.funk, None, rhs)
+
+        return funk_ast.ListConcat(self.funk, left=None, right=rhs)
 
     def action_bool_and(self, token):
         return funk_ast.And(self.funk, right=token[0])

@@ -19,6 +19,24 @@
 from . import funk_types
 
 
+def list_concat_tail(funk, left, right, result=None):
+    """
+    This corresponds to:
+        [X] ~> [MyArray]
+
+    Note that this operation will allocate the resulting
+    list in the Heap.
+
+    """
+
+    funk.emitter.add_comment('Concatenating two arrays')
+    ptr_left = left.eval(result=result)
+    ptr_right = right.eval()
+
+    return funk.emitter.concat_list(ptr_left, ptr_right)
+
+
+
 def list_concat_head(funk, left, right, result=None):
     """
     This corresponds to:
@@ -419,13 +437,22 @@ class LessThan(BoolBinaryOp):
             return self.funk.emitter.icmp_signed('slt', l, r)
 
 
-class ListConcatHead(BinaryOp):
+class ListConcat(BinaryOp):
+    head = 1
+    tail = 2
+
+    def __init__(self, funk, left=None, right=None):
+        BinaryOp.__init__(self, funk, left, right)
+        self.direction = ListConcat.head
+
     def __repr__(self):
-        return 'ListConcatHead({} , {})'.format(self.left, self.right)
+        return 'ListConcatTail({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        list_concat_head(self.funk, self.left, self.right, result=result)
-
+        if self.direction == ListConcat.tail:
+            list_concat_tail(self.funk, self.left, self.right, result=result)
+        else:
+            list_concat_head(self.funk, self.left, self.right, result=result)
 
 class Assignment(BinaryOp):
     def __repr__(self):

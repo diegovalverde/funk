@@ -14,7 +14,7 @@ type_scalar = 5,
 type_function = 6,
 };
 
-int g_funk_print_array_max_elements = 3;
+int g_funk_print_array_max_elements = 30;
 int g_funk_print_array_element_per_row = 50;
 
 
@@ -460,6 +460,8 @@ void funk_print_scalar_element(struct tnode * n){
     }
 }
 
+
+
 void print_scalar(struct tnode * n){
 
   if (n->type == type_array){
@@ -483,6 +485,28 @@ void print_scalar(struct tnode * n){
   } else {
     funk_print_scalar_element(n);
   }
+
+}
+
+struct tnode * funk_concatenate_lists(struct tnode * left, struct tnode * right){
+  int i = 0;
+  struct tnode * p = left;
+  while(p && p->next->type != type_empty_array)
+  {
+    printf(".");
+    funk_debug_printNode(p);
+    p = p->next;
+    i++;
+  }
+
+  //make sure the dummy node will get deleted eventually
+  p->next->refCount = 0;
+
+
+  p->next = right;
+  print_scalar(left);
+
+  return left;
 
 }
 

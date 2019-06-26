@@ -22,28 +22,30 @@
 
     function_body: (statement _NEWLINE)* return_statement "." _NEWLINE?
 
-    return_statement: expr
+    return_statement: statement
 
-    statement: expr
 
-    expr: term (expr_rhs | expr_rhs_cond )
 
-    ///////////////////////////////////////////
-    // Conditional Expressions
-    ///////////////////////////////////////////
+    //expr: term (expr_rhs | expr_rhs_cond )
+    statement: assignment
+             | expr
 
-    expr_rhs_cond: "<-?" boolean_expr ":" expr "," expr
+    expr: term [expr_]
+
+    assignment: assignment_lhs assignment_rhs  -> action_assignment
+
+    assignment_lhs: "[" identifier "]" -> action_list_concat_lsh
+                    | expr       -> action_assignment_lhs
+
+
+    assignment_rhs:   "<-?" boolean_expr ":" expr "," expr
+                    | "<-" expr       -> action_lhs_assignment
+                    | "~>" list       -> action_list_concat_rhs
 
 
     ///////////////////////////////////////////
     // Arithmetic Expressions
     ///////////////////////////////////////////
-
-
-
-    expr_rhs: "<-" expr     -> action_lhs_assignment
-              | "~>" list   -> action_list_concat_head
-              | [expr_]  //TODO: Check this production ...
 
 
     expr_:    "+" term [expr_]  -> action_arith_add

@@ -179,6 +179,7 @@ declare void @printCollectorStatus() #0
 declare void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32, i8 zeroext) #0
 declare void @funk_and_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_set_config_param(i32, i32) #0
+declare %struct.tnode* @funk_concatenate_lists(%struct.tnode*, %struct.tnode*) #0 
 
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 

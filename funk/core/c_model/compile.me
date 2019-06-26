@@ -1,1 +1,1 @@
-clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c && /usr/local/Cellar/llvm/6.0.1/bin/llc -filetype=obj funk_c_model.ll && clang funk_c_model.o 
+clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -o funk/core/funk_core.ll && sed -i '' 's/llvm.memcpy.p0i8.p0i8.i64/memcpy/' funk/core/funk_core.ll

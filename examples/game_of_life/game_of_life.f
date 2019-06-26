@@ -1,4 +1,4 @@
-use nth, accumn, s2d, render_board, len, foreach, set_k, map
+ use nth, accumn, s2d, render_board, len, foreach, set_k, map
 
 # Any live cell with fewer than two live neighbours dies
 update_cell(alive, cnt |  alive = 1 /\ cnt < 2 ): 0.
@@ -26,6 +26,9 @@ update_board(_ , _ , br, i | len(br) < 5):
         say(len(br), ' =========== STOP ==========')
         [].
 
+# update_board(a <~ [tr], mr, br, i | i < 50):
+#      say('top row')
+#      a ~> [update_board( tr, mr, br, i + 1  )].
 
 update_board(a <~ [tr], b <~ [mr], c <~ [br], i ):
     cnt <- a + b + c  + br + tr + nth(tr,1) + nth(mr, 1) + nth(br,1)
@@ -45,11 +48,19 @@ update_board(a <~ [tr], b <~ [mr], c <~ [br], i ):
     update_cell(mr, cnt) ~> [update_board( tr, mr, br, i + 1  )].
 
 
+sublist(_, k | k = 0): [].
+
+sublist(h <~[t], k):
+    x <- 1
+    x ~> [sublist(t,k-1)].
+
+
 s2d_render():
     w <- 50
 
     board <-  set_k(set_k(set_k([0 | 0 <= cell < 2000 ], 210, 1),211,1),212,1)
 
+    s <- [1 | 0 < i < 50]
     #board <-  set_k(set_k(set_k([cell | 0 <= cell < 2000 ], 2, 77),3,78),4,79)
     # say(board)
     say( '50 ->',nth(board, 50))
@@ -58,12 +69,22 @@ s2d_render():
     # say( '212 ->',nth(board, 212))
     mr <- nth(board, w)
 
+    # We only update for the middle row, this means we are missing the top
+    # row
+    # [sublist(board, w)] ~> [new_board]
+    # Can also think of a function list(my_array) that returns all
+    # the nodes of the linked list in consecutive memory positions
 
-    new_board <- update_board(board, nth(board,w), nth(board,2*w), w)
+
+    new_board <- update_board(board, nth(board,w), nth(board,2*w), 0)
+
+    #x <- sublist(board, w) ~> [new_board]
+    say('s=',len(s),'new_board=',len(new_board))
+    [s] ~> [new_board]
+    say('>>>>>','s=',len(s))
 
 
-
-    render_board(board, 150, 100, w, 10 ).
+    render_board(s, 150, 100, w, 10 ).
 
 
 main():
