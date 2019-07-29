@@ -18,7 +18,7 @@
 
     more_extern_funcs: "," identifier [more_extern_funcs]
 
-    function: identifier "(" [fn_firm_args] ")" ":" _NEWLINE? function_body
+    function: identifier "(" fn_firm_args ")" ":" _NEWLINE? function_body
 
     function_body: (statement _NEWLINE)* return_statement "." _NEWLINE?
 
@@ -107,7 +107,8 @@
 
     more_list_comprehension_conditions: "," boolean_expr
 
-    list_elements: expr [more_list_elements]
+    list_elements: list_element [more_list_elements]
+
 
     more_list_elements:  "," list_element [more_list_elements]
 
@@ -120,7 +121,7 @@
 
     function_call: identifier [fn_call_arguments]
 
-    fn_call_arguments:  "(" list_elements ")" -> action_function_call_args
+    fn_call_arguments:  "(" [list_elements] ")" -> action_function_call_args
 
 
     ///////////////////////////////////////////
@@ -128,6 +129,7 @@
     ///////////////////////////////////////////
 
     fn_firm_args: fn_firm_element [more_fn_firm_elements] [fn_precondition]
+                  | -> action_no_function_args
 
     fn_firm_elements: fn_firm_element [more_fn_firm_elements]
 

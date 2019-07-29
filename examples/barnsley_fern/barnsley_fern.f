@@ -32,7 +32,9 @@ barnsley(n , prev_x, prev_y, r ):
 
 
 s2d_render():
-    barnsley(10000, 0.0, 0.0, rand_float(0.0, 100.0) ).
+    barnsley(10000, 0.0, 0.0, rand_float(0.0, 100.0) )
+    s2d_render().
 
 main():
-    s2d_window('barnsley fern', 800, 600 ).
+    s2d_window('barnsley fern', 800, 600 )
+    s2d_render().

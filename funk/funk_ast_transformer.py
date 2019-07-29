@@ -48,49 +48,69 @@ class TreeToAst(Transformer):
             print('--Debug-- statement', token)
         return token
 
+    @staticmethod
+    def parse_function_firm(firm):
+        if len(firm) == 0:
+            return None, None, None, None
+
+        fn_arguments = []
+        tail_pairs = []
+        pattern_matches = []
+        position = 0
+        preconditions = None
+
+        if isinstance(firm[-1], funk_ast.BinaryOp):
+            preconditions = firm[-1]
+            firm.pop()
+
+        for arg in firm:
+            if isinstance(arg, funk_ast.HeadTail):
+                fn_arguments.append(arg.head)
+                tail_pairs.append([arg.head, arg.tail])
+            elif isinstance(arg, funk_ast.PatternMatch):
+                fn_arguments.append('_')
+                arg.position = position
+                pattern_matches.append(arg)
+            else:
+                fn_arguments.append(arg.name)
+
+            position += 1
+
+        return fn_arguments, pattern_matches, tail_pairs, preconditions
+
     def function(self, tree):
         # TODO Needs refactoring
 
         fn_name = tree[0].name
 
         special_fns = ['main', 's2d_render']
+        firm = remove_invalid(flatten(tree[1]))
+        fn_arguments, pattern_matches, tail_pairs, preconditions = self.parse_function_firm(firm)
+        fn_body = flatten(tree[2])
+
         if fn_name in special_fns:
+            function_key = fn_name
+            # local_symbol_name = '{}_{}_{}'.format(fn_name,
+            #                                       0,
+            #                                       fn_arguments[0])
+            #
+            # # Now check to see if it is a local (function scope) variable
+            #
+            # self.funk.symbol_table[local_symbol_name] = self.funk.emitter.get_s2d_user_global_state()
 
-            fn_body = flatten(tree[1])
-            clause = funk_ast.FunctionClause(self.funk, fn_name, fn_body, preconditions=None, pattern_matches=None,
-                                             arguments=[])
+            if fn_name == 's2d_render':
+                fn_arguments = ['sd2_render_user_state']
 
-            self.function_map[fn_name] = funk_ast.FunctionMap(self.funk, fn_name, [])
-            self.function_definition_list.append(fn_name)
-            self.function_map[fn_name].clauses.append(clause)
+            clause = funk_ast.FunctionClause(self.funk, function_key, fn_body, preconditions, pattern_matches,
+                                             arguments=fn_arguments, tail_pairs=tail_pairs)
+
+            self.function_map[function_key] = funk_ast.FunctionMap(self.funk, function_key, arguments=fn_arguments,
+                                                                   tail_pairs=tail_pairs)
+
+            self.function_definition_list.append(function_key)
+            self.function_map[function_key].clauses.append(clause)
+
         else:
-
-            firm = remove_invalid(flatten(tree[1]))
-
-            preconditions = None
-            if isinstance(firm[-1], funk_ast.BinaryOp):
-                preconditions = firm[-1]
-                firm.pop()
-
-            fn_arguments = []
-            tail_pairs = []
-            pattern_matches = []
-            position = 0
-
-            for arg in firm:
-                if isinstance(arg, funk_ast.HeadTail):
-                    fn_arguments.append(arg.head)
-                    tail_pairs.append([arg.head, arg.tail])
-                elif isinstance(arg, funk_ast.PatternMatch):
-                    fn_arguments.append('_')
-                    arg.position = position
-                    pattern_matches.append(arg)
-                else:
-                    fn_arguments.append(arg.name)
-
-                position += 1
-
-            fn_body = flatten(tree[2])
             function_key = '@{}'.format(fn_name)
 
             clause = funk_ast.FunctionClause(self.funk, function_key, fn_body, preconditions, pattern_matches,
@@ -159,6 +179,9 @@ class TreeToAst(Transformer):
 
     def action_pop_list_head(self, token):
         return token[0]
+
+    def action_no_function_args(self,token):
+        return []
 
     def action_match_empty_list(self, token):
         return funk_ast.PatternMatchEmptyList(self.funk)

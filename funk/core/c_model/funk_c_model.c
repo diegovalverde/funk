@@ -19,6 +19,8 @@ int g_funk_print_array_element_per_row = 50;
 
 
 
+
+
 struct tdata
 {
   unsigned char type;
@@ -39,6 +41,15 @@ struct tnode
   struct tnode * next;
   int refCount;
 };
+
+struct tnode gRenderLoopState;
+void set_s2d_user_global_state(struct tnode * n){
+  gRenderLoopState = *n;
+}
+
+struct tnode get_s2d_user_global_state(){
+  return gRenderLoopState;
+}
 
 
 void funk_set_config_param(int id, int value){
@@ -584,6 +595,13 @@ void printCollectorStatus(){
     p = p->next;
   }
 
+}
+
+
+void funk_exit(){
+  collectGarbage();
+  printf("-I- Exiting\n");
+  exit(0);
 }
 
  void createLhsStackVar(struct tnode * p){

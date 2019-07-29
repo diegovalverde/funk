@@ -9,7 +9,9 @@ walk(n, prev_x, prev_y):
     walk(n - 1, x, y).
 
 s2d_render():
-    walk( 1000, 400.0, 300.0).
+    walk( 1000, 400.0, 300.0)
+    s2d_render().
 
 main():
-    s2d_window('random walk', 800, 600 ).
+    s2d_window('random walk', 800, 600 )
+    s2d_render().

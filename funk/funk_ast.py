@@ -36,7 +36,6 @@ def list_concat_tail(funk, left, right, result=None):
     return funk.emitter.concat_list(ptr_left, ptr_right)
 
 
-
 def list_concat_head(funk, left, right, result=None):
     """
     This corresponds to:
@@ -71,7 +70,6 @@ def create_ast_named_symbol(name, funk, right):
     if isinstance(right, FunctionCall) or isinstance(right, List):
         funk.function_scope.lhs_symbols.append(funk.symbol_table[symbol_name])
 
-    #funk.emitter.init_stack_variable(funk.symbol_table[symbol_name])
 
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
@@ -242,6 +240,13 @@ class Identifier:
             node = self.funk.emitter.alloc_tnode('global_symbol_ref', value=0, data_type=funk_types.function)
             data = self.funk.emitter.get_node_data(node)
             self.funk.emitter.load_global_function_to_data(data, global_symbol_name)
+            if result is not None:
+                self.funk.emitter.copy_node(node, result)
+            return node
+
+        if 'sd2_render_user_state' in self.funk.function_scope.args:
+            node = self.funk.emitter.alloc_tnode('tmp_sd2_render_user_state')
+            self.funk.emitter.get_s2d_user_global_state(node)
             if result is not None:
                 self.funk.emitter.copy_node(node, result)
             return node
@@ -454,6 +459,7 @@ class ListConcat(BinaryOp):
         else:
             list_concat_head(self.funk, self.left, self.right, result=result)
 
+
 class Assignment(BinaryOp):
     def __repr__(self):
         return 'Assignment({} , {})'.format(self.left, self.right)
@@ -538,6 +544,7 @@ class FunctionCall:
             's2d_point': S2DDrawPoint,
             's2d_quad': S2DDrawQuad,
             's2d_render': S2DRenderFunction,  # void s2d_render(void)
+            'exit': Exit,
         }
 
     def get_compile_type(self):
@@ -559,7 +566,7 @@ class FunctionCall:
 
         # First check if this is globally defined function
         if name in self.funk.functions:
-            return self.funk.emitter.call(name, [create_ast_anon_symbol(self.funk, a) for a in self.args], result=result)
+            return self.funk.emitter.call_function(name, [create_ast_anon_symbol(self.funk, a) for a in self.args], result=result)
 
         # Now check if this is an input argument containing a function pointer
         i = 0
@@ -593,6 +600,7 @@ class FunctionClause:
     def emit(self, clause_idx, arity):
         # TODO: refactor
         if self.name in ['main', 's2d_render']:
+
             for stmt in self.body:
                 stmt.eval()
 
@@ -830,6 +838,18 @@ class SetConfigParam:
         return self.funk.emitter.set_config_parameter(self.arg_list)
 
 
+class Exit:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    @staticmethod
+    def get_compile_type():
+        return funk_types.int
+
+    def eval(self, result=None):
+        return self.funk.emitter.exit(self.funk, self.arg_list)
+
 class Sleep:
     def __init__(self, funk, arg_list):
         self.funk = funk
@@ -855,7 +875,7 @@ class S2DCreateWindow:
         self.arg_list = arg_list
 
     def eval(self, result=None):
-        self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
+        self.funk.window = self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
 
 
 class S2DRenderFunction:

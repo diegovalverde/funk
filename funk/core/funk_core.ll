@@ -3,14 +3,15 @@ source_filename = "funk/core/c_model/funk_c_model.c"
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.14.0"
 
-%struct.GC = type { %struct.gcNode*, %struct.gcNode* }
-%struct.gcNode = type { %struct.tnode*, %struct.gcNode* }
 %struct.tnode = type { i8, %struct.tdata, %struct.tnode*, i32 }
 %struct.tdata = type { i8, %union.data_type }
 %union.data_type = type { double }
+%struct.GC = type { %struct.gcNode*, %struct.gcNode* }
+%struct.gcNode = type { %struct.tnode*, %struct.gcNode* }
 
 @g_funk_print_array_max_elements = global i32 30, align 4
 @g_funk_print_array_element_per_row = global i32 50, align 4
+@gRenderLoopState = common global %struct.tnode zeroinitializer, align 8
 @.str = private unnamed_addr constant [43 x i8] c"-I- Setting conf parameter %d to value %d\0A\00", align 1
 @.str.1 = private unnamed_addr constant [13 x i8] c"invalid_type\00", align 1
 @.str.2 = private unnamed_addr constant [4 x i8] c"int\00", align 1
@@ -62,6 +63,27 @@ target triple = "x86_64-apple-macosx10.14.0"
 @.str.47 = private unnamed_addr constant [21 x i8] c"<invalid_data_type>\0A\00", align 1
 @.str.48 = private unnamed_addr constant [16 x i8] c"<unknown type>\0A\00", align 1
 @.str.49 = private unnamed_addr constant [6 x i8] c"null\0A\00", align 1
+@.str.50 = private unnamed_addr constant [13 x i8] c"-I- Exiting\0A\00", align 1
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @set_s2d_user_global_state(%struct.tnode*) #0 {
+  %2 = alloca %struct.tnode*, align 8
+  store %struct.tnode* %0, %struct.tnode** %2, align 8
+  %3 = load %struct.tnode*, %struct.tnode** %2, align 8
+  %4 = bitcast %struct.tnode* %3 to i8*
+  call void @memcpy(i8* align 8 getelementptr inbounds (%struct.tnode, %struct.tnode* @gRenderLoopState, i32 0, i32 0), i8* align 8 %4, i64 40, i1 false)
+  ret void
+}
+
+; Function Attrs: argmemonly nounwind
+declare void @memcpy(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #1
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @get_s2d_user_global_state(%struct.tnode* noalias sret) #0 {
+  %2 = bitcast %struct.tnode* %0 to i8*
+  call void @memcpy(i8* align 8 %2, i8* align 8 getelementptr inbounds (%struct.tnode, %struct.tnode* @gRenderLoopState, i32 0, i32 0), i64 40, i1 false)
+  ret void
+}
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_set_config_param(i32, i32) #0 {
@@ -88,7 +110,7 @@ define void @funk_set_config_param(i32, i32) #0 {
   ret void
 }
 
-declare i32 @printf(i8*, ...) #1
+declare i32 @printf(i8*, ...) #2
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define i8* @printNodeType(i32) #0 {
@@ -2630,7 +2652,7 @@ define i32 @rand_range(i32, i32) #0 {
   ret i32 %12
 }
 
-declare i32 @rand() #1
+declare i32 @rand() #2
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @init_random_seed() #0 {
@@ -2643,9 +2665,9 @@ define void @init_random_seed() #0 {
   ret void
 }
 
-declare i64 @time(i64*) #1
+declare i64 @time(i64*) #2
 
-declare void @srand(i32) #1
+declare void @srand(i32) #2
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_print_scalar_element(%struct.tnode*) #0 {
@@ -2862,7 +2884,7 @@ define double @rand_double(double, double) #0 {
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @initGarbageCollector() #0 {
-  %1 = call i8* @malloc(i64 16) #4
+  %1 = call i8* @malloc(i64 16) #5
   %2 = bitcast i8* %1 to %struct.gcNode*
   store %struct.gcNode* %2, %struct.gcNode** getelementptr inbounds (%struct.GC, %struct.GC* @gCollector, i32 0, i32 0), align 8
   %3 = load %struct.gcNode*, %struct.gcNode** getelementptr inbounds (%struct.GC, %struct.GC* @gCollector, i32 0, i32 0), align 8
@@ -2877,7 +2899,7 @@ define void @initGarbageCollector() #0 {
 }
 
 ; Function Attrs: allocsize(0)
-declare i8* @malloc(i64) #2
+declare i8* @malloc(i64) #3
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @collectGarbage() #0 {
@@ -2960,7 +2982,7 @@ define void @collectGarbage() #0 {
   ret void
 }
 
-declare void @free(i8*) #1
+declare void @free(i8*) #2
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @printCollectorStatus() #0 {
@@ -3076,6 +3098,19 @@ define void @printCollectorStatus() #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @funk_exit() #0 {
+  call void @collectGarbage()
+  %1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.50, i32 0, i32 0))
+  call void @exit(i32 0) #6
+  unreachable
+                                                  ; No predecessors!
+  ret void
+}
+
+; Function Attrs: noreturn
+declare void @exit(i32) #4
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @createLhsStackVar(%struct.tnode*) #0 {
   %2 = alloca %struct.tnode*, align 8
   store %struct.tnode* %0, %struct.tnode** %2, align 8
@@ -3120,7 +3155,7 @@ define void @registerHeapAllocation(%struct.tnode*) #0 {
   %3 = load %struct.tnode*, %struct.tnode** %2, align 8
   %4 = getelementptr inbounds %struct.tnode, %struct.tnode* %3, i32 0, i32 3
   store i32 1, i32* %4, align 8
-  %5 = call i8* @malloc(i64 16) #4
+  %5 = call i8* @malloc(i64 16) #5
   %6 = bitcast i8* %5 to %struct.gcNode*
   %7 = load %struct.gcNode*, %struct.gcNode** getelementptr inbounds (%struct.GC, %struct.GC* @gCollector, i32 0, i32 1), align 8
   %8 = getelementptr inbounds %struct.gcNode, %struct.gcNode* %7, i32 0, i32 1
@@ -3144,7 +3179,7 @@ define %struct.tnode* @funk_mallocNodeRight(%struct.tnode*) #0 {
   %2 = alloca %struct.tnode*, align 8
   %3 = alloca %struct.tnode*, align 8
   store %struct.tnode* %0, %struct.tnode** %2, align 8
-  %4 = call i8* @malloc(i64 40) #4
+  %4 = call i8* @malloc(i64 40) #5
   %5 = bitcast i8* %4 to %struct.tnode*
   store %struct.tnode* %5, %struct.tnode** %3, align 8
   %6 = load %struct.tnode*, %struct.tnode** %3, align 8
@@ -3220,7 +3255,7 @@ define %struct.tnode* @funk_CreateLinkedListConstInt(i32, i32, i32) #0 {
   br i1 %16, label %17, label %44
 
 ; <label>:17:                                     ; preds = %13
-  %18 = call i8* @malloc(i64 40) #4
+  %18 = call i8* @malloc(i64 40) #5
   %19 = bitcast i8* %18 to %struct.tnode*
   store %struct.tnode* %19, %struct.tnode** %9, align 8
   %20 = load %struct.tnode*, %struct.tnode** %9, align 8
@@ -3266,7 +3301,7 @@ define %struct.tnode* @funk_CreateLinkedListConstInt(i32, i32, i32) #0 {
   br label %13
 
 ; <label>:44:                                     ; preds = %13
-  %45 = call i8* @malloc(i64 40) #4
+  %45 = call i8* @malloc(i64 40) #5
   %46 = bitcast i8* %45 to %struct.tnode*
   store %struct.tnode* %46, %struct.tnode** %11, align 8
   %47 = load %struct.tnode*, %struct.tnode** %11, align 8
@@ -3339,7 +3374,7 @@ define %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0 {
   br i1 %16, label %17, label %45
 
 ; <label>:17:                                     ; preds = %13
-  %18 = call i8* @malloc(i64 40) #4
+  %18 = call i8* @malloc(i64 40) #5
   %19 = bitcast i8* %18 to %struct.tnode*
   store %struct.tnode* %19, %struct.tnode** %9, align 8
   %20 = load %struct.tnode*, %struct.tnode** %9, align 8
@@ -3386,7 +3421,7 @@ define %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0 {
   br label %13
 
 ; <label>:45:                                     ; preds = %13
-  %46 = call i8* @malloc(i64 40) #4
+  %46 = call i8* @malloc(i64 40) #5
   %47 = bitcast i8* %46 to %struct.tnode*
   store %struct.tnode* %47, %struct.tnode** %11, align 8
   %48 = load %struct.tnode*, %struct.tnode** %11, align 8
@@ -3491,9 +3526,6 @@ define void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32, i8 zeroext) #0 
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @memcpy(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #3
-
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define float @funk_ToFloat(%struct.tnode*) #0 {
   %2 = alloca float, align 4
@@ -3550,10 +3582,12 @@ define float @funk_ToFloat(%struct.tnode*) #0 {
 }
 
 attributes #0 = { noinline nounwind optnone ssp uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { allocsize(0) "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { argmemonly nounwind }
-attributes #4 = { allocsize(0) }
+attributes #1 = { argmemonly nounwind }
+attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #3 = { allocsize(0) "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #4 = { noreturn "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #5 = { allocsize(0) }
+attributes #6 = { noreturn }
 
 !llvm.module.flags = !{!0, !1, !2}
 !llvm.ident = !{!3}

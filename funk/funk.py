@@ -80,6 +80,7 @@ class Funk:
         with open('funk/funk_ll1.lark', 'r') as myfile:
             funk_grammar = myfile.read()
 
+        self.window = None
         self.grammar = Lark(funk_grammar)
         self.strings_count = 0  # used to declare constant strings as unique globals
         self.triple = binding.get_default_triple()
@@ -180,7 +181,9 @@ declare void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32, i8 zeroext) #0
 declare void @funk_and_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_set_config_param(i32, i32) #0
 declare %struct.tnode* @funk_concatenate_lists(%struct.tnode*, %struct.tnode*) #0 
-
+declare void @get_s2d_user_global_state(%struct.tnode* noalias sret) #0
+declare void @set_s2d_user_global_state(%struct.tnode*) #0
+declare void @funk_exit() #0
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
         self.post_amble = \

@@ -11,7 +11,9 @@ cantor(x, y, l, h ):
     cantor(x + l * 0.666666666, y_, l/3, h ).
 
 s2d_render():
-    cantor(0.0, 0.0,800, 120.0 ).
+    cantor(0.0, 0.0,800, 120.0 )
+    s2d_render().
 
 main():
-    s2d_window('cantor series', 800, 600 ).
+    s2d_window('cantor series', 800, 600 )
+    s2d_render().
