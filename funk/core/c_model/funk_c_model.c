@@ -14,8 +14,15 @@ type_scalar = 5,
 type_function = 6,
 };
 
+enum FUNK_CONFIG_PARAMS{
+  FUNK_PARAM_DEBUG_VERBOSITY,
+  FUNK_PARAM_PRINT_ARRAY_MAX_ELEMENTS
+
+};
+
 int g_funk_print_array_max_elements = 30;
 int g_funk_print_array_element_per_row = 50;
+int g_funk_verbosity = 0;
 
 
 
@@ -42,27 +49,6 @@ struct tnode
   int refCount;
 };
 
-struct tnode gRenderLoopState;
-void set_s2d_user_global_state(struct tnode * n){
-  gRenderLoopState = *n;
-}
-
-struct tnode get_s2d_user_global_state(){
-  return gRenderLoopState;
-}
-
-
-void funk_set_config_param(int id, int value){
-  printf("-I- Setting conf parameter %d to value %d\n", id, value);
-  switch (id){
-    case 0:
-      g_funk_print_array_max_elements = value;
-      break;
-    defaut:
-      break;
-  };
-
-}
 
 char * printNodeType(int type){
   switch(type){
@@ -116,6 +102,65 @@ void funk_debug_printNode(struct tnode * n){
   } else {
     printf("ref_cnt %d\n", n->refCount);
   }
+
+}
+struct tnode gRenderLoopState;
+void funk_deep_shallow_node(struct tnode * dst, struct tnode * src){
+  dst->type = src->type;
+  dst->pd.type = src->pd.type;
+  dst->pd.data = src->pd.data;
+  dst->next = NULL;
+
+}
+
+void funk_deep_copy_node(struct tnode * dst, struct tnode * src){
+
+  funk_deep_shallow_node(dst, src);
+
+  struct tnode * p = src->next;
+  struct tnode * q = dst;
+  while (p){
+    if (q->next == NULL){
+      q->next  = (struct tnode *) malloc(sizeof(struct tnode ));
+    }
+    q = q->next;
+    funk_deep_shallow_node(q, p);
+    p = p->next;
+  }
+}
+
+
+void set_s2d_user_global_state(struct tnode * n){
+
+  funk_deep_copy_node(&gRenderLoopState,n);
+  if (g_funk_verbosity){
+    printf("get_s2d_user_global_state\n");
+    funk_debug_printNode(&gRenderLoopState);
+  }
+}
+
+struct tnode get_s2d_user_global_state(){
+  if (g_funk_verbosity){
+    printf("get_s2d_user_global_state\n");
+    funk_debug_printNode(&gRenderLoopState);
+  }
+  return gRenderLoopState;
+}
+
+
+void funk_set_config_param(int id, int value){
+  printf("-I- Setting conf parameter %d to value %d\n", id, value);
+  switch (id){
+    case FUNK_PARAM_DEBUG_VERBOSITY:
+      g_funk_verbosity = value;
+      break;
+
+    case FUNK_PARAM_PRINT_ARRAY_MAX_ELEMENTS:
+      g_funk_print_array_max_elements = value;
+      break;
+    defaut:
+      break;
+  };
 
 }
 
