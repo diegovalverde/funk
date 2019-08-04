@@ -199,10 +199,6 @@ class Identifier:
         return 'Identifier({})'.format(self.name)
 
     def eval(self, result=None):
-        # TODO refactor this function!!!!!!!
-        # TODO currently not dealing with function
-        # TODO return statements!!!!!!!!!!!!!
-
         # Check the current function that we are building
         # To see if the identifier is a function argument
 

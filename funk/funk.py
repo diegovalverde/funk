@@ -152,6 +152,7 @@ declare void @funk_eq_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_flt_rf(%struct.tnode*, %struct.tnode*, double) #0
 declare void @funk_mod_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
+declare void @funk_eq_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sub_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0

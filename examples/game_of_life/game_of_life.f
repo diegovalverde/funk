@@ -1,6 +1,4 @@
-
- use nth, idem, accumn, s2d, render_board, len, foreach, set_k, map
-
+use nth, idem, accumn, s2d, render_board, len, foreach, set_k, map
 
 # Any live cell with fewer than two live neighbours dies
 update_cell(alive, cnt |  alive = 1 /\ cnt < 2 ): 0.
@@ -15,99 +13,90 @@ update_cell(alive, cnt | alive = 1 /\ cnt = 3 ): 1.
 update_cell(alive, cnt | alive = 1 /\ cnt > 3 ):
     say('die')
     0.
-
 # Any dead cell with exactly three live neighbours becomes a live cell
 update_cell(alive, cnt | alive = 0 /\ cnt = 3 ):
     say(cell,'wake up',cnt)
-    1.
+    1 .
 
 # All others: ie. dead cells with no neighbours remain dead
 update_cell(_, _  ): 0.
 
-update_board(_ , _ , br, i | len(br) < 5):
-        say(len(br), ' =========== STOP ==========')
-        [].
+ub(tr, mr, br, k, i,j,w| k = 40): [].
 
-# update_board(a <~ [tr], mr, br, i | i < 50):
-#      say('top row')
-#      a ~> [update_board( tr, mr, br, i + 1  )].
+ub(tr, mr, br, k, i,j,w| k > 31):
+    idem(0) ~>[ub(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w)].
 
 
-# update_board(tr, mr, br, i | i % 50 = 0):
-#      x <- 1
-#      idem(x) ~> [update_board( tr, mr, br, i+1   )].
+ub(tr, mr, br, k, i,j,w| i = 0 \/ j = 0):
 
-# update_board(tr, mr, br, i | i % 49 = 0):
-#      x <- 1
-#      idem(x) ~> [update_board( tr, mr, br, i+1   )].
+    idem(0) ~>[ub(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w)].
 
-matrix_insert_col([],_,_,_): [].
+ub(a <~ [tr], b <~ [mr], c <~ [br],k, i,j,w| j = (w-1)):
 
-matrix_insert_col(h <~ [t], val, col, i | i % col = 0):
-    say('matrix_insert_col', col, i)
-    caca <- [1, 0]
-    caca ~> [matrix_insert_col(t,val,col, i+1)]
-    caca.
+    idem(0) ~>[ub(nth(tr,1), nth(mr,1), nth(br,1), k+1,(k+1)/w,(k+1)%w,w)].
 
-matrix_insert_col(h <~ [t], val, col, i):
-    idem(h) ~> [matrix_insert_col(t, val, col, i+1)].
+ub(tr, mr, br,k, i,j,w| i = (w-1)):
+
+    idem(0) ~>[ub(tr, mr, br, k+1,(k+1)/w,(k+1)%w,w)].
+
+
+ub(a <~ [tr], b <~ [mr], c <~ [br],k,i,j,w):
+    say(k,'>>>>>>>',i,j)
+    cnt <- a + b + c + br + tr + nth(tr,1) + nth(mr, 1) + nth(br,1)
+    update_cell(mr, cnt) ~> [ub( tr, mr, br, k+1,(k+1)/w,(k+1)%w,w )].
 
 
 
+update_board(a <~ [tr], b <~ [mr], br | len(br) = 1):
+    [br].
+
+update_board(_ , _ , [],_ ): [].
+
+update_board(a <~ [tr], b <~ [mr], c <~ [br] | len(br) = 1 ):
+    update_cell(mr, 0) ~> [update_board( tr, mr, br )].
+
+update_board(a <~ [tr], b <~ [mr], c <~ [br]) :
+    cnt <- a + b + c + br + tr + nth(tr,1) + nth(mr, 1) + nth(br,1)
+    update_cell(mr, cnt) ~> [update_board( tr, mr, br )].
+
+layer(_,[],_,_,_,_): [].
+
+layer(fg,b <~ [bg],k,i,j,w | len(fg) = 0):
+    say(len(fg),len(bg),'XXX k',k,i,j)
+    idem(b) ~> [layer(fg,bg,k+1,(k+1)%w,(k+1)/w,w)].
+
+layer(fg,b<~[bg],k, i,j,w| i = (w-1) \/ j = (w-1)):
+    say(len(fg),len(bg),'BG2 k',k,i,j)
+    idem(b) ~>[layer(fg,bg,k+1,(k+1)%w,(k+1)/w,w)].
 
 
-update_board(a <~ [tr], b <~ [mr], c <~ [br], i ):
-    cnt <- a + b + c  + br + tr + nth(tr,1) + nth(mr, 1) + nth(br,1)
-    #TODO accumn has a bug
-    #say('>>>>',a,b,c,accumn(tr,  2) , accumn(br, 2) , nth(mr, 1))
+layer(fg,b<~[bg],k, i,j,w| i = 0 \/ j = 0):
+    say(len(fg),len(bg),'BG k',k,i,j)
+    idem(b) ~>[layer(fg,bg,k+1,(k+1)%w,(k+1)/w,w)].
 
-    say(a, tr, nth(tr, 1))
-    say(b, mr, nth(mr, 1))
-    say(c, br, nth(br, 1))
-
-    # change syntax to say('cell',[mr],'cnt =',cnt)
-
-    say(i, 'cell',mr,'cnt =',cnt)
-    say('')
-
-
-    update_cell(mr, cnt) ~> [update_board( tr, mr, br, i + 1  )].
-
+layer(f<~[fg],b<~[bg],k,i,j,w):
+    say(len(fg),len(bg),'FG k',k,i,j)
+    idem(f) ~>[layer(fg,bg,k+1,(k+1)%w,(k+1)/w,w)].
 
 
 s2d_render(board):
-    w <- 50
+    w <- 8
 
-    s <- [1 | 0 < i < 51]
+    #inner_board <- update_board(board, nth(board,w), nth(board,2*w))
+    #next_board <- layer(inner_board,[1 | 0 <= cell < 40 ],0,0,0,w)
 
+    #render_board(board, 10, 10, 8, 80 )
+    da_b <- ub(board, nth(board,w), nth(board,2*w), 0, 0,0,w)
+    render_board(da_b, 10, 10, 8, 80 )
 
-    new_board <- update_board(board, nth(board,w), nth(board,2*w), 0)
-
-
-        framed_board <- [1 | 0 <= i < 48]
-        [framed_board] ~> [new_board]
-        [framed_board] ~> [1 | 0 <= i < 48]
-
-        caca <- matrix_insert_col(framed_board, 0.5, 50, 0)
-        caca2 <- matrix_insert_col(caca, 1, 50, 0)
-
-        say( 'LEN', len(board), len(new_board))
-
-        #x <- sublist(board, w) ~> [new_board]
-        say('s=',len(s),'new_board=',len(new_board))
-        [s] ~> [new_board]
-        say('>>>>>','s=',len(s))
-
-
-    render_board(new_board, 150, 100, 50, 10 )
-    s2d_render(new_board).
-
+    #render_board(inner_board, 10, 10, 6, 80 )
+    s2d_render(da_b).
 
 main():
     funk_set_config(0,1)
     funk_set_config(1,10)
 
-    board <-  set_k(set_k(set_k([0 | 0 <= cell < 2000 ], 210, 1),211,1),212,1)
+    board <-  set_k(set_k(set_k([0 | 0 <= cell < 40 ], 19, 1),20,1),21,1)
     say(board)
     s2d_window('the game of life', 800, 600 )
     s2d_render(board).
