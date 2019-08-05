@@ -194,6 +194,21 @@ void funk_slt_ri(struct tnode * r, struct tnode * n1, int lit){
 
     }
 
+    void funk_sge_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
+      if (n1->pd.type == type_int && n2->pd.type == type_int){
+          r->pd.data.i = (n1->pd.data.i >= n2->pd.data.i) ? 1 : 0;
+          r->pd.type = type_int;
+      } else if (n1->pd.type == type_double && n2->pd.type == type_double){
+
+        r->pd.data.i = (n1->pd.data.f >= n2->pd.data.f) ? 1 : 0;
+        r->pd.type = type_int;
+      } else {
+        printf("funk_sge_rr: invalid types %d %d\n", n1->pd.type, n2->pd.type);
+        r->pd.type = type_invalid;
+      }
+
+      }
+
 void funk_flt_rf(struct tnode * r, struct tnode * n1, double lit){
   if (n1->pd.type == type_double){
       r->pd.data.i = (n1->pd.data.f < lit) ? 1 : 0;
@@ -217,6 +232,7 @@ void funk_mod_ri(struct tnode * r, struct tnode * n1, int lit){
     r->pd.type = type_int;
   } else {
     //Invalid data
+    printf("funk_mod_ri: invalid types %d Int\n ", n1->pd.type);
     r->pd.type = type_invalid;
   }
 
