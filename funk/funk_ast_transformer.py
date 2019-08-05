@@ -275,6 +275,12 @@ class TreeToAst(Transformer):
         else:
             return funk_ast.LessThan(self.funk, right=token[0])
 
+    def action_bool_ge(self, token):
+        if len(token) == 2:
+            return funk_ast.GreaterOrEqualThan(self.funk, left=token[0], right=token[1])
+        else:
+            return funk_ast.GreaterOrEqualThan(self.funk, right=token[0])
+
     def action_bool_gt(self, token):
         if len(token) == 2:
             return funk_ast.GreaterThan(self.funk, left=token[0], right=token[1])

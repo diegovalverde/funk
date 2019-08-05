@@ -76,6 +76,7 @@
 
     boolean_binary_term_:    ">"  factor  -> action_bool_gt
                     | "<"  factor         -> action_bool_lt
+                    | ">="  factor         -> action_bool_ge
                     | "=" factor          -> action_bool_eq
                     | "!=" factor         -> action_bool_neq
 

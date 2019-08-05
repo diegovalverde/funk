@@ -429,13 +429,27 @@ class LessThan(BoolBinaryOp):
         return 'LessThan({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
-        l, r = BoolBinaryOp.eval(self, result)
+
         if isinstance(self.left, DoubleConstant) or isinstance(self.right, DoubleConstant):
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.double, result=result)
             return self.funk.emitter.fcmp_signed('flt', l, r)
         else:
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
             return self.funk.emitter.icmp_signed('slt', l, r)
+
+
+class GreaterOrEqualThan(BoolBinaryOp):
+    def __repr__(self):
+        return 'GreaterOrEqualThan({} , {})'.format(self.left, self.right)
+
+    def eval(self, result=None):
+
+        if isinstance(self.left, DoubleConstant) or isinstance(self.right, DoubleConstant):
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.double, result=result)
+            return self.funk.emitter.fcmp_signed('fge', l, r)
+        else:
+            l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
+            return self.funk.emitter.icmp_signed('sge', l, r)
 
 
 class ListConcat(BinaryOp):
