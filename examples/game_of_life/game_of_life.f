@@ -26,7 +26,6 @@ ub(tr, mr, br, k, i,j,w,h | i = 0 \/ j = 0):
     idem(0) ~>[ub(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w,h)].
 
 ub(a <~ [tr], b <~ [mr], c <~ [br],k, i,j,w,h| j = (w-1)):
-
     idem(0) ~>[ub(nth(tr,1), nth(mr,1), nth(br,1), k+1,(k+1)/w,(k+1)%w,w,h)].
 
 ub(tr, mr, br,k, i,j,w,h | i = (w-1)):
@@ -39,21 +38,14 @@ ub(a <~ [tr], b <~ [mr], c <~ [br],k,i,j,w,h):
     update_cell(mr, cnt) ~> [ub( tr, mr, br, k+1,(k+1)/w,(k+1)%w,w,h )].
 
 s2d_render(board):
-    w <- 8
-    h <- 5
+    w <- 50
+    h <- 40
     next_board <- ub(board, nth(board,w), nth(board,2*w), 0, 0,0,w,h)
-    render_board(next_board, 10, 10, w, 80 )
+    render_board(next_board, 150, 100, w, 10 )
 
     s2d_render(next_board).
 
 main():
-    w <- 8
-    h <- 5
-
-    funk_set_config(0,1)
-    funk_set_config(1,10)
-
-    board <-  set_k(set_k(set_k([0 | 0 <= cell < 40 ], 19, 1),20,1),21,1)
-    say(board)
+    board <-  set_k(set_k(set_k([0 | 0 <= cell < 2000 ], 210, 1),211,1),212,1)
     s2d_window('the game of life', 800, 600 )
     s2d_render(board).
