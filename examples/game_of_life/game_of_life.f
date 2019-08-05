@@ -17,7 +17,7 @@ update_cell(_, _  ): 0.
 
 ub(tr, mr, br, k, i, j, w, h | k = (w*h)): [].
 
-ub(tr, mr, br, k, i,j,w,h| k > 31):
+ub(tr, mr, br, k, i, j, w, h | k >= (w*(h-1))):
     idem(0) ~>[ub(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w,h)].
 
 
