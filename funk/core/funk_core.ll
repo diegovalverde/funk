@@ -594,6 +594,88 @@ define void @funk_sgt_ri(%struct.tnode*, %struct.tnode*, i32) #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @funk_sge_ri(%struct.tnode*, %struct.tnode*, i32) #0 {
+  %4 = alloca %struct.tnode*, align 8
+  %5 = alloca %struct.tnode*, align 8
+  %6 = alloca i32, align 4
+  store %struct.tnode* %0, %struct.tnode** %4, align 8
+  store %struct.tnode* %1, %struct.tnode** %5, align 8
+  store i32 %2, i32* %6, align 4
+  %7 = load %struct.tnode*, %struct.tnode** %5, align 8
+  %8 = getelementptr inbounds %struct.tnode, %struct.tnode* %7, i32 0, i32 1
+  %9 = getelementptr inbounds %struct.tdata, %struct.tdata* %8, i32 0, i32 0
+  %10 = load i8, i8* %9, align 8
+  %11 = zext i8 %10 to i32
+  %12 = icmp eq i32 %11, 1
+  br i1 %12, label %13, label %30
+
+; <label>:13:                                     ; preds = %3
+  %14 = load %struct.tnode*, %struct.tnode** %5, align 8
+  %15 = getelementptr inbounds %struct.tnode, %struct.tnode* %14, i32 0, i32 1
+  %16 = getelementptr inbounds %struct.tdata, %struct.tdata* %15, i32 0, i32 1
+  %17 = bitcast %union.data_type* %16 to i32*
+  %18 = load i32, i32* %17, align 8
+  %19 = load i32, i32* %6, align 4
+  %20 = icmp sge i32 %18, %19
+  %21 = zext i1 %20 to i64
+  %22 = select i1 %20, i32 1, i32 0
+  %23 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %24 = getelementptr inbounds %struct.tnode, %struct.tnode* %23, i32 0, i32 1
+  %25 = getelementptr inbounds %struct.tdata, %struct.tdata* %24, i32 0, i32 1
+  %26 = bitcast %union.data_type* %25 to i32*
+  store i32 %22, i32* %26, align 8
+  %27 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %28 = getelementptr inbounds %struct.tnode, %struct.tnode* %27, i32 0, i32 1
+  %29 = getelementptr inbounds %struct.tdata, %struct.tdata* %28, i32 0, i32 0
+  store i8 1, i8* %29, align 8
+  br label %60
+
+; <label>:30:                                     ; preds = %3
+  %31 = load %struct.tnode*, %struct.tnode** %5, align 8
+  %32 = getelementptr inbounds %struct.tnode, %struct.tnode* %31, i32 0, i32 1
+  %33 = getelementptr inbounds %struct.tdata, %struct.tdata* %32, i32 0, i32 0
+  %34 = load i8, i8* %33, align 8
+  %35 = zext i8 %34 to i32
+  %36 = icmp eq i32 %35, 2
+  br i1 %36, label %37, label %55
+
+; <label>:37:                                     ; preds = %30
+  %38 = load %struct.tnode*, %struct.tnode** %5, align 8
+  %39 = getelementptr inbounds %struct.tnode, %struct.tnode* %38, i32 0, i32 1
+  %40 = getelementptr inbounds %struct.tdata, %struct.tdata* %39, i32 0, i32 1
+  %41 = bitcast %union.data_type* %40 to double*
+  %42 = load double, double* %41, align 8
+  %43 = fptosi double %42 to i32
+  %44 = load i32, i32* %6, align 4
+  %45 = icmp sge i32 %43, %44
+  %46 = zext i1 %45 to i64
+  %47 = select i1 %45, i32 1, i32 0
+  %48 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %49 = getelementptr inbounds %struct.tnode, %struct.tnode* %48, i32 0, i32 1
+  %50 = getelementptr inbounds %struct.tdata, %struct.tdata* %49, i32 0, i32 1
+  %51 = bitcast %union.data_type* %50 to i32*
+  store i32 %47, i32* %51, align 8
+  %52 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %53 = getelementptr inbounds %struct.tnode, %struct.tnode* %52, i32 0, i32 1
+  %54 = getelementptr inbounds %struct.tdata, %struct.tdata* %53, i32 0, i32 0
+  store i8 1, i8* %54, align 8
+  br label %59
+
+; <label>:55:                                     ; preds = %30
+  %56 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %57 = getelementptr inbounds %struct.tnode, %struct.tnode* %56, i32 0, i32 1
+  %58 = getelementptr inbounds %struct.tdata, %struct.tdata* %57, i32 0, i32 0
+  store i8 0, i8* %58, align 8
+  br label %59
+
+; <label>:59:                                     ; preds = %55, %37
+  br label %60
+
+; <label>:60:                                     ; preds = %59, %13
+  ret void
+}
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_sge_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0 {
   %4 = alloca %struct.tnode*, align 8
   %5 = alloca %struct.tnode*, align 8

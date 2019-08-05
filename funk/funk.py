@@ -173,6 +173,7 @@ declare void @createLhsStackVar(%struct.tnode*) #0
 declare float @funk_ToFloat(%struct.tnode*) #0
 declare void @funk_slt_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sgt_ri(%struct.tnode*, %struct.tnode*, i32) #0
+declare void @funk_sge_ri(%struct.tnode*, %struct.tnode*, i32) #0
 declare void @funk_sge_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_or_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
 declare void @funk_mul_ri(%struct.tnode*, %struct.tnode*, i32)

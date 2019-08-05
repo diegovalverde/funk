@@ -194,6 +194,22 @@ void funk_slt_ri(struct tnode * r, struct tnode * n1, int lit){
 
     }
 
+
+
+      void funk_sge_ri(struct tnode * r, struct tnode * n1, int lit){
+        if (n1->pd.type == type_int){
+            r->pd.data.i = (n1->pd.data.i >= lit) ? 1 : 0;
+            r->pd.type = type_int;
+        } else if (n1->pd.type == type_double ){
+          r->pd.data.i = (((int)n1->pd.data.f) >= lit) ? 1 : 0;;
+          r->pd.type = type_int;
+        } else {
+          //Invalid data
+          r->pd.type = type_invalid;
+        }
+
+        }
+
     void funk_sge_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
       if (n1->pd.type == type_int && n2->pd.type == type_int){
           r->pd.data.i = (n1->pd.data.i >= n2->pd.data.i) ? 1 : 0;
