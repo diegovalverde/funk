@@ -925,7 +925,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
     def exit(self, funk, args):
         if len(args) != 0:
-            raise Exception('=== sleep takes 0 parameter')
+            raise Exception('=== exit takes 0 parameter')
 
         self.code += """
                 call void @funk_exit()
@@ -938,9 +938,8 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         useconds = args[0]
 
-        p = [x for x in range(self.index, self.index + 1)]
         self.code += """
-        %{0} = call i32 @"\\01_usleep"(i32 {useconds})
-        """.format(p[0], useconds=useconds.eval())
+        call void @funk_sleep(i32 {useconds})
+        """.format(useconds=useconds.eval())
 
-        self.index = p[-1] + 1
+

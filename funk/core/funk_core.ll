@@ -303,6 +303,17 @@ define void @funk_deep_shallow_node(%struct.tnode*, %struct.tnode*) #0 {
 declare void @memcpy(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #2
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @funk_sleep(i32) #0 {
+  %2 = alloca i32, align 4
+  store i32 %0, i32* %2, align 4
+  %3 = load i32, i32* %2, align 4
+  %4 = call i32 @"\01_sleep"(i32 %3)
+  ret void
+}
+
+declare i32 @"\01_sleep"(i32) #1
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_deep_copy_node(%struct.tnode*, %struct.tnode*) #0 {
   %3 = alloca %struct.tnode*, align 8
   %4 = alloca %struct.tnode*, align 8

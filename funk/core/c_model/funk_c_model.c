@@ -113,6 +113,10 @@ void funk_deep_shallow_node(struct tnode * dst, struct tnode * src){
 
 }
 
+void funk_sleep(int aSeconds){
+  sleep(aSeconds);
+}
+
 void funk_deep_copy_node(struct tnode * dst, struct tnode * src){
 
   funk_deep_shallow_node(dst, src);

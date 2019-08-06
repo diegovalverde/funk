@@ -167,7 +167,7 @@ declare %struct.tnode* @funk_CreateLinkedListConstInt(i32, i32, i32) #0
 declare void @registerHeapAllocation(%struct.tnode*) #0
 declare void @initGarbageCollector() #0
 declare void @collectGarbage() #0
-declare i32 @"\\01_usleep"(i32) #1
+declare void @funk_sleep(i32) #1
 declare %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0
 declare void @createLhsStackVar(%struct.tnode*) #0
 declare float @funk_ToFloat(%struct.tnode*) #0
