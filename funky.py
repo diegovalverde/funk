@@ -31,7 +31,7 @@ if __name__ == '__main__':
         with open(args.input_path, 'r') as my_file:
             text = my_file.read()
 
-        funk = Funk()
+        funk = Funk(debug=args.debug)
 
         funk.compile(text)
 

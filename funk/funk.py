@@ -240,8 +240,13 @@ declare i32 @printf(i8*, ...) #1
         f.close()
 
     def compile(self, text):
+        if self.debug:
+            print ('-I- debug mode on')
+        # The grammar does not really allow you to put ',\n'
+        # Let's just fix this in some pre-processing stage
+        preprocessed_text = text.replace(',\n', ',')
 
-        parse_tree = self.grammar.parse(text)
+        parse_tree = self.grammar.parse(preprocessed_text)
 
         ast_generator = TreeToAst(self, debug=self.debug)
 
