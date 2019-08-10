@@ -20,14 +20,14 @@ update_cell(_, _  ): 0.
  update_board(tr, mr, br, k, w, h | k >= (w*(h-1))):
     idem(0) ~>[ update_board(tr, mr, br, k+1, w, h)].
 
- update_board(tr, mr, br, k, w, h | (k / w) = 0 \/ (k % w) = 0):
+ update_board(tr, mr, br, k, w, h | (k / w) = 0 \/ k % w = 0):
     idem(0) ~>[ update_board(tr, mr, br, k+1, w, h)].
 
- update_board(a <~ [tr], b <~ [mr], c <~ [br],k ,w, h| (k % w) = (w-1)):
+ update_board(a <~ [tr], b <~ [mr], c <~ [br],k ,w, h| k % w = (w-1)):
     idem(0) ~>[ update_board(nth(tr,1), nth(mr,1), nth(br,1), k+1, w, h)].
 
  update_board(tr, mr, br,k, w,h | (k / w) = (w-1)):
-    idem(0) ~>[ update_board(tr, mr, br, k+1, w, h)].
+    idem(0) ~>[ update_board(tr, mr, br, k + 1, w, h)].
 
  update_board(a <~ [tr], b <~ [mr], c <~ [br],k,w,h):
     cnt <- a + b + c + br + tr + nth(tr,1) + nth(mr, 1) + nth(br,1)
@@ -42,6 +42,6 @@ s2d_render(board):
     s2d_render(next_board).
 
 main():
-    board <- fread_list('examples/game_of_life/pulsar.txt')
+    board <- fread_list('examples/game_of_life/glider_gun.txt')
     s2d_window('the game of life', 800, 600 )
     s2d_render(board).
