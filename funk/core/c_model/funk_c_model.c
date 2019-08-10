@@ -115,6 +115,11 @@ void  funk_shallow_copy_node(struct tnode * dst, struct tnode * src){
 }
 
 void funk_sleep(int aSeconds){
+  static int first = 1;
+  if (first){
+    first = 0;
+    return;
+  }
   sleep(aSeconds);
 }
 

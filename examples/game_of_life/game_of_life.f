@@ -15,32 +15,28 @@ update_cell(alive, cnt | alive = 0 /\ cnt = 3 ): 1.
 # All others: ie. dead cells with no neighbours remain dead
 update_cell(_, _  ): 0.
 
-ub(tr, mr, br, k, i, j, w, h | k = (w*h)): [].
+ update_board(tr, mr, br, k, i, j, w, h | k = (w*h)): [].
 
-ub(tr, mr, br, k, i, j, w, h | k >= (w*(h-1))):
-    idem(0) ~>[ub(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w,h)].
+ update_board(tr, mr, br, k, i, j, w, h | k >= (w*(h-1))):
+    idem(0) ~>[ update_board(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w,h)].
 
+ update_board(tr, mr, br, k, i,j,w,h | i = 0 \/ j = 0):
+    idem(0) ~>[ update_board(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w,h)].
 
-ub(tr, mr, br, k, i,j,w,h | i = 0 \/ j = 0):
+ update_board(a <~ [tr], b <~ [mr], c <~ [br],k, i,j,w,h| j = (w-1)):
+    idem(0) ~>[ update_board(nth(tr,1), nth(mr,1), nth(br,1), k+1,(k+1)/w,(k+1)%w,w,h)].
 
-    idem(0) ~>[ub(tr,mr,br, k+1,(k+1)/w,(k+1)%w,w,h)].
+ update_board(tr, mr, br,k, i,j,w,h | i = (w-1)):
+    idem(0) ~>[ update_board(tr, mr, br, k+1,(k+1)/w,(k+1)%w,w,h)].
 
-ub(a <~ [tr], b <~ [mr], c <~ [br],k, i,j,w,h| j = (w-1)):
-    idem(0) ~>[ub(nth(tr,1), nth(mr,1), nth(br,1), k+1,(k+1)/w,(k+1)%w,w,h)].
-
-ub(tr, mr, br,k, i,j,w,h | i = (w-1)):
-
-    idem(0) ~>[ub(tr, mr, br, k+1,(k+1)/w,(k+1)%w,w,h)].
-
-
-ub(a <~ [tr], b <~ [mr], c <~ [br],k,i,j,w,h):
+ update_board(a <~ [tr], b <~ [mr], c <~ [br],k,i,j,w,h):
     cnt <- a + b + c + br + tr + nth(tr,1) + nth(mr, 1) + nth(br,1)
-    update_cell(mr, cnt) ~> [ub( tr, mr, br, k+1,(k+1)/w,(k+1)%w,w,h )].
+    update_cell(mr, cnt) ~> [ update_board( tr, mr, br, k+1,(k+1)/w,(k+1)%w,w,h )].
 
 s2d_render(board):
     w <- 50
     h <- 30
-    next_board <- ub(board, nth(board,w), nth(board,2*w), 0, 0,0,w,h)
+    next_board <-  update_board(board, nth(board,w), nth(board,2*w), 0,0,0,w,h)
     render_board(next_board, 150, 100, w, 10 )
     sleep(1)
     s2d_render(next_board).

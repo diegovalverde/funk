@@ -35,6 +35,7 @@ target triple = "x86_64-apple-macosx10.14.0"
 @.str.17 = private unnamed_addr constant [27 x i8] c"data_type '?' node_type %s\00", align 1
 @.str.18 = private unnamed_addr constant [26 x i8] c" [variable in the STACK]\0A\00", align 1
 @.str.19 = private unnamed_addr constant [12 x i8] c"ref_cnt %d\0A\00", align 1
+@funk_sleep.first = internal global i32 1, align 4
 @gRenderLoopState = common global %struct.tnode zeroinitializer, align 8
 @.str.20 = private unnamed_addr constant [27 x i8] c"get_s2d_user_global_state\0A\00", align 1
 @.str.21 = private unnamed_addr constant [43 x i8] c"-I- Setting conf parameter %d to value %d\0A\00", align 1
@@ -313,8 +314,20 @@ declare void @memcpy(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #
 define void @funk_sleep(i32) #0 {
   %2 = alloca i32, align 4
   store i32 %0, i32* %2, align 4
-  %3 = load i32, i32* %2, align 4
-  %4 = call i32 @"\01_sleep"(i32 %3)
+  %3 = load i32, i32* @funk_sleep.first, align 4
+  %4 = icmp ne i32 %3, 0
+  br i1 %4, label %5, label %6
+
+; <label>:5:                                      ; preds = %1
+  store i32 0, i32* @funk_sleep.first, align 4
+  br label %9
+
+; <label>:6:                                      ; preds = %1
+  %7 = load i32, i32* %2, align 4
+  %8 = call i32 @"\01_sleep"(i32 %7)
+  br label %9
+
+; <label>:9:                                      ; preds = %6, %5
   ret void
 }
 
