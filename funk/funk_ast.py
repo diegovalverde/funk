@@ -555,6 +555,7 @@ class FunctionCall:
             's2d_quad': S2DDrawQuad,
             's2d_render': S2DRenderFunction,  # void s2d_render(void)
             'exit': Exit,
+            'fread_list': FReadList,
         }
 
     def get_compile_type(self):
@@ -847,6 +848,17 @@ class SetConfigParam:
     def eval(self, result=None):
         return self.funk.emitter.set_config_parameter(self.arg_list)
 
+class FReadList:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    @staticmethod
+    def get_compile_type():
+        return funk_types.int
+
+    def eval(self, result):
+        return self.funk.emitter.fread_list(self.funk, self.arg_list, result)
 
 class Exit:
     def __init__(self, funk, arg_list):

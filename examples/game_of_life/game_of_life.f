@@ -39,13 +39,13 @@ ub(a <~ [tr], b <~ [mr], c <~ [br],k,i,j,w,h):
 
 s2d_render(board):
     w <- 50
-    h <- 40
+    h <- 30
     next_board <- ub(board, nth(board,w), nth(board,2*w), 0, 0,0,w,h)
     render_board(next_board, 150, 100, w, 10 )
-
+    sleep(1)
     s2d_render(next_board).
 
 main():
-    board <-  set_k(set_k(set_k([0 | 0 <= cell < 2000 ], 210, 1),211,1),212,1)
+    board <- fread_list('examples/game_of_life/pulsar.txt')
     s2d_window('the game of life', 800, 600 )
     s2d_render(board).

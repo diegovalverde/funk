@@ -187,6 +187,7 @@ declare %struct.tnode* @funk_concatenate_lists(%struct.tnode*, %struct.tnode*) #
 declare void @get_s2d_user_global_state(%struct.tnode* noalias sret) #0
 declare void @set_s2d_user_global_state(%struct.tnode*) #0
 declare void @funk_exit() #0
+declare %struct.tnode* @funk_read_list_from_file(i8*) #0 
             """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
         self.post_amble = \

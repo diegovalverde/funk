@@ -22,7 +22,7 @@ enum FUNK_CONFIG_PARAMS{
 
 int g_funk_print_array_max_elements = 30;
 int g_funk_print_array_element_per_row = 50;
-int g_funk_verbosity = 0;
+int g_funk_verbosity = 1;
 
 
 
@@ -51,6 +51,7 @@ struct tnode
 
 
 char * printNodeType(int type){
+
   switch(type){
     case type_invalid: return "invalid_type"; break;
     case type_int: return "int"; break;
@@ -105,7 +106,7 @@ void funk_debug_printNode(struct tnode * n){
 
 }
 struct tnode gRenderLoopState;
-void funk_deep_shallow_node(struct tnode * dst, struct tnode * src){
+void  funk_shallow_copy_node(struct tnode * dst, struct tnode * src){
   dst->type = src->type;
   dst->pd.type = src->pd.type;
   dst->pd.data = src->pd.data;
@@ -117,9 +118,11 @@ void funk_sleep(int aSeconds){
   sleep(aSeconds);
 }
 
+
+
 void funk_deep_copy_node(struct tnode * dst, struct tnode * src){
 
-  funk_deep_shallow_node(dst, src);
+   funk_shallow_copy_node(dst, src);
 
   struct tnode * p = src->next;
   struct tnode * q = dst;
@@ -128,7 +131,7 @@ void funk_deep_copy_node(struct tnode * dst, struct tnode * src){
       q->next  = (struct tnode *) malloc(sizeof(struct tnode ));
     }
     q = q->next;
-    funk_deep_shallow_node(q, p);
+     funk_shallow_copy_node(q, p);
     p = p->next;
   }
 }
@@ -794,7 +797,7 @@ struct tnode * createLinkedList(int start, int end, unsigned char type ){
   int i = 0;
   for (i = start; i <= end; ++i){
     node = (struct tnode*)malloc(sizeof(struct tnode));
-    node->type = 3; //List Node
+    node->type = type_array;
     node->pd.type = type;
     node->pd.data.i = i;
     registerHeapAllocation(node);
@@ -808,7 +811,7 @@ struct tnode * createLinkedList(int start, int end, unsigned char type ){
   }
 
    struct tnode * tail = (struct tnode*)malloc(sizeof(struct tnode));
-   tail->type = 4; //empty_array
+   tail->type = type_empty_array; //empty_array
    tail->pd.type = type;
 
    if (node != NULL)
@@ -841,4 +844,47 @@ float funk_ToFloat(struct tnode * n){
     n->pd.type = type_invalid;
     return 0.0f;
   }
+}
+
+/*
+Input: ASCII a file with numbers separated by spaces
+Output: List of numbers
+*/
+struct tnode *  funk_read_list_from_file(char * path ){
+  struct tnode * dst = (struct tnode *)malloc(sizeof(struct tnode));
+  struct tnode * p = dst;
+
+  FILE *fp;
+  fp = fopen(path, "rt");
+
+  if (fp == NULL)
+  {
+    printf("-E- File '%s' cannot be read\n", path);
+    exit(1);
+  }
+
+  if (g_funk_verbosity > 0){
+    printf("-D- Opened file '%s'",path);
+  }
+
+  int value = 0;
+  while(fscanf(fp,"%d",&value) == 1)
+  {
+    p->type = type_array;
+    p->pd.data.i = value;
+    p->pd.type = type_int;
+    p->next = (struct tnode *)malloc(sizeof(struct tnode));
+  //  markNodeForGarbageCollection(p);
+    p = p->next;
+
+  }
+
+  fclose(fp);
+
+  p->type = type_empty_array;
+  p->pd.type = type_empty_array;
+  p->next = NULL;
+
+
+  return dst;
 }

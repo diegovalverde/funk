@@ -923,6 +923,38 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
                 x1=v[0], y1=v[1], x2=v[2], y2=v[3], x3=v[4], y3=v[5], x4=v[6],
                 y4=v[7], r=v[8], g=v[9], b=v[10], alpha=v[11])
 
+    def fread_list(self, funk, args, result):
+        if len(args) != 1:
+            raise Exception('=== fread_list takes 1 parameter')
+
+        path = args[0].eval()
+        format_len = len(path) + 1
+
+        funk.preamble += \
+            """
+@.str_{cnt} = private unnamed_addr constant [{format_len} x i8] c"{format_string}\00", align 1
+            """.format(cnt=funk.strings_count, format_len=format_len, format_string=path)
+
+        p = [i for i in range(self.index, self.index + 1)]
+        self.code += """
+                
+                %{0} = call %struct.tnode* @funk_read_list_from_file(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
+            p[0], format_len=format_len, cnt=funk.strings_count)
+
+        self.index = p[-1] + 1
+        funk.strings_count += 1
+
+        if result is not None:
+            q = [i for i in range(self.index, self.index + 2)]
+            self.code += """
+            %{0} = bitcast %struct.tnode* {src} to i8*
+            %{1} = bitcast %struct.tnode* %{dst} to i8*
+            call void @memcpy(i8* align 8 %{0}, i8* align 8 %{1}, i64 40, i1 false)
+            """.format(q[0], q[1], src=result, dst=p[0])
+
+            self.index = q[-1] + 1
+        return '%{}'.format(p[0])
+
     def exit(self, funk, args):
         if len(args) != 0:
             raise Exception('=== exit takes 0 parameter')

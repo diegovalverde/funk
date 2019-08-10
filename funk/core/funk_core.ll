@@ -8,10 +8,13 @@ target triple = "x86_64-apple-macosx10.14.0"
 %union.data_type = type { double }
 %struct.GC = type { %struct.gcNode*, %struct.gcNode* }
 %struct.gcNode = type { %struct.tnode*, %struct.gcNode* }
+%struct.__sFILE = type { i8*, i32, i32, i16, i16, %struct.__sbuf, i32, i8*, i32 (i8*)*, i32 (i8*, i8*, i32)*, i64 (i8*, i64, i32)*, i32 (i8*, i8*, i32)*, %struct.__sbuf, %struct.__sFILEX*, i32, [3 x i8], [1 x i8], %struct.__sbuf, i32, i64 }
+%struct.__sFILEX = type opaque
+%struct.__sbuf = type { i8*, i32 }
 
 @g_funk_print_array_max_elements = global i32 30, align 4
 @g_funk_print_array_element_per_row = global i32 50, align 4
-@g_funk_verbosity = global i32 0, align 4
+@g_funk_verbosity = global i32 1, align 4
 @.str = private unnamed_addr constant [13 x i8] c"invalid_type\00", align 1
 @.str.1 = private unnamed_addr constant [4 x i8] c"int\00", align 1
 @.str.2 = private unnamed_addr constant [7 x i8] c"double\00", align 1
@@ -69,6 +72,10 @@ target triple = "x86_64-apple-macosx10.14.0"
 @.str.52 = private unnamed_addr constant [16 x i8] c"<unknown type>\0A\00", align 1
 @.str.53 = private unnamed_addr constant [6 x i8] c"null\0A\00", align 1
 @.str.54 = private unnamed_addr constant [13 x i8] c"-I- Exiting\0A\00", align 1
+@.str.55 = private unnamed_addr constant [3 x i8] c"rt\00", align 1
+@.str.56 = private unnamed_addr constant [30 x i8] c"-E- File '%s' cannot be read\0A\00", align 1
+@.str.57 = private unnamed_addr constant [21 x i8] c"-D- Opened file '%s'\00", align 1
+@.str.58 = private unnamed_addr constant [3 x i8] c"%d\00", align 1
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define i8* @printNodeType(i32) #0 {
@@ -265,7 +272,7 @@ define void @funk_debug_printNode(%struct.tnode*) #0 {
 declare i32 @printf(i8*, ...) #1
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
-define void @funk_deep_shallow_node(%struct.tnode*, %struct.tnode*) #0 {
+define void @funk_shallow_copy_node(%struct.tnode*, %struct.tnode*) #0 {
   %3 = alloca %struct.tnode*, align 8
   %4 = alloca %struct.tnode*, align 8
   store %struct.tnode* %0, %struct.tnode** %3, align 8
@@ -323,7 +330,7 @@ define void @funk_deep_copy_node(%struct.tnode*, %struct.tnode*) #0 {
   store %struct.tnode* %1, %struct.tnode** %4, align 8
   %7 = load %struct.tnode*, %struct.tnode** %3, align 8
   %8 = load %struct.tnode*, %struct.tnode** %4, align 8
-  call void @funk_deep_shallow_node(%struct.tnode* %7, %struct.tnode* %8)
+  call void @funk_shallow_copy_node(%struct.tnode* %7, %struct.tnode* %8)
   %9 = load %struct.tnode*, %struct.tnode** %4, align 8
   %10 = getelementptr inbounds %struct.tnode, %struct.tnode* %9, i32 0, i32 2
   %11 = load %struct.tnode*, %struct.tnode** %10, align 8
@@ -359,7 +366,7 @@ define void @funk_deep_copy_node(%struct.tnode*, %struct.tnode*) #0 {
   store %struct.tnode* %29, %struct.tnode** %6, align 8
   %30 = load %struct.tnode*, %struct.tnode** %6, align 8
   %31 = load %struct.tnode*, %struct.tnode** %5, align 8
-  call void @funk_deep_shallow_node(%struct.tnode* %30, %struct.tnode* %31)
+  call void @funk_shallow_copy_node(%struct.tnode* %30, %struct.tnode* %31)
   %32 = load %struct.tnode*, %struct.tnode** %5, align 8
   %33 = getelementptr inbounds %struct.tnode, %struct.tnode* %32, i32 0, i32 2
   %34 = load %struct.tnode*, %struct.tnode** %33, align 8
@@ -4033,6 +4040,100 @@ define float @funk_ToFloat(%struct.tnode*) #0 {
   %36 = load float, float* %2, align 4
   ret float %36
 }
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
+define %struct.tnode* @funk_read_list_from_file(i8*) #0 {
+  %2 = alloca i8*, align 8
+  %3 = alloca %struct.tnode*, align 8
+  %4 = alloca %struct.tnode*, align 8
+  %5 = alloca %struct.__sFILE*, align 8
+  %6 = alloca i32, align 4
+  store i8* %0, i8** %2, align 8
+  %7 = call i8* @malloc(i64 40) #5
+  %8 = bitcast i8* %7 to %struct.tnode*
+  store %struct.tnode* %8, %struct.tnode** %3, align 8
+  %9 = load %struct.tnode*, %struct.tnode** %3, align 8
+  store %struct.tnode* %9, %struct.tnode** %4, align 8
+  %10 = load i8*, i8** %2, align 8
+  %11 = call %struct.__sFILE* @"\01_fopen"(i8* %10, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.55, i32 0, i32 0))
+  store %struct.__sFILE* %11, %struct.__sFILE** %5, align 8
+  %12 = load %struct.__sFILE*, %struct.__sFILE** %5, align 8
+  %13 = icmp eq %struct.__sFILE* %12, null
+  br i1 %13, label %14, label %17
+
+; <label>:14:                                     ; preds = %1
+  %15 = load i8*, i8** %2, align 8
+  %16 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([30 x i8], [30 x i8]* @.str.56, i32 0, i32 0), i8* %15)
+  call void @exit(i32 1) #6
+  unreachable
+
+; <label>:17:                                     ; preds = %1
+  %18 = load i32, i32* @g_funk_verbosity, align 4
+  %19 = icmp sgt i32 %18, 0
+  br i1 %19, label %20, label %23
+
+; <label>:20:                                     ; preds = %17
+  %21 = load i8*, i8** %2, align 8
+  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.57, i32 0, i32 0), i8* %21)
+  br label %23
+
+; <label>:23:                                     ; preds = %20, %17
+  store i32 0, i32* %6, align 4
+  br label %24
+
+; <label>:24:                                     ; preds = %28, %23
+  %25 = load %struct.__sFILE*, %struct.__sFILE** %5, align 8
+  %26 = call i32 (%struct.__sFILE*, i8*, ...) @fscanf(%struct.__sFILE* %25, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.58, i32 0, i32 0), i32* %6)
+  %27 = icmp eq i32 %26, 1
+  br i1 %27, label %28, label %46
+
+; <label>:28:                                     ; preds = %24
+  %29 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %30 = getelementptr inbounds %struct.tnode, %struct.tnode* %29, i32 0, i32 0
+  store i8 3, i8* %30, align 8
+  %31 = load i32, i32* %6, align 4
+  %32 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %33 = getelementptr inbounds %struct.tnode, %struct.tnode* %32, i32 0, i32 1
+  %34 = getelementptr inbounds %struct.tdata, %struct.tdata* %33, i32 0, i32 1
+  %35 = bitcast %union.data_type* %34 to i32*
+  store i32 %31, i32* %35, align 8
+  %36 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %37 = getelementptr inbounds %struct.tnode, %struct.tnode* %36, i32 0, i32 1
+  %38 = getelementptr inbounds %struct.tdata, %struct.tdata* %37, i32 0, i32 0
+  store i8 1, i8* %38, align 8
+  %39 = call i8* @malloc(i64 40) #5
+  %40 = bitcast i8* %39 to %struct.tnode*
+  %41 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %42 = getelementptr inbounds %struct.tnode, %struct.tnode* %41, i32 0, i32 2
+  store %struct.tnode* %40, %struct.tnode** %42, align 8
+  %43 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %44 = getelementptr inbounds %struct.tnode, %struct.tnode* %43, i32 0, i32 2
+  %45 = load %struct.tnode*, %struct.tnode** %44, align 8
+  store %struct.tnode* %45, %struct.tnode** %4, align 8
+  br label %24
+
+; <label>:46:                                     ; preds = %24
+  %47 = load %struct.__sFILE*, %struct.__sFILE** %5, align 8
+  %48 = call i32 @fclose(%struct.__sFILE* %47)
+  %49 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %50 = getelementptr inbounds %struct.tnode, %struct.tnode* %49, i32 0, i32 0
+  store i8 4, i8* %50, align 8
+  %51 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %52 = getelementptr inbounds %struct.tnode, %struct.tnode* %51, i32 0, i32 1
+  %53 = getelementptr inbounds %struct.tdata, %struct.tdata* %52, i32 0, i32 0
+  store i8 4, i8* %53, align 8
+  %54 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %55 = getelementptr inbounds %struct.tnode, %struct.tnode* %54, i32 0, i32 2
+  store %struct.tnode* null, %struct.tnode** %55, align 8
+  %56 = load %struct.tnode*, %struct.tnode** %3, align 8
+  ret %struct.tnode* %56
+}
+
+declare %struct.__sFILE* @"\01_fopen"(i8*, i8*) #1
+
+declare i32 @fscanf(%struct.__sFILE*, i8*, ...) #1
+
+declare i32 @fclose(%struct.__sFILE*) #1
 
 attributes #0 = { noinline nounwind optnone ssp uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
