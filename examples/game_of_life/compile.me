@@ -5,12 +5,9 @@ echo "Compiling example " $module
 
 rm -f *.o a.out
 python funky.py examples/${module}/${module}.f
-python funky.py util/accum.f
+
 python funky.py util/nth.f
-python funky.py util/map.f
 python funky.py util/len.f
-python funky.py util/foreach.f
-python funky.py util/set_k.f
 python funky.py util/render_board.f
 
 $LLC -filetype=obj ${module}.ll

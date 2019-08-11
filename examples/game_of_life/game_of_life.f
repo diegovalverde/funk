@@ -1,4 +1,4 @@
-use nth, idem, accumn, s2d, render_board, len, foreach, set_k, map
+use nth, idem, s2d, render_board, len
 
 # Any live cell with fewer than two live neighbours dies
 update_cell(alive, cnt |  alive = 1 /\ cnt < 2 ): 0.
@@ -42,6 +42,6 @@ s2d_render(board):
     s2d_render(next_board).
 
 main():
-    board <- fread_list('examples/game_of_life/glider_gun.txt')
+    board <- fread_list('examples/game_of_life/pentadecatlon.txt')
     s2d_window('the game of life', 800, 600 )
     s2d_render(board).
