@@ -22,7 +22,7 @@ enum FUNK_CONFIG_PARAMS{
 
 int g_funk_print_array_max_elements = 30;
 int g_funk_print_array_element_per_row = 50;
-int g_funk_verbosity = 1;
+int g_funk_verbosity = 0;
 
 
 
@@ -609,8 +609,7 @@ struct tnode * funk_concatenate_lists(struct tnode * left, struct tnode * right)
   struct tnode * p = left;
   while(p && p->next->type != type_empty_array)
   {
-    printf(".");
-    funk_debug_printNode(p);
+
     p = p->next;
     i++;
   }
@@ -745,8 +744,6 @@ struct tnode * funk_mallocNodeRight(struct tnode * head){
   p_right->pd.type = head->pd.type;
   p_right->pd.data.i = -1;
   p_right->type = type_array;
-
-  //funk_debug_printNode(head);
 
   return p_right;
 }

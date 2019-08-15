@@ -14,7 +14,7 @@ target triple = "x86_64-apple-macosx10.14.0"
 
 @g_funk_print_array_max_elements = global i32 30, align 4
 @g_funk_print_array_element_per_row = global i32 50, align 4
-@g_funk_verbosity = global i32 1, align 4
+@g_funk_verbosity = global i32 0, align 4
 @.str = private unnamed_addr constant [13 x i8] c"invalid_type\00", align 1
 @.str.1 = private unnamed_addr constant [4 x i8] c"int\00", align 1
 @.str.2 = private unnamed_addr constant [7 x i8] c"double\00", align 1
@@ -63,20 +63,19 @@ target triple = "x86_64-apple-macosx10.14.0"
 @.str.43 = private unnamed_addr constant [2 x i8] c"\0A\00", align 1
 @.str.44 = private unnamed_addr constant [6 x i8] c" ... \00", align 1
 @.str.45 = private unnamed_addr constant [3 x i8] c" ]\00", align 1
-@.str.46 = private unnamed_addr constant [2 x i8] c".\00", align 1
 @gCollector = common global %struct.GC zeroinitializer, align 8
-@.str.47 = private unnamed_addr constant [31 x i8] c"===== garbage collector =====\0A\00", align 1
-@.str.48 = private unnamed_addr constant [30 x i8] c"%d: addr: %p ref_cnt: %d val:\00", align 1
-@.str.49 = private unnamed_addr constant [13 x i8] c"<double> %f\0A\00", align 1
-@.str.50 = private unnamed_addr constant [10 x i8] c"<int> %d\0A\00", align 1
-@.str.51 = private unnamed_addr constant [21 x i8] c"<invalid_data_type>\0A\00", align 1
-@.str.52 = private unnamed_addr constant [16 x i8] c"<unknown type>\0A\00", align 1
-@.str.53 = private unnamed_addr constant [6 x i8] c"null\0A\00", align 1
-@.str.54 = private unnamed_addr constant [13 x i8] c"-I- Exiting\0A\00", align 1
-@.str.55 = private unnamed_addr constant [3 x i8] c"rt\00", align 1
-@.str.56 = private unnamed_addr constant [30 x i8] c"-E- File '%s' cannot be read\0A\00", align 1
-@.str.57 = private unnamed_addr constant [21 x i8] c"-D- Opened file '%s'\00", align 1
-@.str.58 = private unnamed_addr constant [3 x i8] c"%d\00", align 1
+@.str.46 = private unnamed_addr constant [31 x i8] c"===== garbage collector =====\0A\00", align 1
+@.str.47 = private unnamed_addr constant [30 x i8] c"%d: addr: %p ref_cnt: %d val:\00", align 1
+@.str.48 = private unnamed_addr constant [13 x i8] c"<double> %f\0A\00", align 1
+@.str.49 = private unnamed_addr constant [10 x i8] c"<int> %d\0A\00", align 1
+@.str.50 = private unnamed_addr constant [21 x i8] c"<invalid_data_type>\0A\00", align 1
+@.str.51 = private unnamed_addr constant [16 x i8] c"<unknown type>\0A\00", align 1
+@.str.52 = private unnamed_addr constant [6 x i8] c"null\0A\00", align 1
+@.str.53 = private unnamed_addr constant [13 x i8] c"-I- Exiting\0A\00", align 1
+@.str.54 = private unnamed_addr constant [3 x i8] c"rt\00", align 1
+@.str.55 = private unnamed_addr constant [30 x i8] c"-E- File '%s' cannot be read\0A\00", align 1
+@.str.56 = private unnamed_addr constant [21 x i8] c"-D- Opened file '%s'\00", align 1
+@.str.57 = private unnamed_addr constant [3 x i8] c"%d\00", align 1
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define i8* @printNodeType(i32) #0 {
@@ -3309,35 +3308,32 @@ define %struct.tnode* @funk_concatenate_lists(%struct.tnode*, %struct.tnode*) #0
 
 ; <label>:19:                                     ; preds = %11, %8
   %20 = phi i1 [ false, %8 ], [ %18, %11 ]
-  br i1 %20, label %21, label %29
+  br i1 %20, label %21, label %27
 
 ; <label>:21:                                     ; preds = %19
-  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @.str.46, i32 0, i32 0))
-  %23 = load %struct.tnode*, %struct.tnode** %6, align 8
-  call void @funk_debug_printNode(%struct.tnode* %23)
-  %24 = load %struct.tnode*, %struct.tnode** %6, align 8
-  %25 = getelementptr inbounds %struct.tnode, %struct.tnode* %24, i32 0, i32 2
-  %26 = load %struct.tnode*, %struct.tnode** %25, align 8
-  store %struct.tnode* %26, %struct.tnode** %6, align 8
-  %27 = load i32, i32* %5, align 4
-  %28 = add nsw i32 %27, 1
-  store i32 %28, i32* %5, align 4
+  %22 = load %struct.tnode*, %struct.tnode** %6, align 8
+  %23 = getelementptr inbounds %struct.tnode, %struct.tnode* %22, i32 0, i32 2
+  %24 = load %struct.tnode*, %struct.tnode** %23, align 8
+  store %struct.tnode* %24, %struct.tnode** %6, align 8
+  %25 = load i32, i32* %5, align 4
+  %26 = add nsw i32 %25, 1
+  store i32 %26, i32* %5, align 4
   br label %8
 
-; <label>:29:                                     ; preds = %19
-  %30 = load %struct.tnode*, %struct.tnode** %6, align 8
-  %31 = getelementptr inbounds %struct.tnode, %struct.tnode* %30, i32 0, i32 2
-  %32 = load %struct.tnode*, %struct.tnode** %31, align 8
-  %33 = getelementptr inbounds %struct.tnode, %struct.tnode* %32, i32 0, i32 3
-  store i32 0, i32* %33, align 8
-  %34 = load %struct.tnode*, %struct.tnode** %4, align 8
-  %35 = load %struct.tnode*, %struct.tnode** %6, align 8
-  %36 = getelementptr inbounds %struct.tnode, %struct.tnode* %35, i32 0, i32 2
-  store %struct.tnode* %34, %struct.tnode** %36, align 8
-  %37 = load %struct.tnode*, %struct.tnode** %3, align 8
-  call void @print_scalar(%struct.tnode* %37)
-  %38 = load %struct.tnode*, %struct.tnode** %3, align 8
-  ret %struct.tnode* %38
+; <label>:27:                                     ; preds = %19
+  %28 = load %struct.tnode*, %struct.tnode** %6, align 8
+  %29 = getelementptr inbounds %struct.tnode, %struct.tnode* %28, i32 0, i32 2
+  %30 = load %struct.tnode*, %struct.tnode** %29, align 8
+  %31 = getelementptr inbounds %struct.tnode, %struct.tnode* %30, i32 0, i32 3
+  store i32 0, i32* %31, align 8
+  %32 = load %struct.tnode*, %struct.tnode** %4, align 8
+  %33 = load %struct.tnode*, %struct.tnode** %6, align 8
+  %34 = getelementptr inbounds %struct.tnode, %struct.tnode* %33, i32 0, i32 2
+  store %struct.tnode* %32, %struct.tnode** %34, align 8
+  %35 = load %struct.tnode*, %struct.tnode** %3, align 8
+  call void @print_scalar(%struct.tnode* %35)
+  %36 = load %struct.tnode*, %struct.tnode** %3, align 8
+  ret %struct.tnode* %36
 }
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
@@ -3462,7 +3458,7 @@ define void @printCollectorStatus() #0 {
   %1 = alloca %struct.gcNode*, align 8
   %2 = alloca %struct.gcNode*, align 8
   %3 = alloca i32, align 4
-  %4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([31 x i8], [31 x i8]* @.str.47, i32 0, i32 0))
+  %4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([31 x i8], [31 x i8]* @.str.46, i32 0, i32 0))
   %5 = load %struct.gcNode*, %struct.gcNode** getelementptr inbounds (%struct.GC, %struct.GC* @gCollector, i32 0, i32 0), align 8
   store %struct.gcNode* %5, %struct.gcNode** %1, align 8
   %6 = load %struct.gcNode*, %struct.gcNode** getelementptr inbounds (%struct.GC, %struct.GC* @gCollector, i32 0, i32 0), align 8
@@ -3505,7 +3501,7 @@ define void @printCollectorStatus() #0 {
   %31 = load %struct.tnode*, %struct.tnode** %30, align 8
   %32 = getelementptr inbounds %struct.tnode, %struct.tnode* %31, i32 0, i32 3
   %33 = load i32, i32* %32, align 8
-  %34 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([30 x i8], [30 x i8]* @.str.48, i32 0, i32 0), i32 %25, %struct.tnode* %28, i32 %33)
+  %34 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([30 x i8], [30 x i8]* @.str.47, i32 0, i32 0), i32 %25, %struct.tnode* %28, i32 %33)
   %35 = load %struct.gcNode*, %struct.gcNode** %2, align 8
   %36 = getelementptr inbounds %struct.gcNode, %struct.gcNode* %35, i32 0, i32 0
   %37 = load %struct.tnode*, %struct.tnode** %36, align 8
@@ -3527,7 +3523,7 @@ define void @printCollectorStatus() #0 {
   %47 = getelementptr inbounds %struct.tdata, %struct.tdata* %46, i32 0, i32 1
   %48 = bitcast %union.data_type* %47 to double*
   %49 = load double, double* %48, align 8
-  %50 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.49, i32 0, i32 0), double %49)
+  %50 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.48, i32 0, i32 0), double %49)
   br label %64
 
 ; <label>:51:                                     ; preds = %24
@@ -3538,22 +3534,22 @@ define void @printCollectorStatus() #0 {
   %56 = getelementptr inbounds %struct.tdata, %struct.tdata* %55, i32 0, i32 1
   %57 = bitcast %union.data_type* %56 to i32*
   %58 = load i32, i32* %57, align 8
-  %59 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.50, i32 0, i32 0), i32 %58)
+  %59 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.49, i32 0, i32 0), i32 %58)
   br label %64
 
 ; <label>:60:                                     ; preds = %24
-  %61 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.51, i32 0, i32 0))
+  %61 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.50, i32 0, i32 0))
   br label %64
 
 ; <label>:62:                                     ; preds = %24
-  %63 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([16 x i8], [16 x i8]* @.str.52, i32 0, i32 0))
+  %63 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([16 x i8], [16 x i8]* @.str.51, i32 0, i32 0))
   br label %64
 
 ; <label>:64:                                     ; preds = %62, %60, %51, %42
   br label %67
 
 ; <label>:65:                                     ; preds = %19
-  %66 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.53, i32 0, i32 0))
+  %66 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.52, i32 0, i32 0))
   br label %67
 
 ; <label>:67:                                     ; preds = %65, %64
@@ -3573,7 +3569,7 @@ define void @printCollectorStatus() #0 {
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_exit() #0 {
   call void @collectGarbage()
-  %1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.54, i32 0, i32 0))
+  %1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.53, i32 0, i32 0))
   call void @exit(i32 0) #6
   unreachable
                                                   ; No predecessors!
@@ -4068,7 +4064,7 @@ define %struct.tnode* @funk_read_list_from_file(i8*) #0 {
   %9 = load %struct.tnode*, %struct.tnode** %3, align 8
   store %struct.tnode* %9, %struct.tnode** %4, align 8
   %10 = load i8*, i8** %2, align 8
-  %11 = call %struct.__sFILE* @"\01_fopen"(i8* %10, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.55, i32 0, i32 0))
+  %11 = call %struct.__sFILE* @"\01_fopen"(i8* %10, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.54, i32 0, i32 0))
   store %struct.__sFILE* %11, %struct.__sFILE** %5, align 8
   %12 = load %struct.__sFILE*, %struct.__sFILE** %5, align 8
   %13 = icmp eq %struct.__sFILE* %12, null
@@ -4076,7 +4072,7 @@ define %struct.tnode* @funk_read_list_from_file(i8*) #0 {
 
 ; <label>:14:                                     ; preds = %1
   %15 = load i8*, i8** %2, align 8
-  %16 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([30 x i8], [30 x i8]* @.str.56, i32 0, i32 0), i8* %15)
+  %16 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([30 x i8], [30 x i8]* @.str.55, i32 0, i32 0), i8* %15)
   call void @exit(i32 1) #6
   unreachable
 
@@ -4087,7 +4083,7 @@ define %struct.tnode* @funk_read_list_from_file(i8*) #0 {
 
 ; <label>:20:                                     ; preds = %17
   %21 = load i8*, i8** %2, align 8
-  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.57, i32 0, i32 0), i8* %21)
+  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.56, i32 0, i32 0), i8* %21)
   br label %23
 
 ; <label>:23:                                     ; preds = %20, %17
@@ -4096,7 +4092,7 @@ define %struct.tnode* @funk_read_list_from_file(i8*) #0 {
 
 ; <label>:24:                                     ; preds = %28, %23
   %25 = load %struct.__sFILE*, %struct.__sFILE** %5, align 8
-  %26 = call i32 (%struct.__sFILE*, i8*, ...) @fscanf(%struct.__sFILE* %25, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.58, i32 0, i32 0), i32* %6)
+  %26 = call i32 (%struct.__sFILE*, i8*, ...) @fscanf(%struct.__sFILE* %25, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.57, i32 0, i32 0), i32* %6)
   %27 = icmp eq i32 %26, 1
   br i1 %27, label %28, label %46
 
