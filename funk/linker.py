@@ -24,11 +24,19 @@ def get_dependencies(src, include_paths=['.',os.getcwd()]):
             dep = dep.strip()
             if dep == 's2d':
                 link_with_s2d = True
+                continue
 
+            found = False
             for include_path in include_paths:
                 dep_path = os.path.join(include_path, '{}.f'.format(dep))
                 if os.path.isfile(dep_path):
                     dependencies.append(dep_path)
+                    found = True
+                    break
+
+            if not found:
+                print('-E- Could not find file {}.f'.format(dep))
+                exit(1)
 
     return dependencies
 
@@ -39,10 +47,14 @@ def get_ll_path(src_path):
     return '{}.ll'.format(file_base_name), '{}.f'.format(file_base_name)
 
 
-def compile_source(src_path, build_path, debug=False):
+def compile_source(src_path, build_path, include_paths, debug=False):
     try:
         dependencies = []
         funk = Funk(debug=debug)
+
+
+        if not os.path.isfile(src_path):
+            src_path = os.path.join(os.getcwd(),src_path)
 
         with open(src_path, 'r') as my_file:
             src_text = my_file.read()
@@ -56,7 +68,7 @@ def compile_source(src_path, build_path, debug=False):
         dependency_satisfied.add(src_path)
         link_targets.add(os.path.join(build_path,ll_name))
 
-        for dependency in get_dependencies(src_text, include_paths=[os.path.join(os.getcwd(),'util')]):
+        for dependency in get_dependencies(src_text, include_paths=include_paths):
             ll_name, _ = get_ll_path(dependency)
             ll_path = os.path.join(build_path, ll_name)
             link_targets.add(ll_path)
@@ -67,6 +79,7 @@ def compile_source(src_path, build_path, debug=False):
 
     except IOError:
         print('-E- File not found \'{}\''.format(src_path))
+        exit()
 
 
 def is_in_path_env(program):
@@ -78,7 +91,7 @@ def is_in_path_env(program):
     return False
 
 
-def build(src_path, build_path, llc_path, debug):
+def build(src_path, include_paths, build_path, llc_path, debug):
     global link_with_s2d
 
     if not is_in_path_env('clang'):
@@ -97,11 +110,11 @@ def build(src_path, build_path, llc_path, debug):
 
     if not os.path.exists(build_path):
         os.mkdir(build_path)
-    build_source(src_path, build_path, debug)
+    build_source(src_path, include_paths, build_path, debug)
 
     print('==== linking ====')
     if not os.path.isfile(os.path.join(build_path,'funk_core.o')):
-        link_targets.add('{}/funk/core/funk_core.ll'.format(os.getcwd()))
+        link_targets.add('{}/core/funk_core.ll'.format(os.path.dirname(os.path.abspath(__file__))))
 
     _, file_name = os.path.split(src_path)
     output = os.path.join(build_path, os.path.splitext(file_name)[0])
@@ -128,12 +141,14 @@ def build(src_path, build_path, llc_path, debug):
     os.system(cmd)
 
 
-def build_source(src_path, build_path, debug=False):
+def build_source(src_path, include_paths, build_path, debug=False):
 
-    dependencies = compile_source(src_path, build_path, debug)
+    dependencies = compile_source(src_path, include_paths=include_paths,
+                                  build_path=build_path, debug=debug)
     for dependency in dependencies:
         if dependency in dependency_satisfied:
             continue
-        build_source(dependency, build_path, debug)
+        build_source(dependency, include_paths=include_paths,
+                     build_path=build_path, debug=debug)
 
 

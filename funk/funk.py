@@ -18,6 +18,7 @@
 
 from .funk_llvm_emitter import Emitter
 from llvmlite import binding
+import os
 try:
     from lark import Lark
 except ImportError:
@@ -76,9 +77,13 @@ class Funk:
     def __init__(self, debug=False):
 
         self.debug = debug
-
-        with open('funk/funk_ll1.lark', 'r') as myfile:
-            funk_grammar = myfile.read()
+        try:
+            ll1_path = '{}/funk_ll1.lark'.format(os.path.dirname(os.path.abspath(__file__)))
+            with open(ll1_path, 'r') as myfile:
+                funk_grammar = myfile.read()
+        except IOError:
+            print('-E- File not found \'{}\''.format(ll1_path))
+            exit()
 
         self.window = None
         self.grammar = Lark(funk_grammar)
