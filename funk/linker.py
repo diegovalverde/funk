@@ -35,7 +35,8 @@ def get_dependencies(src, include_paths=['.',os.getcwd()]):
                     break
 
             if not found:
-                print('-E- Could not find file {}.f'.format(dep))
+                print('-E- Could not find source file {}.f'.format(dep))
+                print('-I- Include path ',include_paths)
                 exit(1)
 
     return dependencies
@@ -51,7 +52,6 @@ def compile_source(src_path, build_path, include_paths, debug=False):
     try:
         dependencies = []
         funk = Funk(debug=debug)
-
 
         if not os.path.isfile(src_path):
             src_path = os.path.join(os.getcwd(),src_path)
@@ -91,19 +91,15 @@ def is_in_path_env(program):
     return False
 
 
-def build(src_path, include_paths, build_path, llc_path, debug):
+def build(src_path, include_paths, build_path, debug):
     global link_with_s2d
 
     if not is_in_path_env('clang'):
         print('-E- Cannot find clang in your path')
         exit(1)
 
-    if llc_path is None:
-        llc_path = '/usr/local/Cellar/llvm/6.0.1/bin/llc'
-
-    if not os.path.exists(llc_path):
-        print('-E- Cannot find LLC executable under: \'{}\''.format(llc_path))
-        print('-I- Please use the \'--llc_path\' to specify the path to your llc exe')
+    if not is_in_path_env('llc'):
+        print('-E- Cannot find clang in your path')
         exit(1)
 
     print('==== compiling ====')
@@ -125,7 +121,7 @@ def build(src_path, include_paths, build_path, llc_path, debug):
         obj_name = '{}.o'.format(file_base_name)
 
         if not os.path.isfile(obj_name) or os.path.getmtime(link_target) > os.path.getmtime(obj_name):
-            os.system('{LLC} -filetype=obj {link_target}'.format(LLC=llc_path,link_target=link_target))
+            os.system('llc -filetype=obj {link_target}'.format(link_target=link_target))
             print('{file_base_name}.ll -> {file_base_name}.o'.format(file_base_name=file_base_name))
 
         obj_list += ' {} '.format(obj_name)
