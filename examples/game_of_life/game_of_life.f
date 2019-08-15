@@ -10,9 +10,9 @@ update_cell(alive, cnt | alive = 1 /\ cnt > 3 ): 0.
 # Any dead cell with exactly three live neighbours becomes a live cell
 update_cell(alive, cnt | alive = 0 /\ cnt = 3 ): 1.
 # All others: ie. dead cells with no neighbours remain dead
-update_cell(_, _  ): 0.
+update_cell(_, _ ): 0.
 # Board has been traversed, all done
-update_board(tr, mr, br, k, w, h | k = (w*h)): [].
+update_board(_, _, _, k, w, h | k = (w*h)): [].
 # Special condition for the last few cells
 update_board(tr, mr, br, k, w, h | k >= (w*(h-1))):
     idem(0) ~>[ update_board(tr, mr, br, k+1, w, h)].
@@ -25,7 +25,7 @@ update_board(tr, mr, br, k, w, h | (k / w) = 0 \/ k % w = 0 \/ (k / w) = (w-1) )
  # count neighbours around cell 'mr' and move sliding rectangle to the left
  update_board(a <~ [tr], b <~ [mr], c <~ [br],k,w,h):
     cnt <- a + b + c + br + tr + nth(tr,1) + nth(mr, 1) + nth(br,1)
-    update_cell(mr, cnt) ~> [ update_board( tr, mr, br, k+1, w, h )].
+    update_cell(mr, cnt) ~> [update_board( tr, mr, br, k+1, w, h )].
 
 s2d_render(board):
     w <- 50
