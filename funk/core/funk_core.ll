@@ -1,7 +1,3 @@
-; ModuleID = 'funk/core/c_model/funk_c_model.c'
-source_filename = "funk/core/c_model/funk_c_model.c"
-target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-apple-macosx10.14.0"
 
 %struct.tnode = type { i8, %struct.tdata, %struct.tnode*, i32 }
 %struct.tdata = type { i8, %union.data_type }
