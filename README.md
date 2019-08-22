@@ -13,6 +13,24 @@ The Funk compiler translates to LLVM code, such that an executable file for the 
 
 Please note the the state of this project is **under early stages of development**.
 
+# Toolchain installation
+
+Install the python requirements:
+```
+pip install -r requirements.txt 
+```
+
+Install **llvm** toolchain:
+
+Linux:
+```
+sudo apt install llvm
+```
+Mac:
+```
+brew install --with-toolchain llvm
+```
+
 # Quick Language walk-through
 
 ## Functions
