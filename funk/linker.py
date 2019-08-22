@@ -99,7 +99,7 @@ def build(src_path, include_paths, build_path, debug):
         exit(1)
 
     if not is_in_path_env('llc'):
-        print('-E- Cannot find clang in your path')
+        print('-E- Cannot find llc in your path')
         exit(1)
 
     print('==== compiling ====')
