@@ -319,14 +319,14 @@ define void @funk_sleep(i32) #0 {
 
 ; <label>:6:                                      ; preds = %1
   %7 = load i32, i32* %2, align 4
-  %8 = call i32 @"\01_sleep"(i32 %7)
+  %8 = call i32 @sleep(i32 %7)
   br label %9
 
 ; <label>:9:                                      ; preds = %6, %5
   ret void
 }
 
-declare i32 @"\01_sleep"(i32) #1
+declare i32 @sleep(i32) #1
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_deep_copy_node(%struct.tnode*, %struct.tnode*) #0 {
@@ -4060,7 +4060,7 @@ define %struct.tnode* @funk_read_list_from_file(i8*) #0 {
   %9 = load %struct.tnode*, %struct.tnode** %3, align 8
   store %struct.tnode* %9, %struct.tnode** %4, align 8
   %10 = load i8*, i8** %2, align 8
-  %11 = call %struct.__sFILE* @"\01_fopen"(i8* %10, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.54, i32 0, i32 0))
+  %11 = call %struct.__sFILE* @fopen(i8* %10, i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.54, i32 0, i32 0))
   store %struct.__sFILE* %11, %struct.__sFILE** %5, align 8
   %12 = load %struct.__sFILE*, %struct.__sFILE** %5, align 8
   %13 = icmp eq %struct.__sFILE* %12, null
@@ -4134,7 +4134,7 @@ define %struct.tnode* @funk_read_list_from_file(i8*) #0 {
   ret %struct.tnode* %56
 }
 
-declare %struct.__sFILE* @"\01_fopen"(i8*, i8*) #1
+declare %struct.__sFILE* @fopen(i8*, i8*) #1
 
 declare i32 @fscanf(%struct.__sFILE*, i8*, ...) #1
 
