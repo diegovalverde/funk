@@ -121,8 +121,12 @@ def build(src_path, include_paths, build_path, debug):
         obj_name = '{}.o'.format(file_base_name)
 
         if not os.path.isfile(obj_name) or os.path.getmtime(link_target) > os.path.getmtime(obj_name):
-            os.system('llc -filetype=obj {link_target}'.format(link_target=link_target))
-            print('{file_base_name}.ll -> {file_base_name}.o'.format(file_base_name=file_base_name))
+            retval = os.system('llc -filetype=obj {link_target}'.format(link_target=link_target))
+            if retval != 0:
+                print('-E- Error Linking {link_target}'.format(link_target=link_target))
+                exit(retval)
+            else:
+                print('{file_base_name}.ll -> {file_base_name}.o'.format(file_base_name=file_base_name))
 
         obj_list += ' {} '.format(obj_name)
 
@@ -131,7 +135,6 @@ def build(src_path, include_paths, build_path, debug):
         libs += '`simple2d --libs`'
 
     cmd = 'clang {obj_list} {libs} -o {output}'.format(obj_list=obj_list, libs=libs, output=output)
-
 
     print(cmd)
     os.system(cmd)

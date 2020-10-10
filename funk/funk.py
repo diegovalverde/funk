@@ -19,6 +19,8 @@
 from .funk_llvm_emitter import Emitter
 from llvmlite import binding
 import os
+import re
+
 try:
     from lark import Lark
 except ImportError:
@@ -245,12 +247,36 @@ declare i32 @printf(i8*, ...) #1
         f.write(self.emit())
         f.close()
 
+    @staticmethod
+    def replace_macros(src):
+        macros = {}
+        src_out = []
+        for line in src.splitlines():
+            match = re.findall('^(.*)<->(.*)', line)
+            if len(match) == 0:
+                src_out.append(line)
+            else:
+                src_out.append('')
+                key, val = match[0]
+                macros[key.strip()] = val.strip()
+
+        str_out = ''
+        for line in src_out:
+            new_line = line
+            for key in macros.keys():
+                new_line = new_line.replace(key, macros[key])
+            str_out += new_line + '\n'
+        return str_out
+
     def compile(self, text):
         if self.debug:
             print ('-I- debug mode on')
         # The grammar does not really allow you to put ',\n'
         # Let's just fix this in some pre-processing stage
         preprocessed_text = text.replace(',\n', ',')
+        preprocessed_text = preprocessed_text.replace('\\/\n', '\\/')
+
+        preprocessed_text = self.replace_macros(preprocessed_text)
 
         parse_tree = self.grammar.parse(preprocessed_text)
 

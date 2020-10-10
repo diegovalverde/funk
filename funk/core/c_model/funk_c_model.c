@@ -26,12 +26,11 @@ int g_funk_verbosity = 0;
 
 
 
-
+#define FUNK_MAX_POOL_SIZE 1024
 
 struct tdata
 {
   unsigned char type;
-
   union data_type{
     double f;
     int i;
@@ -40,13 +39,16 @@ struct tdata
 
 };
 
+struct tpool
+{
+  struct tdata data[FUNK_MAX_POOL_SIZE];
+  unsigned int tail;
+} funk_memory_pool;
 
 struct tnode
 {
-  unsigned char type;
-  struct tdata pd;
-  struct tnode * next;
-  int refCount;
+  unsigned int start, end;
+  struct tpool * pool;
 };
 
 
@@ -65,54 +67,41 @@ char * printNodeType(int type){
   }
 }
 
-void funk_debug_printNode(struct tnode * n){
+void funk_debug_printNode(struct tnode * node ){
 
-  if (NULL == n){
-    printf("Node = nullptr\n");
-    return;
-  }
-  printf("addr: %p ",n);
-  switch(n->pd.type){
-    case type_invalid:
-       printf("data_type 'invalid_type' node_type %s",printNodeType(n->type));
-      break;
-    case type_int:
-      printf("data_type 'int' value %d node_type %s",n->pd.data.i,printNodeType(n->type));
-      break;
-    case type_double:
-      printf("data_type 'double' value %f node_type %s",n->pd.data.f,printNodeType(n->type));
-      break;
-    case type_array:
-      printf("data_type 'array'node_type %s",printNodeType(n->type));
-      break;
-    case type_empty_array:
-      printf("data_type 'empty_array' node_type %s",printNodeType(n->type));
-      break;
-    case type_scalar:
-      printf("data_type 'scalar' value %d node_type %s",n->pd.data.i,printNodeType(n->type));
-      break;
-    case type_function:
-      printf("data_type 'function' node_type %s",printNodeType(n->type));
-      break;
-    default:
-      printf("data_type '?' node_type %s",printNodeType(n->type));
-  }
+  struct tpool * pool = node->pool;
+  printf("pool %p %d:%d [ ", pool, node->start, node->end);
+  for (int i = node->start; i < node->end; i++)
+  {
 
-  if (n->refCount == -1){
-    printf(" [variable in the STACK]\n");
-  } else {
-    printf("ref_cnt %d\n", n->refCount);
+      int type = pool->data[i].type;
+
+      switch(type){
+
+        case type_int:
+          printf("%s: %d",printNodeType(type), pool->data[i].data.i);
+          break;
+
+        case type_double:
+          printf("%s: %f",printNodeType(type), pool->data[i].data.f);
+          break;
+
+
+        case type_invalid:
+        case type_empty_array:
+        case type_array:
+        default:
+          printf("%s",printNodeType(type));
+          break;
+
+      }
+      printf(" ");
   }
+  printf("]\n");
 
 }
+/*
 struct tnode gRenderLoopState;
-void  funk_shallow_copy_node(struct tnode * dst, struct tnode * src){
-  dst->type = src->type;
-  dst->pd.type = src->pd.type;
-  dst->pd.data = src->pd.data;
-  dst->next = NULL;
-
-}
 
 void funk_sleep(int aSeconds){
   static int first = 1;
@@ -121,24 +110,6 @@ void funk_sleep(int aSeconds){
     return;
   }
   sleep(aSeconds);
-}
-
-
-
-void funk_deep_copy_node(struct tnode * dst, struct tnode * src){
-
-   funk_shallow_copy_node(dst, src);
-
-  struct tnode * p = src->next;
-  struct tnode * q = dst;
-  while (p){
-    if (q->next == NULL){
-      q->next  = (struct tnode *) malloc(sizeof(struct tnode ));
-    }
-    q = q->next;
-     funk_shallow_copy_node(q, p);
-    p = p->next;
-  }
 }
 
 
@@ -158,7 +129,7 @@ struct tnode get_s2d_user_global_state(){
   }
   return gRenderLoopState;
 }
-
+*/
 
 void funk_set_config_param(int id, int value){
   printf("-I- Setting conf parameter %d to value %d\n", id, value);
@@ -176,7 +147,7 @@ void funk_set_config_param(int id, int value){
 
 }
 
-
+#if 0
 void funk_slt_ri(struct tnode * r, struct tnode * n1, int lit){
   if (n1->pd.type == type_int){
       r->pd.data.i = (n1->pd.data.i < lit) ? 1 : 0;
@@ -890,3 +861,4 @@ struct tnode *  funk_read_list_from_file(char * path ){
 
   return dst;
 }
+#endif
