@@ -58,10 +58,14 @@
             | "/" factor [term_] -> action_arith_div
             | "%" factor [term_] -> action_arith_mod
 
-    factor: "(" expr ")"  | list  | number | function_call | string
+    factor: "(" expr ")"  | list  | number | function_call | string | indexed_array
+
+    indexed_array: identifier "[" expr [more_array_idx] "]" -> action_indexed_array
+
+    more_array_idx: "," expr [more_array_idx]
 
     ///////////////////////////////////////////
-    //Boolean Expressions
+    // Boolean Expressions
     ///////////////////////////////////////////
 
     boolean_expr: boolean_binary_term [boolean_expr_]
@@ -90,7 +94,7 @@
 
     list_initialization: list_elements
                         | list_comprehension
-
+                        | list -> action_nested_list
 
     list_comprehension: expr "|" list_comprehension_range [list_comprehension_conditions] -> action_list_comprehension
 

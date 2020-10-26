@@ -79,6 +79,7 @@ class Funk:
     def __init__(self, debug=False):
 
         self.debug = debug
+        function_declarations = None
         try:
             ll1_path = '{}/funk_ll1.lark'.format(os.path.dirname(os.path.abspath(__file__)))
             with open(ll1_path, 'r') as myfile:
@@ -87,10 +88,19 @@ class Funk:
             print('-E- File not found \'{}\''.format(ll1_path))
             exit()
 
+        try:
+            declarations_path = '{}/core/declarations.txt'.format(os.path.dirname(os.path.abspath(__file__)))
+            with open(declarations_path, 'r') as file:
+                function_declarations = file.read()
+        except IOError:
+            print('-E- File not found \'{}\''.format(declarations_path))
+            exit()
+
+
         self.window = None
         self.grammar = Lark(funk_grammar)
         self.strings_count = 0  # used to declare constant strings as unique globals
-        self.triple = binding.get_default_triple()
+        self.triple = 'x86_64-apple-macosx10.15.0' #binding.get_default_triple()
         self.symbol_table = {}  # the symbol table
         self.function_scope = None  # The function scope that we are currently building
         self.functions = []
@@ -119,6 +129,9 @@ target datalayout = ""
 ;; then the appropiate bitcast is used to inform the compiler about
 ;; the corresponding data type for a given symbol
 
+%struct.tpool = type {{ [1024 x %struct.tdata], i32 }}
+@funk_global_memory_pool = common global %struct.tpool zeroinitializer, align 8
+
 %union.data_type = type {{ double }}
 
 ;; This a primitive data type. It contains a type tag (i8) followed by
@@ -129,7 +142,7 @@ target datalayout = ""
 ;; These are nodes of a linked list. These are used to present lists
 ;; as well are function arguments (which are essentially lists)
 
-%struct.tnode = type {{ i8, %struct.tdata, %struct.tnode*, i32 }}
+%struct.tnode = type {{ i32, i32, %struct.tpool* }}
 
 
 ;; =============================================================== ;;
@@ -151,51 +164,8 @@ declare i8* @malloc(i64) #2
 declare void @free(i8*) #1
 
 
-declare double @rand_double(double, double) #0
-declare i32 @rand_int(i32, i32) #0
-declare void @init_random_seed() #0
-declare void @print_scalar(%struct.tnode*) #0
-declare void @funk_eq_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_flt_rf(%struct.tnode*, %struct.tnode*, double) #0
-declare void @funk_mod_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_add_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_eq_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_add_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_sub_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_sub_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_div_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_mul_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_mul_rf(%struct.tnode*, %struct.tnode*, double) #0
-declare void @funk_add_rf(%struct.tnode*, %struct.tnode*, double) #0
-declare void @funk_sub_rf(%struct.tnode*, %struct.tnode*, double) #0
-declare void @funk_div_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare  void @funk_mod_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare %struct.tnode* @funk_CreateLinkedListConstInt(i32, i32, i32) #0
-declare void @registerHeapAllocation(%struct.tnode*) #0
-declare void @initGarbageCollector() #0
-declare void @collectGarbage() #0
-declare void @funk_sleep(i32) #1
-declare %struct.tnode* @createLinkedList(i32, i32, i8 zeroext) #0
-declare void @createLhsStackVar(%struct.tnode*) #0
-declare float @funk_ToFloat(%struct.tnode*) #0
-declare void @funk_slt_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_sgt_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_sge_ri(%struct.tnode*, %struct.tnode*, i32) #0
-declare void @funk_sge_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_or_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_mul_ri(%struct.tnode*, %struct.tnode*, i32)
-declare %struct.tnode* @funk_mallocNodeRight(%struct.tnode*) #0
-declare void @markNodeForGarbageCollection(%struct.tnode*) #0
-declare void @printCollectorStatus() #0
-declare void @funk_memcp_arr(%struct.tnode*, %struct.tnode*, i32, i8 zeroext) #0
-declare void @funk_and_rr(%struct.tnode*, %struct.tnode*, %struct.tnode*) #0
-declare void @funk_set_config_param(i32, i32) #0
-declare %struct.tnode* @funk_concatenate_lists(%struct.tnode*, %struct.tnode*) #0 
-declare void @get_s2d_user_global_state(%struct.tnode* noalias sret) #0
-declare void @set_s2d_user_global_state(%struct.tnode*) #0
-declare void @funk_exit() #0
-declare %struct.tnode* @funk_read_list_from_file(i8*) #0 
-            """.format(triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
+{function_declarations}
+            """.format(function_declarations=function_declarations, triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
         self.post_amble = \
             """
@@ -296,29 +266,8 @@ declare i32 @printf(i8*, ...) #1
     def alloc_variable_list_symbol(self, p_start, p_end, expr):
         return self.emitter.alloc_variable_linked_list(p_start, p_end, expr)
 
-    def alloc_literal_list_symbol(self, elements):
-        n = len(elements)
-        prev = None
-        head = None
-        node = None
-        for i in range(n):
-            node = self.emitter.alloc_tnode(name='list[{}]'.format(i),
-                                            value=elements[i],
-                                            data_type=funk_types.int,
-                                            node_type=funk_types.array)
-            if prev is not None:
-                self.emitter.set_next_node(prev, node)
-            else:
-                head = node
-
-            prev = node
-
-        tail = self.emitter.alloc_tnode(name='list_tail',
-                                        node_type=funk_types.empty_array)
-
-        self.emitter.set_next_node(tail, 'null')
-        self.emitter.set_next_node(node, tail)
-        return head
+    def alloc_literal_list_symbol(self, elements, dimensions):
+       return self.emitter.alloc_literal_list(name='list[]', lit_list=elements, dimensions=dimensions)
 
     def create_variable_symbol(self, symbol, symbol_name):
         allocation = self.emitter.alloc_tnode(symbol_name, data_type=symbol.get_compile_type())

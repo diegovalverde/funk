@@ -1,1 +1,12 @@
-clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -o funk/core/funk_core.ll && sed -i '' 's/llvm.memcpy.p0i8.p0i8.i64/memcpy/' funk/core/funk_core.ll
+#! /bin/bash
+
+C_INCLUDE_PATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/
+LLVM_PATH=/usr/local/opt/llvm/bin/
+
+$LLVM_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
+sed -i '' 's/llvm.memcpy.p0i8.p0i8.i64/memcpy/' funk/core/funk_core.ll
+
+
+grep define funk/core/funk_core.ll > funk/core/declarations.txt
+sed -i '' 's/define/declare/' funk/core/declarations.txt
+sed -i '' 's/{//' funk/core/declarations.txt

@@ -30,6 +30,7 @@ Mac:
 ```
 brew install --with-toolchain llvm
 ```
+You may also need to install latest command-line tools from https://developer.apple.com/download/more/
 
 # Quick Language walk-through
 

@@ -91,7 +91,7 @@ def is_in_path_env(program):
     return False
 
 
-def build(src_path, include_paths, build_path, debug):
+def build(src_path, include_paths, build_path, debug, llvm_bin_prefix='/usr/local/opt/llvm/bin/'):
     global link_with_s2d
 
     if not is_in_path_env('clang'):
@@ -121,7 +121,9 @@ def build(src_path, include_paths, build_path, debug):
         obj_name = '{}.o'.format(file_base_name)
 
         if not os.path.isfile(obj_name) or os.path.getmtime(link_target) > os.path.getmtime(obj_name):
-            retval = os.system('llc -filetype=obj {link_target}'.format(link_target=link_target))
+            cmd = '{}/llc -filetype=obj {link_target}'.format(llvm_bin_prefix, link_target=link_target)
+            print(cmd)
+            retval = os.system(cmd)
             if retval != 0:
                 print('-E- Error Linking {link_target}'.format(link_target=link_target))
                 exit(retval)
@@ -134,7 +136,7 @@ def build(src_path, include_paths, build_path, debug):
     if link_with_s2d:
         libs += '`simple2d --libs`'
 
-    cmd = 'clang {obj_list} {libs} -o {output}'.format(obj_list=obj_list, libs=libs, output=output)
+    cmd = '{}/clang {obj_list} {libs} -o {output}'.format(llvm_bin_prefix, obj_list=obj_list, libs=libs, output=output)
 
     print(cmd)
     os.system(cmd)

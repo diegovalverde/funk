@@ -170,7 +170,7 @@ class Emitter:
         %{2} = load %struct.tnode*, %struct.tnode** %{1}, align 8
         %{3} = bitcast %struct.tnode* %{0} to i8*
         %{4} = bitcast %struct.tnode* %{2} to i8*
-        call void @memcpy(i8* align 8  %{3}, i8* align 8  %{4}, i64 {tnode_size}, i1 false)
+        call void @memcpy(i8* align 8  %{3}, i8* align 8  %{4}, i32 {tnode_size}, i1 false)
         """.format(p[0], p[1], p[2], p[3], p[4], node=node, tnode_size=funk_constants.tnode_size_bytes)
 
         return '%{}'.format(p[0])
@@ -251,7 +251,7 @@ class Emitter:
     def mul(self, a, b, result=None):
         return self.arith_helper(a, b, 'mul', result)
 
-    def arith_helper(self, a, b, operation, result):
+    def arith_helper(self, a, b, operation, result, idx_r=0, idx_a=0, idx_b=0):
         self.add_comment('{} {} {}'.format(a, operation, b))
 
         if result is None:
@@ -275,8 +275,8 @@ class Emitter:
             """.format(p_result=result, pA=a, pB=b, operartion=operation)
         else:
             self.code += """
-            call void @funk_{operartion}_rr(%struct.tnode* {p_result},  %struct.tnode* {pA}, %struct.tnode* {pB} )
-            """.format(p_result=result, pA=a, pB=b, operartion=operation)
+            call void @funk_{operartion}_rr(%struct.tnode* {p_result}, i32 {idx_r}, %struct.tnode* {pA}, i32 {idx_a}, %struct.tnode* {pB}, i32 {idx_b} )
+            """.format(p_result=result, pA=a, pB=b, operartion=operation, idx_r=idx_r, idx_a=idx_a, idx_b=idx_b)
 
         return result
 
@@ -293,7 +293,7 @@ class Emitter:
         ;; copy node
         %{0} = bitcast %struct.tnode* {node_dst} to i8*
         %{1} = bitcast %struct.tnode* {node_src} to i8*
-        call void @memcpy(i8* align 8  %{0}, i8* align 8  %{1}, i64 {tnode_size}, i1 false)
+        call void @memcpy(i8* align 8  %{0}, i8* align 8  %{1}, i32 {tnode_size}, i1 false)
         """.format(p[0], p[1], node_dst=node_dst, node_src=node_src, tnode_size=funk_constants.tnode_size_bytes)
 
     def call_fn_ptr(self, fn_node, arguments, result=None):
@@ -386,7 +386,7 @@ class Emitter:
         self.code += """
         ;; get Node from pointer
         %{0} = load %struct.tnode*, %struct.tnode** {p_fn_args}, align 8
-        %{1} = getelementptr inbounds %struct.tnode, %struct.tnode* %{0}, i64 {idx}
+        %{1} = getelementptr inbounds %struct.tnode, %struct.tnode* %{0}, i32 {idx}
         """.format(p[0], p[1], idx=idx, p_fn_args=self.p_fn_args)
 
         self.index = p[-1] + 1
@@ -417,10 +417,9 @@ class Emitter:
 ;; ===
 ;; ==========================
 define i32 @main() #0 {
-        call void @init_random_seed()
+        call void @funk_init()
 
-        ;; Init the garbage collector
-        call void @initGarbageCollector()
+
             """
             self.index = 1
         elif name == 's2d_render':
@@ -524,17 +523,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         store void (%struct.tnode*, i32, %struct.tnode*)* {global_symbol}, void (%struct.tnode*, i32, %struct.tnode*)**  %{1}, align 8
         """.format(p[0], p[1], data=data, global_symbol=global_symbol)
 
-    def mark_node_for_garbage_collection(self, reg):
-        self.code += """
-        call void @markNodeForGarbageCollection(%struct.tnode* {reg})
-        """.format(reg=reg)
-
-    def garbage_collector_register_allocation(self, ptr):
-        self.code += """
-
-       call void @registerHeapAllocation(%struct.tnode* {ptr})
-       """.format(ptr=ptr)
-
     def concat_list(self,left,right):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
@@ -554,17 +542,11 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         %{0} = call %struct.tnode* @funk_mallocNodeRight(%struct.tnode* {ptr_left})
         """.format(p[0], ptr_left=ptr_left)
 
-        return '%{}'.format(p[-1])        
+        return '%{}'.format(p[-1])
 
     def print_collector_status(self):
         self.code += """
         ;;call void @printCollectorStatus()
-        """
-
-    def collect_garbage(self):
-        self.print_collector_status()
-        self.code += """
-        call void @collectGarbage()
         """
 
     def allocate_in_heap(self):
@@ -573,7 +555,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.index = p[-1] + 1
 
         self.code += """
-        %{0} = call i8* @malloc(i64 {tnode_size}) #3
+        %{0} = call i8* @malloc(i32 {tnode_size}) #3
         %{1} = bitcast i8* %{0} to %struct.tnode*
 
         """.format(p[0], p[1], tnode_size=funk_constants.tnode_size_bytes)
@@ -600,6 +582,49 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.code += """
         call void @funk_set_config_param(i32 {}, i32 {})
         """.format(id.eval(), value.eval())
+
+    def alloc_literal_list(self, name, lit_list, dimensions):
+        p = [x for x in range(self.index, self.index + 3)]
+        self.index = p[-1] + 1
+        A = p[0]
+        ptr = p[-1]
+        n = len(lit_list)
+        self.code += """
+        ;; variable \'{name}\': {lit_list}
+        %{0} = alloca [{n} x i32], align 16
+        %{1} = bitcast [{n} x i32]* %{0} to i8*
+        %{2} = bitcast i8* %{1} to [{n} x i32]*
+        """.format(p[0], p[1], p[2], name=name, lit_list=lit_list, n=n)
+
+        i = 0
+        for lit in lit_list:
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+            self.code += """
+        %{0} = getelementptr [{n} x i32], [{n} x i32]* %{p}, i64 0, i64 {i}
+        store i32 {lit}, i32* %{0}
+        """.format(p[0], p=ptr, n=n, lit=lit, i = i)
+            i += 1
+
+        p = [x for x in range(self.index, self.index + 2)]
+        self.index = p[-1] + 1
+
+        if len(dimensions) == 2:
+            self.code += """
+            %{0} = getelementptr inbounds [{n} x i32], [{n} x i32]* %{A}, i32 0, i32 0
+            %{1} = alloca %struct.tnode, align 8
+            call void @funk_create_2d_matrix_int_literal(%struct.tpool* @funk_global_memory_pool, %struct.tnode* %{1}, i32* %{0}, i32 {N}, i32 {M})
+
+            """.format(p[0], p[1], A=A, name=name, lit_list=lit_list, n=n, N=dimensions[0], M=dimensions[1])
+        else:
+            self.code += """
+            %{0} = getelementptr inbounds [{n} x i32], [{n} x i32]* %{A}, i32 0, i32 0
+            %{1} = alloca %struct.tnode, align 8
+            call void @funk_create_list_int_literal(%struct.tpool* @funk_global_memory_pool, %struct.tnode* %{1}, i32* %{0}, i32 {n})
+
+            """.format(p[0], p[1], A=A, name=name, lit_list=lit_list, n=dimensions[0])
+
+        return '%{}'.format(p[1])
 
     def alloc_tnode(self, name, value=None, data_type=None, node_type=None):
         p = [x for x in range(self.index, self.index + 1)]
@@ -630,7 +655,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.index = p[-1] + 1
 
         self.code += """
-        %{0} = getelementptr inbounds [{lenght} x %struct.tnode], [{lenght} x %struct.tnode]* {array}, i64 0, i64 {idx}
+        %{0} = getelementptr inbounds [{lenght} x %struct.tnode], [{lenght} x %struct.tnode]* {array}, i32 0, i32 {idx}
         """.format(p[0], lenght=lenght, idx=idx, array=array)
 
         return '%{}'.format(p[-1])
@@ -823,7 +848,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         %{2} = call %struct.S2D_Window* @S2D_CreateWindow(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt}, i32 0, i32 0), i32 {width}, i32 {height}, void (...)* null, void (...)* bitcast (void ()* {callback_fn} to void (...)*), i32 0)
         store %struct.S2D_Window* %{2}, %struct.S2D_Window** %{1}, align 8
         %{3} = load %struct.S2D_Window*, %struct.S2D_Window** %{1}, align 8
-       
+
         """.format(
             p[0], p[1], p[2], p[3], format_len=format_len, cnt=funk.strings_count, height=height, width=width,
             callback_fn='@s2d_render')
@@ -937,7 +962,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         p = [i for i in range(self.index, self.index + 1)]
         self.code += """
-                
+
                 %{0} = call %struct.tnode* @funk_read_list_from_file(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
             p[0], format_len=format_len, cnt=funk.strings_count)
 
@@ -949,7 +974,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.code += """
             %{0} = bitcast %struct.tnode* {src} to i8*
             %{1} = bitcast %struct.tnode* %{dst} to i8*
-            call void @memcpy(i8* align 8 %{0}, i8* align 8 %{1}, i64 40, i1 false)
+            call void @memcpy(i8* align 8 %{0}, i8* align 8 %{1}, i32 40, i1 false)
             """.format(q[0], q[1], src=result, dst=p[0])
 
             self.index = q[-1] + 1

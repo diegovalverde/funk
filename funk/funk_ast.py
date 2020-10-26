@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2019 Diego Valverde
+# Copyright (C) 2020 Diego Valverde
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 
 from . import funk_types
-
+import collections
 
 def list_concat_tail(funk, left, right, result=None):
     """
@@ -48,9 +48,6 @@ def list_concat_head(funk, left, right, result=None):
 
     funk.emitter.add_comment('Concatenating head to array')
     ptr_left = left.eval(result=result)
-    ptr_right = funk.emitter.malloc_right_node(ptr_left)
-    funk.emitter.garbage_collector_register_allocation(ptr_right)
-    right.eval(result=ptr_right)
 
 
 def create_ast_named_symbol(name, funk, right):
@@ -126,6 +123,30 @@ class List:
         self.name = name
         self.elements = elements
 
+    def get_dimensions(self):
+        def traverse(x, dimensions=[]):
+            elements = []
+            if isinstance(x, collections.Iterable): elements = x
+            elif isinstance(x, List): elements = x.elements
+            dimensions.append(len(elements))
+
+            if len(elements) >0 and isinstance(elements[0],List) or isinstance(elements[0], collections.Iterable):
+                return traverse(elements[0], dimensions)
+            return dimensions
+
+        if len(self.elements) == 0:
+            return [1]
+
+        return traverse(self)
+
+    def flatten(self,x):
+        if isinstance(x, collections.Iterable):
+            return [a for i in x for a in self.flatten(i)]
+        elif isinstance(x, List):
+            return [a for i in x.elements for a in self.flatten(i)]
+        else:
+            return [x]
+
     def __repr__(self):
         return 'List({})'.format(self.elements)
 
@@ -174,11 +195,16 @@ class LiteralList(List):
         return 'LiteralList({})'.format(self.elements)
 
     def eval(self, result=None):
+
+        dimensions = self.get_dimensions()
+        flattened_list = self.flatten(self.elements)
+
         literal_list = []
-        for element in self.elements:
+        for element in flattened_list:
             literal_list.append(element.eval(result=result))
 
-        return self.funk.alloc_literal_list_symbol(literal_list)
+
+        return self.funk.alloc_literal_list_symbol(literal_list, dimensions)
 
 
 class Identifier:
@@ -490,9 +516,31 @@ class Range:
         self.expr = expr
 
     def __repr__(self):
-        return 'Range({} {} {} {} {})'.format(self.lhs, self.lhs_type, self.identifier, self.rhs_type, self.rhs)
+        return 'Range({} | {} {} {} {} {})'.format(self.expr, self.lhs, self.lhs_type, self.identifier, self.rhs_type, self.rhs)
 
     def eval(self):
+        list_elements = []
+        range_start = self.lhs.eval()
+
+        if self.lhs_type == '<':
+            range_start += 1
+
+        range_end = self.rhs.eval()
+
+        if self.rhs_type == '<=':
+            range_end += 1
+
+        if self.expr.__repr__() == self.identifier.__repr__():
+            for i in range(range_start, range_end):
+                list_elements.append(IntegerConstant(self.funk, i))
+        else:
+            for i in range(range_start, range_end):
+               # assignment = Assignment(self.funk, self.identifier, IntegerConstant(self.funk, i), name="")
+               # assignment.eval()
+                list_elements.append( self.expr )
+
+        return LiteralList(self.funk, '', list_elements)
+
         # create as many Integers as necessary
         if isinstance(self.lhs, IntegerConstant) and\
            isinstance(self.rhs, IntegerConstant) and\
@@ -510,7 +558,7 @@ class Range:
 
             if self.rhs_type == '<=':
                 range_end += 1
-
+### diego>>>
             if isinstance(self.expr, Identifier):
                 for i in range(range_start, range_end):
                     integers.append(IntegerConstant(self.funk, i))
@@ -521,7 +569,6 @@ class Range:
             return LiteralList(self.funk, '', integers)
         else:
             return VariableList(self.funk, 'var_list', self.lhs, self.rhs, self.lhs_type, self.rhs_type, self.expr)
-
 
 class ExternalFunction:
     def __init__(self, funk, name):
@@ -728,12 +775,6 @@ class FunctionClause:
             # notice that this will not affect the return value since it is an
             # un-named value, thus not part of the function named-symbol list
 
-            # First clear all of the LHS symbols
-            for lhs_symbol in self.funk.function_scope.lhs_symbols:
-                self.funk.emitter.mark_node_for_garbage_collection(lhs_symbol )
-
-            # Now call the garbage collector
-            self.funk.emitter.collect_garbage()
 
             self.funk.emitter.ret()
 
@@ -772,13 +813,6 @@ class FunctionMap:
             index += 1
 
         self.funk.function_scope.clause_idx = 0
-
-        for lhs_symbol in self.funk.function_scope.lhs_symbols:
-            self.funk.emitter.mark_node_for_garbage_collection(lhs_symbol)
-        #if len(self.funk.function_scope.lhs_symbols) > 0:
-        #    self.funk.emitter.mark_node_for_garbage_collection(self.funk.function_scope.lhs_symbols[1])
-
-        self.funk.emitter.collect_garbage()
 
         self.funk.emitter.close_function(self.funk.function_scope.name)
 

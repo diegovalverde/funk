@@ -3,6 +3,10 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
+
+
+#define FUNK_DEBUG_BUILD 1
 
 enum types{
 type_invalid = 0,
@@ -20,21 +24,21 @@ enum FUNK_CONFIG_PARAMS{
 
 };
 
-int g_funk_print_array_max_elements = 30;
-int g_funk_print_array_element_per_row = 50;
-int g_funk_verbosity = 0;
+uint32_t g_funk_print_array_max_elements = 30;
+uint32_t g_funk_print_array_element_per_row = 50;
+uint32_t g_funk_verbosity = 0;
 
 
 
 #define FUNK_MAX_POOL_SIZE 1024
+struct tnode;
 
 struct tdata
 {
   unsigned char type;
   union data_type{
     double f;
-    int i;
-
+    int32_t i;
   } data;
 
 };
@@ -42,35 +46,29 @@ struct tdata
 struct tpool
 {
   struct tdata data[FUNK_MAX_POOL_SIZE];
-  unsigned int tail;
-} funk_memory_pool;
+  uint32_t tail;
+} funk_global_memory_pool;
+
+#define FUNK_MAX_DIMENSIONS 2 //may optimize when creating the runtime
+struct tdimensions
+{
+  uint32_t count;  //stores 3,4,5...
+  uint32_t d[FUNK_MAX_DIMENSIONS];
+};
 
 struct tnode
 {
-  unsigned int start, end;
+  uint32_t start, len;
   struct tpool * pool;
+  struct tdimensions  dimension; //stride shall be an array of MAX_DIMENSIONS?
 };
 
 
-char * printNodeType(int type){
-
-  switch(type){
-    case type_invalid: return "invalid_type"; break;
-    case type_int: return "int"; break;
-    case type_double: return "double"; break;
-    case type_array: return "array"; break;
-    case type_empty_array: return "empty_array"; break;
-    case type_scalar: return "scalar"; break;
-    case type_function: return "function"; break;
-    default:
-      return "unknown";
-  }
-}
-
+/*
 void funk_debug_printNode(struct tnode * node ){
 
   struct tpool * pool = node->pool;
-  printf("pool %p %d:%d [ ", pool, node->start, node->end);
+  printf("pool %p %%d:%%d [ ", pool, node->start, node->end);
   for (int i = node->start; i < node->end; i++)
   {
 
@@ -79,11 +77,11 @@ void funk_debug_printNode(struct tnode * node ){
       switch(type){
 
         case type_int:
-          printf("%s: %d",printNodeType(type), pool->data[i].data.i);
+          printf("int64: %%d", pool->data[i].data.i);
           break;
 
         case type_double:
-          printf("%s: %f",printNodeType(type), pool->data[i].data.f);
+          printf("double: %f",pool->data[i].data.f);
           break;
 
 
@@ -91,7 +89,7 @@ void funk_debug_printNode(struct tnode * node ){
         case type_empty_array:
         case type_array:
         default:
-          printf("%s",printNodeType(type));
+          printf("n/a");
           break;
 
       }
@@ -100,6 +98,7 @@ void funk_debug_printNode(struct tnode * node ){
   printf("]\n");
 
 }
+*/
 /*
 struct tnode gRenderLoopState;
 
@@ -300,28 +299,141 @@ void funk_and_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
     r->pd.type = type_invalid;
   }
 }
+#endif
 
-void funk_mul_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
-  if (n1->pd.type == type_double && n2->pd.type == type_double){
-      r->pd.data.f = n1->pd.data.f * n2->pd.data.f;
-      r->pd.type = type_double;
-  } else if (n1->pd.type == type_int && n2->pd.type == type_int){
-    r->pd.data.i = n1->pd.data.i * n2->pd.data.i;
-    r->pd.type = type_int;
-  } else if (n1->pd.type == type_double && n2->pd.type == type_int){
-    r->pd.data.f = n1->pd.data.f * (double)(n2->pd.data.i);
-    r->pd.type = type_double;
-  } else if (n1->pd.type == type_int && n2->pd.type == type_double){
-    r->pd.data.f = (double)n1->pd.data.i * n2->pd.data.f;
-    r->pd.type = type_double;
-  } else {
-    //Invalid data
-    printf("-E- funk_mul_rr: invalid types %d, %d\n ", n1->pd.type, n2->pd.type);
-    r->pd.type = type_invalid;
+void funk_init(void){
+
+  unsigned int seed = (unsigned int)time(NULL);
+  srand(seed);
+
+  #ifdef FUNK_DEBUG_BUILD
+
+    for (int i = 0; i < FUNK_MAX_POOL_SIZE; i++){
+      funk_global_memory_pool.data[i].data.i = 0;
+    }
+    printf("===== FUNK Interactive debugger =====\n");
+    printf("-I- Global pool size %d\n", FUNK_MAX_POOL_SIZE);
+    printf("-I- init_random_seed: %d\n", seed);
+    printf("Press any key to start\n");
+    getchar();
+
+
+  #endif
+
+}
+
+void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t * list , int32_t size )
+{
+  n->start  = pool->tail;
+  n->len = size;
+  n->pool = pool;
+  n->dimension.count = 1;
+
+  pool->tail = (pool->tail + size) % FUNK_MAX_POOL_SIZE;
+
+  for (int i = 0; i < size; i++){
+    pool->data[n->start + i].type = type_int;
+    pool->data[n->start + i].data.i = list[i];
   }
 
 }
 
+void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node, int32_t * list , int32_t n, int32_t m )
+{
+  // Internally matrices are representes as contiguos
+  // arrays in memory
+  funk_create_list_int_literal(pool, node, list, n*m );
+  node->dimension.count = 2;
+  node->dimension.d[0] = n;
+  node->dimension.d[1] = m;
+
+}
+
+void funk_copy_element_from_pool(struct tpool * pool, struct tnode * dst, struct tnode * src, int32_t i, int32_t j){
+  int32_t offset = (src->dimension.d[0] * i) + j;
+
+  if (offset >= src->len){
+      printf("-E- Indexes %d, %d are out of bounds\n", i, j);
+  } else {
+      dst->start = src->start + offset;
+      dst->len = 1;
+  }
+
+}
+
+void funk_debug_function_entry_hook(void){
+
+
+  #ifdef FUNK_DEBUG_BUILD
+  printf("Stopped at the beginning of function\n");
+  char str[8];
+  fgets(str,8,stdin);
+
+  #endif
+}
+
+
+
+
+
+
+void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n, unsigned char dst_on_stack){
+  for (int i = 0; i < n; ++i){
+      dst[i] = src[i];
+
+  }
+
+}
+
+
+void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
+                 struct tnode * node_a, int32_t a_offset,
+                 struct tnode * node_b, int32_t b_offset)
+  {
+    if (a_offset > node_a->len){
+      printf("-E- Invalid index %d is greater than array size of %d", a_offset, node_a->len );
+    }
+
+    if (b_offset > node_b->len){
+      printf("-E- Invalid index %d is greater than array size of %d", b_offset, node_b->len );
+    }
+
+    if (r_offset > node_r->len){
+      printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
+    }
+
+  struct tdata a = node_a->pool->data[a_offset];
+  struct tdata b = node_b->pool->data[b_offset];
+  struct tdata * r = &(node_r->pool->data[r_offset]);
+
+  unsigned char t1 = a.type;
+  unsigned char t2 = b.type;
+
+  if (t1 == type_int && t2 == type_int){
+      r->data.i = a.data.i * b.data.i;
+      r->type = type_int;
+
+  }else if (t1 == type_double && t2 == type_double){
+      r->data.f = a.data.f * b.data.f;
+      r->type = type_double;
+
+  } else if (t1 == type_double && t2 == type_int){
+      r->data.f = a.data.f * (double)(b.data.i);
+      r->type = type_double;
+
+  } else if (t1 == type_int && t2 == type_double){
+      r->data.f = (double)a.data.i * b.data.f;
+      r->type = type_double;
+
+  } else {
+    //Invalid data
+    printf("-E- funk_mul_rr: invalid types:\n ");
+
+    r->type = type_invalid;
+  }
+
+}
+#if 0
 void funk_div_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
   if (n1->pd.type == 2 && n2->pd.type == 2){
       r->pd.data.f = n1->pd.data.f / n2->pd.data.f;
@@ -526,55 +638,68 @@ int rand_range(int lower, int upper){
 
 
 }
+#endif
+void funk_print_scalar_element(struct tdata n){
 
-void init_random_seed(void){
-  unsigned int seed = (unsigned int)time(NULL);
-  //printf("-I- init_random_seed: %d\n", seed);
-  srand(seed);
-}
-
-void funk_print_scalar_element(struct tnode * n){
-
-    switch( n->pd.type ){
+    switch( n.type ){
       case type_int:
-        printf(" %d ", n->pd.data.i);
+        printf(" %d, ", n.data.i);
         break;
       case type_double:
-        printf(" %f ", n->pd.data.f);
+        printf(" %f, ", n.data.f);
         break;
       default:
-        printf("-E- Cannot print type %d\n", n->pd.type);
+        printf("-E- Cannot print type %d\n", n.type);
     }
 }
 
 
-
+void print_dimension(struct tnode * n){
+  printf("( ");
+  for (int i = 0; i < n->dimension.count; i++){
+    printf("%d ", n->dimension.d[i]);
+  }
+  printf(")");
+}
 void print_scalar(struct tnode * n){
+  // print_dimension(n);
+  //
+  // for (int i = 0; i < 16; i++){
+  //   funk_print_scalar_element(funk_global_memory_pool.data[i]);
+  // }
 
-  if (n->type == type_array){
-    struct tnode * p = n;
-    int cnt = 0;
-    printf("[ ");
-    while(p->next !=NULL && cnt < g_funk_print_array_max_elements){
-      funk_print_scalar_element(p);
-      if (cnt > 0 && ((cnt % g_funk_print_array_element_per_row) == 0)){
-        printf("\n");
+  if (n->dimension.count == 0){
+
+    funk_print_scalar_element(n->pool->data[0]);
+
+  } else if (n->dimension.count == 1){
+
+    printf(" [ ");
+    for (int i = n->start; i < (n->start + n->len); i++){
+      funk_print_scalar_element(n->pool->data[i]);
+    }
+    printf(" ]  ");
+
+  } else if (n->dimension.count == 2){
+    printf("\n");
+    for (int i = 0; i < n->dimension.d[0]; i++){
+      for (int j = 0; j < n->dimension.d[1]; j++){
+          funk_print_scalar_element(n->pool->data[n->start + (i * n->dimension.d[0]) + j]);
       }
-      p = p->next;
-      cnt++;
+      printf("\n");
     }
-
-    if (p->next != NULL){
-      printf(" ... ");
-    }
-    printf(" ]");
-
   } else {
-    funk_print_scalar_element(n);
+    printf(" [...] \n");
   }
 
+
+
+
+
+
 }
 
+#if 0
 struct tnode * funk_concatenate_lists(struct tnode * left, struct tnode * right){
   int i = 0;
   struct tnode * p = left;
@@ -798,15 +923,6 @@ struct tnode * createLinkedList(int start, int end, unsigned char type ){
    return head;
 }
 
-void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n, unsigned char dst_on_stack){
-  for (int i = 0; i < n; ++i){
-      dst[i] = src[i];
-      if (dst_on_stack == 1){
-        dst[i].refCount = -1; //Just mark it to be on the stack
-      }
-  }
-
-}
 
 float funk_ToFloat(struct tnode * n){
   if (n->pd.type == type_int){

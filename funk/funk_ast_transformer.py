@@ -246,6 +246,8 @@ class TreeToAst(Transformer):
         rhs = children[0]
         return funk_ast.Assignment(self.funk, None, rhs)
 
+    def action_nested_list(self, children):
+        return children
     def action_list_concat_lsh(self, children):
         lhs = children[0]
 
@@ -429,6 +431,9 @@ class TreeToAst(Transformer):
         token[1].sign = token[0]
         return token[1]
 
+    def action_indexed_array(self, token):
+        return flatten(token)
+
     def action_sign_negative(self, token):
         return -1
 
@@ -468,6 +473,9 @@ class TreeToAst(Transformer):
         return range
 
     def action_list_comprehension(self, token):
+        """
+        [expr | 0 <= i <= x , x % 2 == 0]
+        """
         token[1].expr = token[0]
         return token[1].eval()
 
