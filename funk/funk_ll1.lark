@@ -60,9 +60,8 @@
 
     factor: "(" expr ")"  | list  | number | function_call | string | indexed_array
 
-    indexed_array: identifier "[" expr [more_array_idx] "]" -> action_indexed_array
+    indexed_array: identifier "[" expr [more_list_elements] "]" -> action_indexed_array
 
-    more_array_idx: "," expr [more_array_idx]
 
     ///////////////////////////////////////////
     // Boolean Expressions

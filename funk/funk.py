@@ -142,7 +142,8 @@ target datalayout = ""
 ;; These are nodes of a linked list. These are used to present lists
 ;; as well are function arguments (which are essentially lists)
 
-%struct.tnode = type {{ i32, i32, %struct.tpool* }}
+%struct.tnode = type {{ i32, i32, %struct.tpool*, %struct.tdimensions }}
+%struct.tdimensions = type {{ i32, [2 x i32] }}
 
 
 ;; =============================================================== ;;

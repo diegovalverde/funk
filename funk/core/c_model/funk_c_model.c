@@ -8,6 +8,12 @@
 
 #define FUNK_DEBUG_BUILD 1
 
+// when compiling an application using debug mode
+// the compiler updates the  g_funk_debug_current_executed_line for
+// every instruction executed, you can then use this set breakpoints
+// using the interactive debugger
+
+uint32_t g_funk_debug_current_executed_line = 0;
 enum types{
 type_invalid = 0,
 type_int = 1,
@@ -47,7 +53,7 @@ struct tpool
 {
   struct tdata data[FUNK_MAX_POOL_SIZE];
   uint32_t tail;
-} funk_global_memory_pool;
+} funk_global_memory_pool, funk_functions_memory_pool;
 
 #define FUNK_MAX_DIMENSIONS 2 //may optimize when creating the runtime
 struct tdimensions
@@ -305,6 +311,8 @@ void funk_init(void){
 
   unsigned int seed = (unsigned int)time(NULL);
   srand(seed);
+  funk_global_memory_pool.tail = 0;
+  funk_functions_memory_pool.tail = 0;
 
   #ifdef FUNK_DEBUG_BUILD
 
@@ -322,8 +330,20 @@ void funk_init(void){
 
 }
 
-void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t * list , int32_t size )
-{
+void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
+  n->start  = pool->tail;
+  n->len = 1;
+  n->pool = pool;
+  n->dimension.count = 1;
+
+  pool->tail = (pool->tail + 1) % FUNK_MAX_POOL_SIZE;
+
+  pool->data[n->start].type = type_int;
+  pool->data[n->start].data.i = val;
+
+}
+
+void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t * list , int32_t size ){
   n->start  = pool->tail;
   n->len = size;
   n->pool = pool;
@@ -338,14 +358,14 @@ void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t
 
 }
 
-void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node, int32_t * list , int32_t n, int32_t m )
-{
+void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node, int32_t * list , int32_t n, int32_t m ){
   // Internally matrices are representes as contiguos
   // arrays in memory
   funk_create_list_int_literal(pool, node, list, n*m );
   node->dimension.count = 2;
   node->dimension.d[0] = n;
   node->dimension.d[1] = m;
+  printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
 
 }
 
@@ -649,12 +669,12 @@ void funk_print_scalar_element(struct tdata n){
         printf(" %f, ", n.data.f);
         break;
       default:
-        printf("-E- Cannot print type %d\n", n.type);
+        printf(" ? ");
     }
 }
 
 
-void print_dimension(struct tnode * n){
+void funk_print_dimension(struct tnode * n){
   printf("( ");
   for (int i = 0; i < n->dimension.count; i++){
     printf("%d ", n->dimension.d[i]);
@@ -662,15 +682,19 @@ void print_dimension(struct tnode * n){
   printf(")");
 }
 void print_scalar(struct tnode * n){
-  // print_dimension(n);
+  // printf("start: %d end: %d", n->start, n->len);
+  // funk_print_dimension(n);
   //
-  // for (int i = 0; i < 16; i++){
+  // for (int i = 0; i < 32; i++){
+  //
   //   funk_print_scalar_element(funk_global_memory_pool.data[i]);
+  //   if (i >0 && i % 16 == 0)
+  //     printf("\n" );
   // }
 
   if (n->dimension.count == 0){
 
-    funk_print_scalar_element(n->pool->data[0]);
+    funk_print_scalar_element(n->pool->data[n->start]);
 
   } else if (n->dimension.count == 1){
 
@@ -684,7 +708,7 @@ void print_scalar(struct tnode * n){
     printf("\n");
     for (int i = 0; i < n->dimension.d[0]; i++){
       for (int j = 0; j < n->dimension.d[1]; j++){
-          funk_print_scalar_element(n->pool->data[n->start + (i * n->dimension.d[0]) + j]);
+          funk_print_scalar_element(n->pool->data[n->start + (i * n->dimension.d[1]) + j]);
       }
       printf("\n");
     }
@@ -699,6 +723,9 @@ void print_scalar(struct tnode * n){
 
 }
 
+void print_2d_array(struct tnode * n, uint32_t i, uint32_t j){
+  funk_print_scalar_element(n->pool->data[n->start + n->dimension.d[1]*i + j ]);
+}
 #if 0
 struct tnode * funk_concatenate_lists(struct tnode * left, struct tnode * right){
   int i = 0;

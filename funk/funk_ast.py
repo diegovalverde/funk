@@ -208,8 +208,9 @@ class LiteralList(List):
 
 
 class Identifier:
-    def __init__(self, funk, name):
+    def __init__(self, funk, name, indexes=None):
         self.funk = funk
+        self.indexes = indexes # indexes for multidimensional array
 
         if name == '_':
             self.name = '_{}'.format(self.funk.empty_arg_count)
@@ -222,7 +223,11 @@ class Identifier:
         return None
 
     def __repr__(self):
-        return 'Identifier({})'.format(self.name)
+        string = 'Identifier({})'.format(self.name)
+        if self.indexes is not None:
+            string += '{}'.format(self.indexes)
+
+        return string
 
     def eval(self, result=None):
         # Check the current function that we are building
@@ -596,6 +601,7 @@ class FunctionCall:
             'rand_int': RandInt,
             'rand_float': RandFloat,
             'say': Print,
+            'dim': Dim,
             's2d_window': S2DCreateWindow,
             's2d_line': S2DDrawLine,
             's2d_point': S2DDrawPoint,
@@ -743,7 +749,6 @@ class FunctionClause:
             self.funk.emitter.add_comment('The outcome of this instruction becomes the result')
 
             p_result = self.funk.emitter.get_result_data_pointer()
-            self.funk.emitter.set_next_node(p_result, 'null')
 
             last_insn = self.body[-1]
             if isinstance(last_insn, LiteralList) and len(last_insn.elements) == 0:
@@ -834,14 +839,21 @@ class String:
     def eval(self, result=None):
         return self.fmt_str
 
-
-class Print:
+class Dim:
     def __init__(self, funk, arg_list):
         self.funk = funk
         self.arg_list = arg_list
 
     def eval(self, result=None):
-        self.funk.emitter.print_funk(self.funk, self.arg_list)
+        self.funk.emitter.print_dim(self.funk, self.arg_list)
+
+class Print:
+    def __init__(self, funk, arg):
+        self.funk = funk
+        self.arg = arg
+
+    def eval(self, result=None):
+        self.funk.emitter.print_funk(self.funk, self.arg)
 
 
 class RandInt:

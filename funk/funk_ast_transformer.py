@@ -431,8 +431,10 @@ class TreeToAst(Transformer):
         token[1].sign = token[0]
         return token[1]
 
-    def action_indexed_array(self, token):
-        return flatten(token)
+    def action_indexed_array(self, tokens):
+        tokens = flatten(tokens)
+        tokens[0].indexes = tokens[1:]
+        return tokens[0]
 
     def action_sign_negative(self, token):
         return -1

@@ -334,7 +334,8 @@ class Emitter:
         self.code += """
         ;; allocate the function result node
         %{0} = alloca %struct.tnode, align 8
-        """.format(p[0])
+        call void @funk_create_int_scalar(%struct.tpool* @funk_functions_memory_pool, %struct.tnode* %{0},  i32 {val})
+        """.format(p[0], val=0)
 
         return '%{}'.format(p[0])
 
@@ -353,7 +354,6 @@ class Emitter:
 
         if result is None:
             result = self.allocate_fn_return_node()
-            self.set_node_data_type('result', result, funk_types.int)
 
         self.code += """
          ;;call the function
@@ -689,19 +689,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         self.set_node_data(p_node, data, index)
 
-        if not tail:
-            self.set_next_node(p_node, index + 1)
-
-    def set_next_node(self, node, next_node):
-
-        p = [x for x in range(self.index, self.index + 1)]
-        self.index = p[-1] + 1
-
-        self.code += """
-         ;; Set linked list next element
-        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 2
-        store %struct.tnode* {next_node}, %struct.tnode** %{0}, align 8
-         """.format(p[0], next_node=next_node, node=node)
 
     def print_trace(self):
         p = [x for x in range(self.index, self.index + 1)]
@@ -713,6 +700,10 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         self.index = p[-1] + 1
 
+    def print_dim(self, funk, arg):
+        self.code += """
+        call void @funk_print_dimension(%struct.tnode* {node})
+           """.format(node=arg[0].eval())
 
     def print_funk(self, funk, args):
 
@@ -737,7 +728,13 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
                 self.index = p[-1] + 1
             else:
-                self.code += """
+                if arg_expr.indexes is not None:
+                    if len(arg_expr.indexes) == 2:
+                        self.code += """
+    call void @print_2d_array(%struct.tnode* {node}, i32 {i}, i32 {j})
+       """.format(node=arg, i =arg_expr.indexes[0].eval(), j=arg_expr.indexes[1].eval())
+                else:
+                    self.code += """
     call void @print_scalar(%struct.tnode* {node})
         """.format(node=arg)
 
