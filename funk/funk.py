@@ -129,22 +129,6 @@ target datalayout = ""
 ;; then the appropiate bitcast is used to inform the compiler about
 ;; the corresponding data type for a given symbol
 
-%struct.tpool = type {{ [1024 x %struct.tdata], i32 }}
-@funk_global_memory_pool = common global %struct.tpool zeroinitializer, align 8
-
-%union.data_type = type {{ double }}
-
-;; This a primitive data type. It contains a type tag (i8) followed by
-;; the actual data represented as a union
-
-%struct.tdata = type {{ i8, %union.data_type }}
-
-;; These are nodes of a linked list. These are used to present lists
-;; as well are function arguments (which are essentially lists)
-
-%struct.tnode = type {{ i32, i32, %struct.tpool*, %struct.tdimensions }}
-%struct.tdimensions = type {{ i32, [2 x i32] }}
-
 
 ;; =============================================================== ;;
 
@@ -158,26 +142,12 @@ target datalayout = ""
 @.str_ERR_PRINT_TYPE = private unnamed_addr constant [33 x i8] c"-E- Unsupported Print Type   %i\\0A\\00", align 1
 
 
-; Function Attrs: allocsize(0)
-declare i8* @malloc(i64) #2
-
-
-declare void @free(i8*) #1
-
 
 {function_declarations}
             """.format(function_declarations=function_declarations, triple=self.triple, funk_type_int=funk_types.int, funk_type_float=funk_types.double)
 
         self.post_amble = \
             """
-
-; Function Attrs: argmemonly nounwind
-declare void @memcpy(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #3
-
-
-
-declare i32 @printf(i8*, ...) #1
-
         """
 
         self.emitter = None
@@ -261,8 +231,8 @@ declare i32 @printf(i8*, ...) #1
 
             ast_generator.function_map[fn].eval()
 
-    def alloc_literal_symbol(self, symbol, symbol_name):
-        return self.emitter.alloc_tnode(symbol_name, symbol.eval(), symbol.get_compile_type())
+    def alloc_literal_symbol(self, symbol, pool, symbol_name):
+        return self.emitter.alloc_tnode(symbol_name, symbol.eval(), pool, symbol.get_compile_type())
 
     def alloc_variable_list_symbol(self, p_start, p_end, expr):
         return self.emitter.alloc_variable_linked_list(p_start, p_end, expr)

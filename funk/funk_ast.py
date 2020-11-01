@@ -18,6 +18,7 @@
 
 from . import funk_types
 import collections
+import copy
 
 def list_concat_tail(funk, left, right, result=None):
     """
@@ -60,7 +61,7 @@ def create_ast_named_symbol(name, funk, right):
     if isinstance(right, List):
         funk.symbol_table[symbol_name] = right.eval()
     elif isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
-        funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, symbol_name)
+        funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, funk_types.global_pool, symbol_name)
     else:
         funk.symbol_table[symbol_name] = funk.create_variable_symbol(right, symbol_name)
 
@@ -70,16 +71,26 @@ def create_ast_named_symbol(name, funk, right):
 
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
-        return funk.alloc_literal_symbol(right, 'anon')
+        return funk.alloc_literal_symbol(right, funk_types.global_pool, 'anon_list')
     else:
         return right.eval()
 
+
+class Expression:
+    def __init__(self):
+        self.args = None
+
+    def replace_symbol(self, symbol, value):
+        pass
 
 class IntegerConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
         self.sign = 1
+
+    def replace_symbol(self, symbol, value):
+        pass
 
     def get_compile_type(self):
         return funk_types.int
@@ -95,12 +106,18 @@ class IntegerConstant:
 
         return val
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return IntegerConstant(self.funk, value=copy.deepcopy(self.value, memo))
 
 class DoubleConstant:
     def __init__(self, funk, value):
         self.value = value
         self.funk = funk
         self.sign = 1
+
+    def replace_symbol(self, symbol, value):
+        pass
 
     def get_compile_type(self):
         return funk_types.double
@@ -116,12 +133,15 @@ class DoubleConstant:
 
         return val
 
-
-class List:
+class List(Expression):
     def __init__(self, funk, name, elements):
         self.funk = funk
         self.name = name
         self.elements = elements
+
+    def replace_symbol(self, symbol, value):
+        for element in self.elements:
+            element.replace_symbol(symbol, value)
 
     def get_dimensions(self):
         def traverse(x, dimensions=[]):
@@ -149,7 +169,6 @@ class List:
 
     def __repr__(self):
         return 'List({})'.format(self.elements)
-
 
 class VariableList(List):
     """
@@ -180,19 +199,35 @@ class VariableList(List):
 
         return self.funk.alloc_variable_list_symbol(start, end, self.expr)
 
-
-class LiteralList(List):
-    """
-    Essentially a NULL terminated linked list
-    """
-
+class FixedSizeExpressionList(List):
     def __init__(self, funk, name, elements):
         self.funk = funk
         self.name = name
         self.elements = elements
 
     def __repr__(self):
-        return 'LiteralList({})'.format(self.elements)
+        return 'FixedSizeExpressionList({})'.format(self.elements)
+
+    def eval(self, result=None):
+        dimensions = self.get_dimensions()
+        flattened_list = self.flatten(self.elements)
+
+        expression_list = []
+        for element in flattened_list:
+            expression_list.append(element.eval(result=result))
+
+        return self.funk.emitter.alloc_expression_list(name=self.name, expr_list=expression_list, dimensions=dimensions)
+
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return FixedSizeExpressionList(self.funk, name=self.name, elements=copy.deepcopy(self.elements, memo))
+
+class FixedSizeLiteralList(List):
+
+    def __init__(self, funk, name, elements):
+        self.funk = funk
+        self.name = name
+        self.elements = elements
 
     def eval(self, result=None):
 
@@ -206,6 +241,24 @@ class LiteralList(List):
 
         return self.funk.alloc_literal_list_symbol(literal_list, dimensions)
 
+    def __repr__(self):
+        return 'FixedSizeLiteralList({})'.format(self.elements)
+
+    def eval(self, result=None):
+
+        dimensions = self.get_dimensions()
+        flattened_list = self.flatten(self.elements)
+
+        literal_list = []
+        for element in flattened_list:
+            literal_list.append(element.eval(result=result))
+
+
+        return self.funk.alloc_literal_list_symbol(literal_list, dimensions)
+
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return FixedSizeLiteralList(self.funk, name=self.name, elements=copy.deepcopy(self.elements, memo))
 
 class Identifier:
     def __init__(self, funk, name, indexes=None):
@@ -280,6 +333,9 @@ class Identifier:
 
         return global_symbol_name
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return Identifier(self.funk, name=self.name, indexes=copy.deepcopy(self.indexes, memo))
 
 class HeadTail:
     def __init__(self, funk, head=None, tail=None):
@@ -294,7 +350,6 @@ class HeadTail:
     def eval(self, result=None):
         pass
 
-
 class PatternMatch:
     def __init__(self, funk):
         self.funk = funk
@@ -303,7 +358,6 @@ class PatternMatch:
 
     def __repr__(self):
         return 'PatternMatch()'
-
 
 class PatternMatchEmptyList(PatternMatch):
     def __init__(self, funk):
@@ -316,7 +370,6 @@ class PatternMatchEmptyList(PatternMatch):
 
     def eval(self, result=None):
         pass
-
 
 class PatternMatchLiteral(PatternMatch):
     def __init__(self, funk, value):
@@ -339,7 +392,6 @@ class PatternMatchLiteral(PatternMatch):
     def eval(self, result=None):
         pass
 
-
 class PatternMatchIdentifier:
     def __init__(self, funk, name):
         self.funk = funk
@@ -352,12 +404,15 @@ class PatternMatchIdentifier:
     def eval(self, result=None):
         pass
 
-
-class BinaryOp:
+class BinaryOp(Expression):
     def __init__(self, funk, left=None, right=None):
         self.funk = funk
         self.left = left
         self.right = right
+
+    def replace_symbol(self, symbol, value):
+        self.left.replace_symbol(symbol, value)
+        self.right.replace_symbol(symbol, value)
 
     def get_compile_type(self):
         # if either operand is float, then auto promote to float at compile time
@@ -366,6 +421,9 @@ class BinaryOp:
         else:
             return funk_types.int
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return BinaryOp(self.funk, left=copy.deepcopy(self.left, memo), right=copy.deepcopy(self.right, memo))
 
 class Sum(BinaryOp):
     def __repr__(self):
@@ -374,6 +432,9 @@ class Sum(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.add(self.left.eval(), self.right.eval(), result=result)
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return Sum(self.funk, left=copy.deepcopy(self.left, memo), right=copy.deepcopy(self.right, memo))
 
 class Mul(BinaryOp):
     def __repr__(self):
@@ -381,7 +442,6 @@ class Mul(BinaryOp):
 
     def eval(self, result=None):
         return self.funk.emitter.mul(self.left.eval(), self.right.eval(), result=result)
-
 
 class Sub(BinaryOp):
     def __repr__(self):
@@ -391,14 +451,12 @@ class Sub(BinaryOp):
         i = self.funk.emitter.sub(self.left.eval(), self.right.eval(), result=result)
         return i
 
-
 class Div(BinaryOp):
     def __repr__(self):
         return 'Div({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
         return self.funk.emitter.sdiv(self.left.eval(), self.right.eval(), result)
-
 
 class Mod(BinaryOp):
     def __repr__(self):
@@ -407,14 +465,12 @@ class Mod(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.srem(self.left.eval(), self.right.eval(), result)
 
-
 class And(BinaryOp):
     def __repr__(self):
         return 'And({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
         return self.funk.emitter.boolean_op('and',self.left.eval(), self.right.eval(), result)
-
 
 class Or(BinaryOp):
     def __repr__(self):
@@ -423,14 +479,12 @@ class Or(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.boolean_op('or', self.left.eval(), self.right.eval(), result)
 
-
 class BoolBinaryOp(BinaryOp):
     def eval(self, as_type, result=None):
         lval = self.left.eval()
         rval = self.right.eval()
 
         return lval, rval
-
 
 class GreaterThan(BoolBinaryOp):
     def __repr__(self):
@@ -445,7 +499,6 @@ class GreaterThan(BoolBinaryOp):
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
             return self.funk.emitter.icmp_signed('sgt', l, r)
 
-
 class EqualThan(BoolBinaryOp):
     def __repr__(self):
         return 'Equal({} , {})'.format(self.left, self.right)
@@ -453,7 +506,6 @@ class EqualThan(BoolBinaryOp):
     def eval(self, result=None):
         l, r = BoolBinaryOp.eval(self, result)
         return self.funk.emitter.icmp_signed('eq', l, r)
-
 
 class LessThan(BoolBinaryOp):
     def __repr__(self):
@@ -468,7 +520,6 @@ class LessThan(BoolBinaryOp):
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
             return self.funk.emitter.icmp_signed('slt', l, r)
 
-
 class GreaterOrEqualThan(BoolBinaryOp):
     def __repr__(self):
         return 'GreaterOrEqualThan({} , {})'.format(self.left, self.right)
@@ -481,7 +532,6 @@ class GreaterOrEqualThan(BoolBinaryOp):
         else:
             l, r = BoolBinaryOp.eval(self, as_type=funk_types.int, result=result)
             return self.funk.emitter.icmp_signed('sge', l, r)
-
 
 class ListConcat(BinaryOp):
     head = 1
@@ -500,7 +550,6 @@ class ListConcat(BinaryOp):
         else:
             list_concat_head(self.funk, self.left, self.right, result=result)
 
-
 class Assignment(BinaryOp):
     def __repr__(self):
         return 'Assignment({} , {})'.format(self.left, self.right)
@@ -508,7 +557,6 @@ class Assignment(BinaryOp):
     def eval(self, result=None):
         name = self.left.name
         create_ast_named_symbol(name, self.funk, self.right)
-
 
 class Range:
     def __init__(self, funk, rhs=None, lhs=None, identifier=None, expr=None, rhs_type='<', lhs_type='<'):
@@ -538,42 +586,20 @@ class Range:
         if self.expr.__repr__() == self.identifier.__repr__():
             for i in range(range_start, range_end):
                 list_elements.append(IntegerConstant(self.funk, i))
+                return FixedSizeLiteralList(self.funk, '', list_elements)
+
+        elif isinstance(self.expr, FixedSizeLiteralList):
+            #orig_args = copy.copy(self.expr.args)
+            for i in range(range_start, range_end):
+                list_elements.append( self.expr )
+                #list_elements[-1].replace_symbol(self.identifier, IntegerConstant(self.funk, i))
+                return FixedSizeLiteralList(self.funk, '', list_elements)
         else:
             for i in range(range_start, range_end):
-               # assignment = Assignment(self.funk, self.identifier, IntegerConstant(self.funk, i), name="")
-               # assignment.eval()
-                list_elements.append( self.expr )
+                list_elements.append( copy.deepcopy(self.expr) )  # the funk pointer is preventing the deepcopy!
+                list_elements[-1].replace_symbol(self.identifier, IntegerConstant(self.funk, i))
 
-        return LiteralList(self.funk, '', list_elements)
-
-        # create as many Integers as necessary
-        if isinstance(self.lhs, IntegerConstant) and\
-           isinstance(self.rhs, IntegerConstant) and\
-          (isinstance(self.expr, IntegerConstant) or \
-           isinstance(self.expr, DoubleConstant) or \
-           isinstance(self.expr, Identifier)): # if the expr is an identifier then use IOTA
-
-            integers = []
-            range_start = self.lhs.eval()
-
-            if self.lhs_type == '<':
-                range_start += 1
-
-            range_end = self.rhs.eval()
-
-            if self.rhs_type == '<=':
-                range_end += 1
-### diego>>>
-            if isinstance(self.expr, Identifier):
-                for i in range(range_start, range_end):
-                    integers.append(IntegerConstant(self.funk, i))
-            else:
-                for i in range(range_start, range_end):
-                    integers.append(self.expr)
-
-            return LiteralList(self.funk, '', integers)
-        else:
-            return VariableList(self.funk, 'var_list', self.lhs, self.rhs, self.lhs_type, self.rhs_type, self.expr)
+            return FixedSizeExpressionList(self.funk, 'var_list', list_elements)
 
 class ExternalFunction:
     def __init__(self, funk, name):
@@ -588,8 +614,7 @@ class ExternalFunction:
 declare void {name}(%struct.tnode*, i32,  %struct.tnode*)
                 """.format(name=self.name)
 
-
-class FunctionCall:
+class FunctionCall(Expression):
     def __init__(self, funk, name, args):
         self.funk = funk
         self.name = name
@@ -618,7 +643,12 @@ class FunctionCall:
             return None
 
     def __repr__(self):
-        return 'FunctionCall({})'.format(self.name)
+        return 'FunctionCall({}({}))'.format(self.name, self.args)
+
+    def replace_symbol(self, symbol, value):
+        for i, arg in enumerate(self.args):
+            if arg.__repr__() == symbol.__repr__():
+                self.args[i] = value
 
     def eval(self, result=None):
         found = False
@@ -646,6 +676,9 @@ class FunctionCall:
 
         return None
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return FunctionCall(self.funk, name=self.name, args=copy.deepcopy(self.args, memo))
 
 class FunctionClause:
     def __init__(self, funk, name, fn_body, preconditions, pattern_matches, tail_pairs=None, arguments=None):
@@ -751,7 +784,7 @@ class FunctionClause:
             p_result = self.funk.emitter.get_result_data_pointer()
 
             last_insn = self.body[-1]
-            if isinstance(last_insn, LiteralList) and len(last_insn.elements) == 0:
+            if isinstance(last_insn, FixedSizeLiteralList) and len(last_insn.elements) == 0:
                 # set result to null
                 self.funk.emitter.set_null_result()
                 self.funk.emitter.br('l_{}_end'.format(name))
@@ -784,7 +817,6 @@ class FunctionClause:
             self.funk.emitter.ret()
 
             self.funk.emitter.add_label(clause_exit_label)
-
 
 class FunctionMap:
     def __init__(self, funk, name, arguments=None, tail_pairs=None, pattern_matches=None):
@@ -827,7 +859,6 @@ class FunctionMap:
         for stmt in self.body:
             stmt.eval()
 
-
 class String:
     def __init__(self, funk, fmt_str):
         self.funk = funk
@@ -855,7 +886,6 @@ class Print:
     def eval(self, result=None):
         self.funk.emitter.print_funk(self.funk, self.arg)
 
-
 class RandInt:
     def __init__(self, funk, arg_list):
         self.funk = funk
@@ -868,7 +898,6 @@ class RandInt:
     def eval(self, result=None):
         return self.funk.emitter.rand_int(self.funk, self.arg_list)
 
-
 class RandFloat:
     def __init__(self, funk, arg_list):
         self.funk = funk
@@ -880,7 +909,6 @@ class RandFloat:
 
     def eval(self, result=None):
         return self.funk.emitter.rand_double(self.funk, self.arg_list, result=result)
-
 
 class SetConfigParam:
     def __init__(self, funk, arg_list):
@@ -930,7 +958,6 @@ class Sleep:
     def eval(self, result=None):
         return self.funk.emitter.sleep(self.funk, self.arg_list)
 
-
 class S2DCreateWindow:
     """
     Requires Simple2D to be installed.
@@ -944,7 +971,6 @@ class S2DCreateWindow:
 
     def eval(self, result=None):
         self.funk.window = self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
-
 
 class S2DRenderFunction:
     """
@@ -960,7 +986,6 @@ class S2DRenderFunction:
     def eval(self, result=None):
         self.funk.emitter.s2d_render_callback(self.funk, self.arg_list)
 
-
 class S2DDrawQuad:
     """
             Requires Simple2D to be installed.
@@ -975,7 +1000,6 @@ class S2DDrawQuad:
     def eval(self, result=None):
         self.funk.emitter.s2d_quad(self.funk, self.arg_list)
 
-
 class S2DDrawLine:
     """
         Requires Simple2D to be installed.
@@ -989,7 +1013,6 @@ class S2DDrawLine:
 
     def eval(self, result=None):
         self.funk.emitter.s2d_draw_line(self.funk, self.arg_list)
-
 
 class S2DDrawPoint:
     """

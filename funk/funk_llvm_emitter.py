@@ -97,8 +97,6 @@ class Emitter:
 
             #raise Exception('Unsupported type {}'.format(type))
 
-
-
     def get_node_data_type(self, node, ret_i8=False):
 
         if ret_i8:
@@ -170,7 +168,7 @@ class Emitter:
         %{2} = load %struct.tnode*, %struct.tnode** %{1}, align 8
         %{3} = bitcast %struct.tnode* %{0} to i8*
         %{4} = bitcast %struct.tnode* %{2} to i8*
-        call void @memcpy(i8* align 8  %{3}, i8* align 8  %{4}, i32 {tnode_size}, i1 false)
+        call void @memcpy(i8* %{3}, i8* %{4}, i64 32, i32 8, i1 false)
         """.format(p[0], p[1], p[2], p[3], p[4], node=node, tnode_size=funk_constants.tnode_size_bytes)
 
         return '%{}'.format(p[0])
@@ -255,16 +253,16 @@ class Emitter:
         self.add_comment('{} {} {}'.format(a, operation, b))
 
         if result is None:
-            result = self.alloc_tnode('{} result'.format(operation))
+            result = self.alloc_tnode('{} result'.format(operation), 0, funk_types.function_pool, funk_types.unknown)
 
         if isinstance(a, int):
             self.code += """
-            call void @funk_{operartion}_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=b, pB=a, operartion=operation)
+            call void @funk_{operartion}_ri(%struct.tnode* {p_result}, i32 {idx_r}, %struct.tnode* {pA}, i32 {idx_a}, i32 {pB} )
+            """.format(p_result=result, pA=b, pB=a, operartion=operation, idx_r=idx_r, idx_a=idx_a)
         elif isinstance(b, int):
             self.code += """
-            call void @funk_{operartion}_ri(%struct.tnode* {p_result},  %struct.tnode* {pA}, i32 {pB} )
-            """.format(p_result=result, pA=a, pB=b, operartion=operation)
+            call void @funk_{operartion}_ri(%struct.tnode* {p_result}, i32 {idx_r}, %struct.tnode* {pA}, i32 {idx_a}, i32 {pB} )
+            """.format(p_result=result, pA=a, pB=b, operartion=operation, idx_r=idx_r, idx_a=idx_a)
         elif isinstance(a, float):
             self.code += """
             call void @funk_{operartion}_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
@@ -293,7 +291,7 @@ class Emitter:
         ;; copy node
         %{0} = bitcast %struct.tnode* {node_dst} to i8*
         %{1} = bitcast %struct.tnode* {node_src} to i8*
-        call void @memcpy(i8* align 8  %{0}, i8* align 8  %{1}, i32 {tnode_size}, i1 false)
+        call void @memcpy(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
         """.format(p[0], p[1], node_dst=node_dst, node_src=node_src, tnode_size=funk_constants.tnode_size_bytes)
 
     def call_fn_ptr(self, fn_node, arguments, result=None):
@@ -342,6 +340,9 @@ class Emitter:
     def call_function(self, fn, arguments, result=None):
         self.add_comment('====== call function {} {}'.format(fn, arguments))
 
+        self.code += """
+        call void @funk_debug_function_entry_hook()
+        """
         n = len(arguments)
         self.add_comment('Create the argument array')
         array = self.alloc_array_on_stack(n)
@@ -583,6 +584,48 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         call void @funk_set_config_param(i32 {}, i32 {})
         """.format(id.eval(), value.eval())
 
+    def alloc_expression_list(self, name, expr_list, dimensions):
+        n = len(expr_list)
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+        dst = p[0]
+        self.code += """
+        ;;; ====== alloc_expression_list {name} =====
+        %{0} = alloca [{n} x %struct.tnode], align 16
+        """.format(p[0], n=n, name=name)
+
+        for i,expr in enumerate(expr_list):
+            p = [x for x in range(self.index, self.index + 3)]
+            self.index = p[-1] + 1
+
+            self.code += """
+        %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* %{dst}, i64 0, i64 {i}
+        %{1} = bitcast %struct.tnode* %{0} to i8*
+        %{2} = bitcast %struct.tnode* {src} to i8*
+
+        call void @memcpy(i8* %{1}, i8* %{2}, i64 32, i32 8, i1 false)
+            """.format(p[0], p[1], p[2], n=n, i=i, dst=dst, src=expr, tnode_size=funk_constants.tnode_size_bytes)
+
+        p = [x for x in range(self.index, self.index + 2)]
+        self.index = p[-1] + 1
+
+        if len(dimensions) == 2:
+            self.code += """
+             %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* %{dst}, i64 0, i64 0
+             ;; allocate destination
+             %{1} = alloca %struct.tnode, align 8
+             call void @funk_create_2d_matrix(%struct.tpool* @funk_global_memory_pool, %struct.tnode* %{1}, %struct.tnode* %{0}, i32 {d0}, i32 {d1})
+            """.format(p[0], p[1], n=n, d0=dimensions[0], d1=dimensions[1], dst=dst)
+        else:
+            self.code += """
+             %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* %{dst}, i64 0, i64 0
+             ;; allocate destination
+             %{1} = alloca %struct.tnode, align 8
+             call void @funk_create_list(%struct.tpool* @funk_global_memory_pool, %struct.tnode* %{1}, %struct.tnode* %{0}, i32 {n})
+            """.format(p[0], p[1], n=n, dst=dst)
+
+        return '%{}'.format(p[1])
+
     def alloc_literal_list(self, name, lit_list, dimensions):
         p = [x for x in range(self.index, self.index + 3)]
         self.index = p[-1] + 1
@@ -626,29 +669,21 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[1])
 
-    def alloc_tnode(self, name, value=None, data_type=None, node_type=None):
+    def alloc_tnode(self, name, value, pool, data_type):
         p = [x for x in range(self.index, self.index + 1)]
-
-        self.code += """
-         ;; variable \'{name}\': allocate tnode
-         %{0} = alloca %struct.tnode, align 8
-         """.format(p[0], name=name)
-
-        node = '%{}'.format(p[0])
-
         self.index = p[-1] + 1
-        if value is not None:
-            self.set_node_data_value(name, node, value, data_type)
+        pool_string = 'funk_functions_memory_pool'  if pool == funk_types.function_pool else 'funk_global_memory_pool'
 
-        if data_type is not None:
-            self.set_node_data_type(name, node, data_type)
-
-        if node_type is not None:
-            self.set_node_type(node, node_type)
+        if data_type in [funk_types.int, funk_types.unknown]:
+            self.code += """
+        ;; create tnode '{name}' of type Integer
+        %{0} = alloca %struct.tnode, align 8
+        call void @funk_create_int_scalar(%struct.tpool* @{pool}, %struct.tnode* %{0},  i32 {val})
+        """.format(p[0], val=value, name=name, pool=pool_string)
         else:
-            self.set_node_type(node,  funk_types.scalar)
+            print('Data type not implemented')
 
-        return node
+        return '%{}'.format(p[0])
 
     def get_array_element(self, array, idx, lenght):
         p = [x for x in range(self.index, self.index + 1)]
@@ -971,7 +1006,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.code += """
             %{0} = bitcast %struct.tnode* {src} to i8*
             %{1} = bitcast %struct.tnode* %{dst} to i8*
-            call void @memcpy(i8* align 8 %{0}, i8* align 8 %{1}, i32 40, i1 false)
+            call void @memcpy(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
             """.format(q[0], q[1], src=result, dst=p[0])
 
             self.index = q[-1] + 1

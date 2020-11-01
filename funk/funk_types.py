@@ -22,6 +22,10 @@ array = 3
 empty_array = 4
 scalar = 5
 function = 6
+unknown = 7
+
+global_pool=0
+function_pool=1
 
 to_str = {0: 'invalid', 1: 'int', 2: 'double', 3: 'array',
           4: 'empty_array', 5: 'scalar', 6: 'function'}

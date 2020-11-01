@@ -355,7 +355,7 @@ class TreeToAst(Transformer):
 
     def list(self, tokens):
         if len(tokens) == 0:
-            return [funk_ast.Identifier(self.funk, 'empty'), funk_ast.LiteralList(self.funk,'anon-empty-list',[])]
+            return [funk_ast.Identifier(self.funk, 'empty'), funk_ast.FixedSizeLiteralList(self.funk, 'anon-empty-list', [])]
 
         e = flatten(tokens)[0]
 

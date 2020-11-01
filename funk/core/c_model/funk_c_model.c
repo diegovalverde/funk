@@ -329,6 +329,54 @@ void funk_init(void){
   #endif
 
 }
+int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
+  if (size <= 1)
+    return 1;
+
+  int prev = list[0].start;
+
+  for (int i = 1; i < size; i++){
+    int current = list[i].start;
+
+    if (prev + 1 != current)
+      return 0;
+  }
+  return 0;
+}
+void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list , int32_t size ){
+
+
+  n->pool = pool;
+  n->dimension.count = 1;
+
+
+
+  if (is_list_consecutive_in_memory(list, size) == 1){
+    n->start = list[0].start;
+    n->len = size;
+
+  } else {
+
+    n->start  = pool->tail;
+    n->len = size;
+    pool->tail = (pool->tail + size) % FUNK_MAX_POOL_SIZE;
+
+    for (int i = 0; i < size; i++){
+      pool->data[n->start + i] = list[i].pool->data[list[i].start];
+    }
+  }
+
+}
+
+void funk_create_2d_matrix(struct tpool * pool, struct tnode * node, struct tnode * list, int32_t n, int32_t m ){
+
+  funk_create_list(pool, node, list, n*m );
+  node->dimension.count = 2;
+  node->dimension.d[0] = n;
+  node->dimension.d[1] = m;
+  printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
+
+}
 
 void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
   n->start  = pool->tail;
@@ -380,14 +428,47 @@ void funk_copy_element_from_pool(struct tpool * pool, struct tnode * dst, struct
   }
 
 }
+void funk_print_scalar_element(struct tdata n){
+
+    switch( n.type ){
+      case type_int:
+        printf(" %d ", n.data.i);
+        break;
+      case type_double:
+        printf(" %f ", n.data.f);
+        break;
+      default:
+        printf(" ? ");
+    }
+}
+
+ void funk_print_global_memory(void){
+
+   for (int i = 0; i < 64; i++){
+
+     funk_print_scalar_element(funk_global_memory_pool.data[i]);
+     if (i >0 && i % 16 == 0)
+       printf("\n" );
+   }
+ }
 
 void funk_debug_function_entry_hook(void){
-
 
   #ifdef FUNK_DEBUG_BUILD
   printf("Stopped at the beginning of function\n");
   char str[8];
-  fgets(str,8,stdin);
+
+  do {
+      printf(">");
+      fgets(str,8,stdin);
+
+      if (!strncmp(str,"gmem",4)){
+        funk_print_global_memory();
+      }
+  } while (strncmp(str,"c",1));
+
+
+
 
   #endif
 }
@@ -406,6 +487,42 @@ void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n, unsigned char
 }
 
 
+void funk_add_ri(struct tnode * node_r, int32_t r_offset,
+                 struct tnode * node_a, int32_t a_offset,
+                 int32_t lit)
+  {
+    if (a_offset > node_a->len){
+      printf("-E- Invalid index %d is greater than array size of %d", a_offset, node_a->len );
+    }
+
+
+    if (r_offset > node_r->len){
+      printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
+    }
+
+  struct tdata a = node_a->pool->data[node_a->start + a_offset];
+  struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
+
+  unsigned char t1 = a.type;
+
+
+  if (t1 == type_int ){
+      r->data.i = a.data.i + lit;
+      r->type = type_int;
+
+  }else if (t1 == type_double ){
+      r->data.f = a.data.f +  ((double)lit);
+      r->type = type_double;
+
+  } else {
+    //Invalid data
+    printf("-E- funk_mul_rr: invalid types:\n ");
+
+    r->type = type_invalid;
+  }
+
+}
+
 void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
                  struct tnode * node_a, int32_t a_offset,
                  struct tnode * node_b, int32_t b_offset)
@@ -422,9 +539,21 @@ void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
       printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
     }
 
-  struct tdata a = node_a->pool->data[a_offset];
-  struct tdata b = node_b->pool->data[b_offset];
-  struct tdata * r = &(node_r->pool->data[r_offset]);
+#ifdef FUNK_DEBUG_BUILD
+
+  printf("funk_mul_rr( ");
+  printf("%s[%d]",((node_a->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_a->start + a_offset );
+  funk_print_scalar_element(node_a->pool->data[a_offset]);
+  printf(" , ");
+  printf("%s[%d]",((node_b->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_b->start + b_offset );
+  funk_print_scalar_element(node_b->pool->data[b_offset]);
+  printf(" )\n");
+#endif
+
+
+  struct tdata a = node_a->pool->data[node_a->start + a_offset];
+  struct tdata b = node_b->pool->data[node_b->start + b_offset];
+  struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
 
   unsigned char t1 = a.type;
   unsigned char t2 = b.type;
@@ -659,19 +788,7 @@ int rand_range(int lower, int upper){
 
 }
 #endif
-void funk_print_scalar_element(struct tdata n){
 
-    switch( n.type ){
-      case type_int:
-        printf(" %d, ", n.data.i);
-        break;
-      case type_double:
-        printf(" %f, ", n.data.f);
-        break;
-      default:
-        printf(" ? ");
-    }
-}
 
 
 void funk_print_dimension(struct tnode * n){
