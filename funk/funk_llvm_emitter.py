@@ -74,26 +74,17 @@ class Emitter:
 
         return '%{}'.format(p[-1])
 
-    def set_node_data_value(self, name, node, value, as_type):
-        p = [x for x in range(self.index, self.index + 3)]
-        self.index = p[-1] + 1
+    def set_node_data_value(self, name, node, value, as_type, offset=0):
 
         if as_type == funk_types.double:
             self.code += """
-        ;; {name}.data.value = {value} -- double
-        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
-        %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
-        %{2} = bitcast %union.data_type* %{1} to double*
-        store double {value}, double* %{2}, align 8
-         """.format(p[0], p[1], p[2], node=node, value=self.enconde_double_to_ieee754_32(value), name=name)
+        ERROR Un-implemented
+         """.format(node=node, value=self.enconde_double_to_ieee754_32(value), name=name)
         else:
             self.code += """
         ;; {name}.data.value = {value} -- int
-        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
-        %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
-        %{2} = bitcast %union.data_type* %{1} to i32*
-        store i32 {value}, i32* %{2}, align 8
-        """.format(p[0], p[1], p[2], node=node, value=value, name=name)
+          call void @funk_set_node_value_int(%struct.tnode* {node}, i32 0, i32 {value})
+        """.format(node=node, value=value, name=name, offset=offset)
 
             #raise Exception('Unsupported type {}'.format(type))
 
@@ -143,33 +134,35 @@ class Emitter:
 
         return '%{}'.format(p[-1])
 
-    def get_node_type(self, node):
-
-        p = [x for x in range(self.index, self.index + 3)]
-        self.index = p[-1] + 1
-
-        self.code += """
-        %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 0
-        %{1} = load i8, i8* %{0}, align 8
-        %{2} = zext i8 %{1} to i32
-        """.format(p[0], p[1], p[2], node=node)
-
-        return '%{}'.format(p[-1])
-
-    def get_next_node(self, node):
+    def get_node_type(self, node, lit_offset=0):
 
         p = [x for x in range(self.index, self.index + 5)]
         self.index = p[-1] + 1
 
         self.code += """
-        ;;return a copy of the next node from list
+        ;; get_node_type
+        %{0} = alloca i32, align 4 ;; offset
+        %{1} = alloca i8, align 1 ;; type
+        store i32 {offset}, i32* %{0}, align 4
+        %{2} = load i32, i32* %{0}, align 4
+        call void @funk_get_node_type(%struct.tnode* {node}, i32 %{2}, i8* %{1})
+        %{3} = load i8, i8* %{1}, align 4
+        %{4} = zext i8 %{3} to i32
+        """.format(p[0], p[1], p[2], p[3], p[4], node=node, offset=lit_offset)
+
+        return '%{}'.format(p[-1])
+
+    def get_next_node(self, node):
+
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+
+        self.code += """
+        ;;get the next node (will not copy)
         %{0} = alloca %struct.tnode, align 8
-        %{1} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 2
-        %{2} = load %struct.tnode*, %struct.tnode** %{1}, align 8
-        %{3} = bitcast %struct.tnode* %{0} to i8*
-        %{4} = bitcast %struct.tnode* %{2} to i8*
-        call void @memcpy(i8* %{3}, i8* %{4}, i64 32, i32 8, i1 false)
-        """.format(p[0], p[1], p[2], p[3], p[4], node=node, tnode_size=funk_constants.tnode_size_bytes)
+        ;;; ARE WE SURE WE CAN PASS node LIKE THAT???
+        call void @funk_get_next_node(%struct.tnode* %{0}, %struct.tnode* {node})
+        """.format(p[0],  node=node)
 
         return '%{}'.format(p[0])
 
@@ -674,7 +667,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.index = p[-1] + 1
         pool_string = 'funk_functions_memory_pool'  if pool == funk_types.function_pool else 'funk_global_memory_pool'
 
-        if data_type in [funk_types.int, funk_types.unknown]:
+        if data_type in [funk_types.int, funk_types.unknown, None]:
             self.code += """
         ;; create tnode '{name}' of type Integer
         %{0} = alloca %struct.tnode, align 8

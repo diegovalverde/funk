@@ -102,7 +102,7 @@ class IntegerConstant:
         val = self.sign * int(self.value)
         if result is not None:
             self.funk.emitter.set_node_data_value('result element', result, val, as_type=funk_types.int)
-            self.funk.emitter.set_node_data_type('result element', result, funk_types.int)
+
 
         return val
 
@@ -788,6 +788,7 @@ class FunctionClause:
                 # set result to null
                 self.funk.emitter.set_null_result()
                 self.funk.emitter.br('l_{}_end'.format(name))
+            # TODO: if hasinstance_of( FucntionCall, self.name) print('Warning tail recursion could not be done here')
             elif isinstance(last_insn, FunctionCall) and last_insn.name == self.name[1:]:
                 self.funk.emitter.add_comment('========== Applying TAIL RECURSION =========')
                 # Essentially
