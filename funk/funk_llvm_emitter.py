@@ -662,6 +662,50 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[1])
 
+    def create_slice(self, node, indexes):
+
+
+        all_indexes_are_int = True
+        for i in indexes:
+            if i.get_compile_type != funk_types.int:
+                all_indexes_are_int = False
+                break
+        if all_indexes_are_int:
+            print('Unimplemented')
+            raise
+
+        if len(indexes) == 1:
+
+            i = indexes[0].eval()
+
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+
+            self.code += """
+            ;; create slice
+            ;; allocate result
+            %{0} = alloca %struct.tnode, align 8
+             call void @funk_create_list_slide_1d_var(%struct.tnode* {node}, %struct.tnode * %{0}, %struct.tnode * {i})
+        """.format(p[0], node=node, i=i)
+        elif len(indexes) == 2:
+            i = indexes[0].eval()
+            j = indexes[1].eval()
+
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+
+            self.code += """
+            ;; create slice
+            ;; allocate result
+            %{0} = alloca %struct.tnode, align 8
+             call void @funk_create_list_slide_2d_var(%struct.tnode* {node}, %struct.tnode * %{0}, %struct.tnode * {i}, %struct.tnode * {j})
+        """.format(p[0], node=node, i=i, j=j)
+        else:
+            print('ERROR multi-dimension slicing Unimplemented')
+            raise
+
+        return '%{}'.format(p[0])
+
     def alloc_tnode(self, name, value, pool, data_type):
         p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
@@ -717,7 +761,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         self.set_node_data(p_node, data, index)
 
-
     def print_trace(self):
         p = [x for x in range(self.index, self.index + 1)]
 
@@ -758,6 +801,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             else:
                 if arg_expr.indexes is not None:
                     if len(arg_expr.indexes) == 2:
+                        # TODO: Indexes hardcoded to literals
                         self.code += """
     call void @print_2d_array(%struct.tnode* {node}, i32 {i}, i32 {j})
        """.format(node=arg, i =arg_expr.indexes[0].eval(), j=arg_expr.indexes[1].eval())

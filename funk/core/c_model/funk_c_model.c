@@ -12,9 +12,10 @@
 // the compiler updates the  g_funk_debug_current_executed_line for
 // every instruction executed, you can then use this set breakpoints
 // using the interactive debugger
-
+#ifdef FUNK_DEBUG_BUILD
 uint32_t g_funk_debug_current_executed_line = 0;
-
+uint32_t g_funk_internal_function_tracing_enabled = 0;
+#endif
 enum funk_types{
 type_invalid = 0,
 type_int = 1,
@@ -354,9 +355,11 @@ void funk_init(void){
   #endif
 
 }
+
 int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if (g_funk_internal_function_tracing_enabled)
+    printf("%s ", __FUNCTION__);
   #endif
 
   if (size <= 1)
@@ -372,9 +375,103 @@ int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
   }
   return 0;
 }
+
+void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i, struct tnode * node_j){
+
+  if (node_i->pool->data[node_i->start].type != type_int){
+    printf("-E- %s node lhs data type is %d but shall be int\n",
+      __FUNCTION__, node_i->pool->data[node_i->start].type );
+  }
+
+  if (node_j->pool->data[node_j->start].type != type_int){
+    printf("-E- %s node lhs data type is %d but shall be int\n",
+      __FUNCTION__, node_j->pool->data[node_j->start].type );
+  }
+
+  int32_t idx_0 = node_i->pool->data[node_i->start].data.i;
+  int32_t idx_1 = node_j->pool->data[node_j->start].data.i;
+
+  printf("%s i=%d j=%d\n", __FUNCTION__, idx_0, idx_1);
+
+  // negative indexes allow getting last elemets like in python
+  idx_0 = (idx_0 < 0) ? src->dimension.d[0] - idx_0 : idx_0;
+  idx_1 = (idx_1 < 0) ? src->dimension.d[1] - idx_1 : idx_1;
+
+
+  if (idx_0 >= src->dimension.d[0]){
+    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[0]);
+  }
+
+  if (idx_1  >= src->dimension.d[1]){
+    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_1, src->dimension.d[1]);
+  }
+
+  dst->pool = src->pool;
+  dst->dimension.count = 0;
+  dst->len = 1;
+  dst->start = src->start + src->dimension.d[1]* idx_0 + idx_1;
+
+}
+
+void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i){
+  if (node_i->pool->data[node_i->start].type != type_int){
+    printf("-E- %s node lhs data type is %d but shall be int\n",
+      __FUNCTION__, node_i->pool->data[node_i->start].type );
+  }
+
+  int32_t idx_0 = node_i->pool->data[node_i->start].data.i;
+
+  // negative indexes allow getting last elemets like in python
+  idx_0 = (idx_0 < 0) ? dst->dimension.d[0] - idx_0 : idx_0;
+
+
+  if (idx_0 >= src->dimension.d[0]){
+    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[0]);
+  }
+
+  dst->pool = src->pool;
+  dst->dimension.count = 0;
+  dst->len = 1;
+  dst->start = src->start + src->dimension.d[0]* idx_0;
+
+}
+
+void funk_create_list_slide(struct tnode * src, struct tnode * dst , int32_t * idx, int32_t idx_cnt){
+
+
+  if (idx_cnt != dst->dimension.count){
+    printf("-E- %s the number of indexes provided %d does not match dimension count %d\n",
+      __FUNCTION__, idx_cnt, dst->dimension.count );
+  }
+
+  for (int i = 0; i < idx_cnt; i++){
+    if (idx[i] >= dst->dimension.d[i]){
+      printf("-E- %s the index %d >  upper bound %d for dimension %d\n",
+        __FUNCTION__, idx[i], dst->dimension.d[i], i );
+    }
+  }
+
+  dst->pool = src->pool;
+  dst->dimension.count = 0;
+  dst->len = 1;
+  if (idx_cnt == 1){
+    dst->start = src->start + idx[0];
+  } else if (idx_cnt == 2){
+    dst->start = src->start + dst->dimension.d[1]* idx[0] + idx[1];
+  } else {
+    printf("-E- %s %d dimensions are not yet supported\n", __FUNCTION__, idx_cnt );
+  }
+
+  if (dst->start >= src->len){
+    printf("-E- %s index %d out of range for len %d\n", __FUNCTION__, dst->start, src->len );
+  }
+
+}
+
 void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list , int32_t size ){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if (g_funk_internal_function_tracing_enabled)
+    printf("%s ", __FUNCTION__);
   #endif
 
   n->pool = pool;
@@ -401,7 +498,8 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
 
 void funk_create_2d_matrix(struct tpool * pool, struct tnode * node, struct tnode * list, int32_t n, int32_t m ){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if(g_funk_internal_function_tracing_enabled)
+    printf("%s ", __FUNCTION__);
   #endif
 
   funk_create_list(pool, node, list, n*m );
@@ -414,7 +512,8 @@ void funk_create_2d_matrix(struct tpool * pool, struct tnode * node, struct tnod
 
 void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s %s[%d] = %d\n", __FUNCTION__, ((pool == &funk_global_memory_pool)?"gpool":"fpool"),
+  if (g_funk_internal_function_tracing_enabled)
+    printf("%s %s[%d] = %d\n", __FUNCTION__, ((pool == &funk_global_memory_pool)?"gpool":"fpool"),
     pool->tail, val);
   #endif
 
@@ -428,14 +527,13 @@ void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
   pool->data[n->start].type = type_int;
   pool->data[n->start].data.i = val;
 
-  printf("Created node with type:");
-  funk_print_type(n->pool->data[n->start].type);
-  printf("\n");
+
 }
 
 void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t * list , int32_t size ){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if (g_funk_internal_function_tracing_enabled)
+      printf("%s ", __FUNCTION__);
   #endif
 
   n->start  = pool->tail;
@@ -454,7 +552,8 @@ void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t
 
 void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node, int32_t * list , int32_t n, int32_t m ){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if (g_funk_internal_function_tracing_enabled)
+      printf("%s ", __FUNCTION__);
   #endif
   // Internally matrices are representes as contiguos
   // arrays in memory
@@ -468,7 +567,8 @@ void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node,
 
 void funk_copy_element_from_pool(struct tpool * pool, struct tnode * dst, struct tnode * src, int32_t i, int32_t j){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if (g_funk_internal_function_tracing_enabled)
+      printf("%s ", __FUNCTION__);
   #endif
 
   int32_t offset = (src->dimension.d[0] * i) + j;
@@ -481,43 +581,47 @@ void funk_copy_element_from_pool(struct tpool * pool, struct tnode * dst, struct
   }
 
 }
+
 void funk_print_scalar_element(struct tdata n){
 
     switch( n.type ){
       case type_int:
-        printf(" %9.9d ", n.data.i);
+        printf(" %5d ", n.data.i);
         break;
       case type_double:
-        printf(" %9.9f ", n.data.f);
+        printf(" %5.5f ", n.data.f);
         break;
       case type_empty_array:
-        printf(" %9.9s ", "[]");
+        printf(" %5s ", "[]");
         break;
       default:
-        printf(" %9.9s ","?");
+        printf(" %5s ","?");
     }
 }
 
-
 void funk_get_node_type(struct tnode  * node, uint32_t offset, unsigned char * type){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s %s[%d]", __FUNCTION__, ((node->pool == &funk_global_memory_pool)?"gpool":"fpool"), node->start+offset);
+  if (g_funk_internal_function_tracing_enabled)
+      printf("%s %s[%d]", __FUNCTION__, ((node->pool == &funk_global_memory_pool)?"gpool":"fpool"), node->start+offset);
   #endif
 
-  if (offset >= node->len){
+  if (node->len > 0 && offset >= node->len){
     printf("-E- %s: offset %d out of bounds for len %d", __FUNCTION__, offset, node->len);
   }
   *type = node->pool->data[node->start + offset].type;
-  #ifdef FUNK_DEBUG_BUILD
 
-  funk_print_type(*type);
-  printf("\n ");
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled){
+    funk_print_type(*type);
+    printf("\n ");
+  }
   #endif
 }
 
 void funk_set_node_type(struct tnode  * node, uint32_t offset, unsigned char type){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if (g_funk_internal_function_tracing_enabled)
+      printf("%s ", __FUNCTION__);
   #endif
 
   if (offset >= node->len){
@@ -528,7 +632,8 @@ void funk_set_node_type(struct tnode  * node, uint32_t offset, unsigned char typ
 
 void funk_set_node_value_int(struct tnode  * node, uint32_t offset, uint32_t value){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s ", __FUNCTION__);
+  if (g_funk_internal_function_tracing_enabled)
+      printf("%s ", __FUNCTION__);
   #endif
 
   if (offset >= node->len){
@@ -538,21 +643,19 @@ void funk_set_node_value_int(struct tnode  * node, uint32_t offset, uint32_t val
   node->pool->data[node->start + offset].data.i = value;
 }
 
+
 void foo(void){
   struct tnode node;
-uint32_t value = 777;
-funk_set_node_value_int(&node, 0, value);
 
 
 }
-
 
 void funk_print_pool(struct tpool * pool){
 
    for (int i = 0; i < 64; i++){
 
      funk_print_scalar_element(pool->data[i]);
-     if (i >0 && i % 7 == 0)
+     if (i >0 && (i + 1) % 7 == 0)
        printf("\n" );
    }
    printf("\n" );
@@ -560,7 +663,8 @@ void funk_print_pool(struct tpool * pool){
 
 void funk_get_next_node(struct tnode *dst, struct tnode * n){
   #ifdef FUNK_DEBUG_BUILD
-  printf("%s %s start: %d len: %d\n", __FUNCTION__, ((n->pool == &funk_global_memory_pool)? "gpool":"fpool"), n->start, n->len);
+  if (g_funk_internal_function_tracing_enabled)
+      printf("%s %s start: %d len: %d\n", __FUNCTION__, ((n->pool == &funk_global_memory_pool)? "gpool":"fpool"), n->start, n->len);
   #endif
    dst->pool = n->pool;
    if (n->len == 0){
@@ -572,7 +676,7 @@ void funk_get_next_node(struct tnode *dst, struct tnode * n){
      dst->len = n->len - 1;
      dst->start = n->start+1;
    }
-   printf("end %s\n",__FUNCTION__);
+
  }
 
 void funk_debug_function_entry_hook(void){
@@ -636,7 +740,8 @@ void funk_add_ri(struct tnode * node_r, int32_t r_offset,
                  int32_t lit)
   {
     #ifdef FUNK_DEBUG_BUILD
-    printf("%s ", __FUNCTION__);
+    if (g_funk_internal_function_tracing_enabled)
+        printf("%s ", __FUNCTION__);
     #endif
 
     if (a_offset > node_a->len){
@@ -669,15 +774,17 @@ void funk_add_ri(struct tnode * node_r, int32_t r_offset,
     r->type = type_invalid;
   }
   #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+  {
+      printf("%s[%d]",((node_a->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_a->start + a_offset );
+      funk_print_scalar_element(a);
+      printf(" , ");
+      printf("lit(%d)",lit);
 
-  printf("%s[%d]",((node_a->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_a->start + a_offset );
-  funk_print_scalar_element(a);
-  printf(" , ");
-  printf("lit(%d)",lit);
-
-  printf(" = %s[%d]",((node_r->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_r->start + r_offset );
-  funk_print_scalar_element(*r);
-  printf(" )\n");
+      printf(" = %s[%d]",((node_r->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_r->start + r_offset );
+      funk_print_scalar_element(*r);
+      printf(" )\n");
+  }
   #endif
 }
 
@@ -686,7 +793,8 @@ void funk_add_rr(struct tnode * node_r, int32_t r_offset,
                  struct tnode * node_b, int32_t b_offset)
   {
     #ifdef FUNK_DEBUG_BUILD
-    printf("%s ", __FUNCTION__);
+    if (g_funk_internal_function_tracing_enabled)
+      printf("%s ", __FUNCTION__);
     #endif
 
     if (a_offset > node_a->len){
@@ -704,12 +812,6 @@ void funk_add_rr(struct tnode * node_r, int32_t r_offset,
   struct tdata a = node_a->pool->data[node_a->start + a_offset];
   struct tdata b = node_b->pool->data[node_b->start + b_offset];
   struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
-
-  #ifdef FUNK_DEBUG_BUILD
-  funk_print_scalar_element(a);
-  printf(" ");
-  funk_print_scalar_element(b);
-  #endif
 
   unsigned char t1 = a.type;
   unsigned char t2 = b.type;
@@ -749,6 +851,7 @@ void funk_add_rr(struct tnode * node_r, int32_t r_offset,
   }
 
   #ifdef FUNK_DEBUG_BUILD
+    if (g_funk_internal_function_tracing_enabled)
       debug_print_arith_operation(node_r, r_offset, node_a, a_offset, node_b, b_offset);
   #endif
 
@@ -759,7 +862,7 @@ void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
                  struct tnode * node_b, int32_t b_offset)
   {
     #ifdef FUNK_DEBUG_BUILD
-    printf("%s ", __FUNCTION__);
+    //printf("%s ", __FUNCTION__);
     #endif
 
     if (a_offset > node_a->len){
@@ -805,7 +908,7 @@ void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
   }
 
   #ifdef FUNK_DEBUG_BUILD
-      debug_print_arith_operation(node_r, r_offset, node_a, a_offset, node_b, b_offset);
+      //debug_print_arith_operation(node_r, r_offset, node_a, a_offset, node_b, b_offset);
   #endif
 
 }
@@ -1016,8 +1119,6 @@ int rand_range(int lower, int upper){
 }
 #endif
 
-
-
 void funk_print_dimension(struct tnode * n){
   printf("( ");
   for (int i = 0; i < n->dimension.count; i++){
@@ -1025,6 +1126,7 @@ void funk_print_dimension(struct tnode * n){
   }
   printf(")");
 }
+
 void print_scalar(struct tnode * n){
 
   if (n->dimension.count == 0){
@@ -1033,11 +1135,11 @@ void print_scalar(struct tnode * n){
 
   } else if (n->dimension.count == 1){
 
-    printf(" [ ");
+
     for (int i = n->start; i < (n->start + n->len); i++){
       funk_print_scalar_element(n->pool->data[i]);
     }
-    printf(" ]  ");
+
 
   } else if (n->dimension.count == 2){
     printf("\n");

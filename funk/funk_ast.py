@@ -282,9 +282,17 @@ class Identifier:
 
         return string
 
+    def eval_node_index(self,node):
+        if self.indexes is not None:
+            return self.funk.emitter.create_slice(node, self.indexes)
+        else:
+            return node
+
     def eval(self, result=None):
         # Check the current function that we are building
         # To see if the identifier is a function argument
+
+
 
         for arg in self.funk.function_scope.args:
             if arg == self.name:
@@ -292,7 +300,7 @@ class Identifier:
                 node = self.funk.emitter.get_function_argument_tnode(idx)
                 if result is not None:
                     self.funk.emitter.copy_node(node, result)
-                return node
+                return self.eval_node_index(node)
 
         for head_tail in self.funk.function_scope.tail_pairs:
             head, tail = head_tail
@@ -313,7 +321,7 @@ class Identifier:
             node = self.funk.symbol_table[local_symbol_name]
             if result is not None:
                 self.funk.emitter.copy_node(node, result)
-            return node
+            return self.eval_node_index(node)
 
         if global_symbol_name in self.funk.symbol_table:
             self.funk.emitter.add_comment('creating reference to global function {}'.format(global_symbol_name))
@@ -322,20 +330,29 @@ class Identifier:
             self.funk.emitter.load_global_function_to_data(data, global_symbol_name)
             if result is not None:
                 self.funk.emitter.copy_node(node, result)
-            return node
+            return self.eval_node_index(node)
 
         if 'sd2_render_user_state' in self.funk.function_scope.args:
             node = self.funk.emitter.alloc_tnode('tmp_sd2_render_user_state')
             self.funk.emitter.get_s2d_user_global_state(node)
             if result is not None:
                 self.funk.emitter.copy_node(node, result)
-            return node
+            return self.eval_node_index(node)
 
         return global_symbol_name
 
     def __deepcopy__(self, memo):
         # create a copy with self.linked_to *not copied*, just referenced.
         return Identifier(self.funk, name=self.name, indexes=copy.deepcopy(self.indexes, memo))
+
+    def replace_symbol(self, symbol, value):
+        if self.indexes is not None:
+            for i in range(len(self.indexes)):
+                if self.indexes[i].__repr__() == symbol.__repr__():
+                    self.indexes[i] = value
+                else:
+                    self.indexes[i].replace_symbol(symbol, value)
+
 
 class HeadTail:
     def __init__(self, funk, head=None, tail=None):
@@ -411,8 +428,16 @@ class BinaryOp(Expression):
         self.right = right
 
     def replace_symbol(self, symbol, value):
-        self.left.replace_symbol(symbol, value)
-        self.right.replace_symbol(symbol, value)
+
+        if self.left.__repr__() == symbol.__repr__():
+            self.left = value
+        else:
+            self.left.replace_symbol(symbol, value)
+
+        if self.right.__repr__() == symbol.__repr__():
+            self.right = value
+        else:
+            self.right.replace_symbol(symbol, value)
 
     def get_compile_type(self):
         # if either operand is float, then auto promote to float at compile time
@@ -649,6 +674,8 @@ class FunctionCall(Expression):
         for i, arg in enumerate(self.args):
             if arg.__repr__() == symbol.__repr__():
                 self.args[i] = value
+            else:
+                arg.replace_symbol(symbol, value)
 
     def eval(self, result=None):
         found = False
