@@ -83,6 +83,16 @@ struct tnode
   struct tdimensions  dimension; //stride shall be an array of MAX_DIMENSIONS?
 };
 
+struct tnode gRenderLoopState;
+
+void funk_sleep(int aSeconds){
+  static int first = 1;
+  if (first){
+    first = 0;
+    return;
+  }
+  sleep(aSeconds);
+}
 
 /*
 void funk_debug_printNode(struct tnode * node ){
@@ -119,36 +129,20 @@ void funk_debug_printNode(struct tnode * node ){
 
 }
 */
-/*
-struct tnode gRenderLoopState;
 
-void funk_sleep(int aSeconds){
-  static int first = 1;
-  if (first){
-    first = 0;
-    return;
-  }
-  sleep(aSeconds);
-}
+
 
 
 void set_s2d_user_global_state(struct tnode * n){
+  gRenderLoopState = *n;
 
-  funk_deep_copy_node(&gRenderLoopState,n);
-  if (g_funk_verbosity){
-    printf("get_s2d_user_global_state\n");
-    funk_debug_printNode(&gRenderLoopState);
-  }
 }
 
 struct tnode get_s2d_user_global_state(){
-  if (g_funk_verbosity){
-    printf("get_s2d_user_global_state\n");
-    funk_debug_printNode(&gRenderLoopState);
-  }
+
   return gRenderLoopState;
 }
-*/
+
 
 void funk_set_config_param(int id, int value){
   printf("-I- Setting conf parameter %d to value %d\n", id, value);
@@ -1386,26 +1380,26 @@ struct tnode * createLinkedList(int start, int end, unsigned char type ){
    tail->pd.data.i = i;
    return head;
 }
-
+#endif
 
 float funk_ToFloat(struct tnode * n){
-  if (n->pd.type == type_int){
-    return (float)n->pd.data.i;
-  } else if (n->pd.type == type_double){
-    return (float)n->pd.data.f;
+  if (n->pool->data[n->start].type == type_int){
+    return (float)n->pool->data[n->start].data.i;
+  } else if (n->pool->data[n->start].type == type_double){
+    return (float)n->pool->data[n->start].data.f;
   } else {
-    n->pd.type = type_invalid;
+    n->pool->data[n->start].type = type_invalid;
     return 0.0f;
   }
 }
+
 
 /*
 Input: ASCII a file with numbers separated by spaces
 Output: List of numbers
 */
-struct tnode *  funk_read_list_from_file(char * path ){
-  struct tnode * dst = (struct tnode *)malloc(sizeof(struct tnode));
-  struct tnode * p = dst;
+  void funk_read_list_from_file(struct tpool * pool, struct tnode * dst, char * path ){
+
 
   FILE *fp;
   fp = fopen(path, "rt");
@@ -1416,29 +1410,43 @@ struct tnode *  funk_read_list_from_file(char * path ){
     exit(1);
   }
 
-  if (g_funk_verbosity > 0){
+  if (1){//g_funk_verbosity > 0){
     printf("-D- Opened file '%s'",path);
   }
 
   int value = 0;
+  int count = 0;
+  dst->start = pool->tail;
+  dst->dimension.count = 1;
+  dst->pool = pool;
+
   while(fscanf(fp,"%d",&value) == 1)
   {
-    p->type = type_array;
-    p->pd.data.i = value;
-    p->pd.type = type_int;
-    p->next = (struct tnode *)malloc(sizeof(struct tnode));
-  //  markNodeForGarbageCollection(p);
-    p = p->next;
-
+    printf("pool[%d] = %d\n", pool->tail, value);
+    pool->data[pool->tail].data.i = value;
+    pool->data[pool->tail].type = type_int;
+    pool->tail = (pool->tail + 1 )%FUNK_MAX_POOL_SIZE;
+    count++;
   }
 
+  dst->len = count;
+  printf("node: %d %d\n", dst->start, dst->len);
   fclose(fp);
 
-  p->type = type_empty_array;
-  p->pd.type = type_empty_array;
-  p->next = NULL;
 
-
-  return dst;
 }
-#endif
+
+void reshape(struct tnode * dst, int * idx, int count){
+  dst->dimension.count = count;
+  int number_of_elements = 1;
+  for (int i = 0;  (i < count && i < FUNK_MAX_DIMENSIONS); i++){
+    dst->dimension.d[i] = idx[i];
+    number_of_elements *= dst->dimension.d[i];
+  }
+
+  printf("%d:[%d x %d]\n", dst->dimension.count, dst->dimension.d[0],dst->dimension.d[1]);
+
+  if (number_of_elements > dst->len){
+    printf("-E- reshape operation not possible for variable with %d elements\n", dst->len);
+  }
+}

@@ -1017,7 +1017,45 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
                 x1=v[0], y1=v[1], x2=v[2], y2=v[3], x3=v[4], y3=v[5], x4=v[6],
                 y4=v[7], r=v[8], g=v[9], b=v[10], alpha=v[11])
 
-    def fread_list(self, funk, args, result):
+    def reshape(self, funk, args, result):
+        node = args[0].eval(result)
+        lit_list = args[1:][0].elements
+
+        p = [x for x in range(self.index, self.index + 3)]
+        self.index = p[-1] + 1
+
+        ptr = p[-1]
+        n = len(lit_list)
+        self.code += """
+
+       %{0} = alloca [{n} x i32], align 16
+       %{1} = bitcast [{n} x i32]* %{0} to i8*
+       %{2} = bitcast i8* %{1} to [{n} x i32]*
+       """.format(p[0], p[1], p[2], lit_list=lit_list, n=n)
+
+        i = 0
+        for lit in lit_list:
+            lit = lit.eval()
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+            self.code += """
+        %{0} = getelementptr [{n} x i32], [{n} x i32]* %{p}, i64 0, i64 {i}
+        store i32 {lit}, i32* %{0}
+        """.format(p[0], p=ptr, n=n, lit=lit, i = i)
+            i += 1
+
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+        self.code += """
+         %{0} = getelementptr inbounds [{n} x i32], [{n} x i32]* %{ptr}, i32 0, i32 0
+         call void @reshape(%struct.tnode* {node}, i32* %{0}, i32 {n})
+
+         """.format(p[0], ptr=ptr, node=node,  lit_list=lit_list, n=n)
+
+        return node
+
+
+    def fread_list(self, funk, args, result, pool=' @funk_global_memory_pool'):
         if len(args) != 1:
             raise Exception('=== fread_list takes 1 parameter')
 
@@ -1029,25 +1067,34 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 @.str_{cnt} = private unnamed_addr constant [{format_len} x i8] c"{format_string}\00", align 1
             """.format(cnt=funk.strings_count, format_len=format_len, format_string=path)
 
-        p = [i for i in range(self.index, self.index + 1)]
-        self.code += """
+        if result is not None:
+            self.code += """
 
-                %{0} = call %struct.tnode* @funk_read_list_from_file(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
-            p[0], format_len=format_len, cnt=funk.strings_count)
+                call void @funk_read_list_from_file(%struct.tpool* {pool}, %struct.tnode* {result}, i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
+                result=result, format_len=format_len, cnt=funk.strings_count, pool=pool)
+        else:
+            p = [i for i in range(self.index, self.index + 1)]
+            self.code += """
+                    %{0} = alloca %struct.tnode, align 8
+                    call void @funk_read_list_from_file(%struct.tpool* {pool}, %struct.tnode* %{0}, i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
+                p[0], format_len=format_len, cnt=funk.strings_count, pool=pool)
 
-        self.index = p[-1] + 1
+            self.index = p[-1] + 1
         funk.strings_count += 1
 
+        # if result is not None:
+        #     q = [i for i in range(self.index, self.index + 2)]
+        #     self.code += """
+        #     %{0} = bitcast %struct.tnode* {src} to i8*
+        #     %{1} = bitcast %struct.tnode* %{dst} to i8*
+        #     call void @memcpy(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
+        #     """.format(q[0], q[1], src=result, dst=p[0])
+        #
+        #     self.index = q[-1] + 1
         if result is not None:
-            q = [i for i in range(self.index, self.index + 2)]
-            self.code += """
-            %{0} = bitcast %struct.tnode* {src} to i8*
-            %{1} = bitcast %struct.tnode* %{dst} to i8*
-            call void @memcpy(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
-            """.format(q[0], q[1], src=result, dst=p[0])
-
-            self.index = q[-1] + 1
-        return '%{}'.format(p[0])
+            return result
+        else:
+            return '%{}'.format(p[0])
 
     def exit(self, funk, args):
         if len(args) != 0:

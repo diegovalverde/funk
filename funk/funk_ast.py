@@ -333,7 +333,7 @@ class Identifier:
             return self.eval_node_index(node)
 
         if 'sd2_render_user_state' in self.funk.function_scope.args:
-            node = self.funk.emitter.alloc_tnode('tmp_sd2_render_user_state')
+            node = self.funk.emitter.alloc_tnode('tmp_sd2_render_user_state', value=0,pool=funk_types.global_pool, data_type=funk_types.int)
             self.funk.emitter.get_s2d_user_global_state(node)
             if result is not None:
                 self.funk.emitter.copy_node(node, result)
@@ -352,7 +352,6 @@ class Identifier:
                     self.indexes[i] = value
                 else:
                     self.indexes[i].replace_symbol(symbol, value)
-
 
 class HeadTail:
     def __init__(self, funk, head=None, tail=None):
@@ -659,6 +658,7 @@ class FunctionCall(Expression):
             's2d_render': S2DRenderFunction,  # void s2d_render(void)
             'exit': Exit,
             'fread_list': FReadList,
+            'reshape': ReShape,
         }
 
     def get_compile_type(self):
@@ -961,6 +961,18 @@ class FReadList:
 
     def eval(self, result):
         return self.funk.emitter.fread_list(self.funk, self.arg_list, result)
+
+class ReShape:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    @staticmethod
+    def get_compile_type():
+        return funk_types.int
+
+    def eval(self, result):
+        return self.funk.emitter.reshape(self.funk, self.arg_list, result)
 
 class Exit:
     def __init__(self, funk, arg_list):

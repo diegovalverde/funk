@@ -357,12 +357,18 @@ class TreeToAst(Transformer):
         if len(tokens) == 0:
             return [funk_ast.Identifier(self.funk, 'empty'), funk_ast.FixedSizeLiteralList(self.funk, 'anon-empty-list', [])]
 
-        e = flatten(tokens)[0]
+        elements = flatten(tokens)
+        is_fixed_size_lit_list = True
+        for i in elements:
+            if not isinstance(i, funk_ast.IntegerConstant) and not isinstance(i, funk_ast.DoubleConstant):
+                is_fixed_size_lit_list = False
+                break
 
-        if isinstance(e, funk_ast.Range):
-            return [e]
+        if is_fixed_size_lit_list:
+            return [funk_ast.FixedSizeLiteralList(self.funk,'anon',elements)]
         else:
-            return e
+            return [elements]
+
 
     @staticmethod
     def list_elements(token):
