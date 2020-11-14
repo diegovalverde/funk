@@ -99,7 +99,11 @@ class TreeToAst(Transformer):
             # self.funk.symbol_table[local_symbol_name] = self.funk.emitter.get_s2d_user_global_state()
 
             if fn_name == 's2d_render':
-                fn_arguments = ['sd2_render_user_state']
+                if len(fn_arguments) != 1:
+                    print('-E- s2d_render requires a single argument')
+                    raise
+
+                fn_arguments = ['sd2_render_user_state@{}'.format(fn_arguments[0])]
 
             clause = funk_ast.FunctionClause(self.funk, function_key, fn_body, preconditions, pattern_matches,
                                              arguments=fn_arguments, tail_pairs=tail_pairs)

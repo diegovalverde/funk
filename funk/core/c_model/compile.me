@@ -1,10 +1,17 @@
 #! /bin/bash
+if [[ -z "${LLVM_BIN_PATH}" ]]; then
+  echo "Error LLVM_PATH is not set."
+fi
 
-C_INCLUDE_PATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/
-LLVM_PATH=/usr/local/opt/llvm/bin/
+if [[ -z "${LLVM_BIN_PATH}" ]]; then
+  C_INCLUDE_PATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/
+fi
+echo "C_INCLUDE_PATH=$C_INCLUDE_PATH"
+#LLVM_BIN_PATH=/usr/local/opt/llvm/bin/
 
-$LLVM_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
-sed -i '' 's/llvm.memcpy.p0i8.p0i8.i64/memcpy/' funk/core/funk_core.ll
+echo $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
+$LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
+#sed -i '' 's/llvm.memcpy.p0i8.p0i8.i64/memcpy/' funk/core/funk_core.ll
 
 echo ";;; ==== Data types ==== " > funk/core/data_types.txt
 echo ";;;" >> funk/core/data_types.txt
@@ -20,6 +27,7 @@ echo ";;;" >> funk/core/functions.txt
 
 echo ";; ==== external declarations ====" > funk/core/externals.txt
 grep external funk/core/funk_core.ll >> funk/core/externals.txt
-grep declare funk/core/funk_core.ll >> funk/core/externals.txt
+grep declare funk/core/funk_core.ll  >> funk/core/externals.txt
 
 cat funk/core/data_types.txt funk/core/functions.txt funk/core/externals.txt > funk/core/declarations.txt
+echo "All done"

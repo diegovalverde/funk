@@ -258,12 +258,12 @@ class Emitter:
             """.format(p_result=result, pA=a, pB=b, operartion=operation, idx_r=idx_r, idx_a=idx_a)
         elif isinstance(a, float):
             self.code += """
-            call void @funk_{operartion}_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
-            """.format(p_result=result, pA=b, pB=a, operartion=operation)
+            call void @funk_{operartion}_rf(%struct.tnode* {p_result}, i32 {idx_r}, %struct.tnode* {pA}, i32 {idx_a}, double {pB} )
+            """.format(p_result=result, pA=b, pB=a, idx_r=idx_r, idx_a=idx_b, operartion=operation)
         elif isinstance(b, float):
             self.code += """
-            call void @funk_{operartion}_rf(%struct.tnode* {p_result},  %struct.tnode* {pA}, double {pB} )
-            """.format(p_result=result, pA=a, pB=b, operartion=operation)
+            call void @funk_{operartion}_rf(%struct.tnode* {p_result}, i32 {idx_r}, %struct.tnode* {pA}, i32 {idx_a}, double {pB} )
+            """.format(p_result=result, pA=a, idx_r=idx_r, idx_a=idx_a, pB=b, operartion=operation)
         else:
             self.code += """
             call void @funk_{operartion}_rr(%struct.tnode* {p_result}, i32 {idx_r}, %struct.tnode* {pA}, i32 {idx_a}, %struct.tnode* {pB}, i32 {idx_b} )
@@ -277,15 +277,10 @@ class Emitter:
         """.format(val=val, p_data=p_data)
 
     def copy_node(self, node_src, node_dst):
-        p = [x for x in range(self.index, self.index + 2)]
-        self.index = p[-1] + 1
-
         self.code += """
         ;; copy node
-        %{0} = bitcast %struct.tnode* {node_dst} to i8*
-        %{1} = bitcast %struct.tnode* {node_src} to i8*
-        call void @memcpy(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
-        """.format(p[0], p[1], node_dst=node_dst, node_src=node_src, tnode_size=funk_constants.tnode_size_bytes)
+        call void @funk_copy_node(%struct.tnode* {dst}, %struct.tnode* {src} )
+        """.format(dst=node_dst, src=node_src)
 
     def call_fn_ptr(self, fn_node, arguments, result=None):
         n = len(arguments)
@@ -588,16 +583,14 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         """.format(p[0], n=n, name=name)
 
         for i,expr in enumerate(expr_list):
-            p = [x for x in range(self.index, self.index + 3)]
+            p = [x for x in range(self.index, self.index + 1)]
             self.index = p[-1] + 1
 
             self.code += """
-        %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* %{dst}, i64 0, i64 {i}
-        %{1} = bitcast %struct.tnode* %{0} to i8*
-        %{2} = bitcast %struct.tnode* {src} to i8*
 
-        call void @memcpy(i8* %{1}, i8* %{2}, i64 32, i32 8, i1 false)
-            """.format(p[0], p[1], p[2], n=n, i=i, dst=dst, src=expr, tnode_size=funk_constants.tnode_size_bytes)
+        %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* %{dst}, i64 0, i64 {i}
+        call void @funk_copy_node(%struct.tnode* %{0}, %struct.tnode* {src} )
+            """.format(p[0], n=n, i=i, dst=dst, src=expr, tnode_size=funk_constants.tnode_size_bytes)
 
         p = [x for x in range(self.index, self.index + 2)]
         self.index = p[-1] + 1
@@ -1018,7 +1011,10 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
                 y4=v[7], r=v[8], g=v[9], b=v[10], alpha=v[11])
 
     def reshape(self, funk, args, result):
-        node = args[0].eval(result)
+        if isinstance(args[0],str):
+            node = args[0]
+        else:
+            node = args[0].eval(result)
         lit_list = args[1:][0].elements
 
         p = [x for x in range(self.index, self.index + 3)]
@@ -1050,7 +1046,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
          %{0} = getelementptr inbounds [{n} x i32], [{n} x i32]* %{ptr}, i32 0, i32 0
          call void @reshape(%struct.tnode* {node}, i32* %{0}, i32 {n})
 
-         """.format(p[0], ptr=ptr, node=node,  lit_list=lit_list, n=n)
+         """.format(p[0], ptr=ptr, node=node, n=n)
 
         return node
 
@@ -1082,15 +1078,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.index = p[-1] + 1
         funk.strings_count += 1
 
-        # if result is not None:
-        #     q = [i for i in range(self.index, self.index + 2)]
-        #     self.code += """
-        #     %{0} = bitcast %struct.tnode* {src} to i8*
-        #     %{1} = bitcast %struct.tnode* %{dst} to i8*
-        #     call void @memcpy(i8* %{0}, i8* %{1}, i64 32, i32 8, i1 false)
-        #     """.format(q[0], q[1], src=result, dst=p[0])
-        #
-        #     self.index = q[-1] + 1
         if result is not None:
             return result
         else:

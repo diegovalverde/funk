@@ -91,16 +91,15 @@ def is_in_path_env(program):
     return False
 
 
-def build(src_path, include_paths, build_path, debug, llvm_bin_prefix='/usr/local/opt/llvm/bin/'):
+def build(src_path, include_paths, build_path, debug):
     global link_with_s2d
 
-    if not is_in_path_env('clang'):
-        print('-E- Cannot find clang in your path')
+    if os.environ.get('LLVM_BIN_PATH') is None:
+        print('-E- LLVM_BIN_PATH environment variable is undefined')
         exit(1)
 
-    if not is_in_path_env('llc'):
-        print('-E- Cannot find llc in your path')
-        exit(1)
+    llvm_bin_prefix = os.environ.get('LLVM_BIN_PATH')
+
 
     print('==== compiling ====')
 

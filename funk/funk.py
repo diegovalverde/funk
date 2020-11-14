@@ -17,7 +17,6 @@
 
 
 from .funk_llvm_emitter import Emitter
-from llvmlite import binding
 import os
 import re
 

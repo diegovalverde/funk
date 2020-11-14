@@ -14,7 +14,7 @@
 // using the interactive debugger
 #ifdef FUNK_DEBUG_BUILD
 uint32_t g_funk_debug_current_executed_line = 0;
-uint32_t g_funk_internal_function_tracing_enabled = 0;
+uint32_t g_funk_internal_function_tracing_enabled = 1;
 #endif
 enum funk_types{
 type_invalid = 0,
@@ -131,18 +131,78 @@ void funk_debug_printNode(struct tnode * node ){
 */
 
 
+void funk_print_node_info(struct tnode * n){
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("START %s \n", __FUNCTION__);
+  #endif
+  printf("%s[%d :%d] %d-dimensional",((n->pool == &funk_global_memory_pool)?"gpool":"fpool"), n->start, n->len, n->dimension.count );
 
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("END %s \n", __FUNCTION__);
+  #endif
+}
+
+
+void funk_copy_node(struct tnode * dst, struct tnode * src){
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("START %s \n", __FUNCTION__);
+  #endif
+
+  dst->start = src->start;
+  dst->len = src->len;
+  dst->dimension.count = src->dimension.count;
+  for (int i = 0; i < FUNK_MAX_DIMENSIONS; i++){
+    dst->dimension.d[i] = src->dimension.d[i];
+  }
+  dst->pool = src->pool;
+
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("END %s \n", __FUNCTION__);
+  #endif
+
+}
 
 void set_s2d_user_global_state(struct tnode * n){
-  gRenderLoopState = *n;
+
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("START %s \n", __FUNCTION__);
+  #endif
+
+  funk_print_node_info(n);
+
+  funk_copy_node( &gRenderLoopState, n);
+
+  funk_print_node_info(&gRenderLoopState);
+  printf(">>>>\n");
+
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("END %s \n", __FUNCTION__);
+  #endif
 
 }
 
 struct tnode get_s2d_user_global_state(){
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("START %s \n", __FUNCTION__);
+  #endif
+
+  funk_print_node_info(&gRenderLoopState);
+
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("END %s \n", __FUNCTION__);
+  #endif
 
   return gRenderLoopState;
-}
 
+}
 
 void funk_set_config_param(int id, int value){
   printf("-I- Setting conf parameter %d to value %d\n", id, value);
@@ -385,11 +445,12 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   int32_t idx_0 = node_i->pool->data[node_i->start].data.i;
   int32_t idx_1 = node_j->pool->data[node_j->start].data.i;
 
-  printf("%s i=%d j=%d\n", __FUNCTION__, idx_0, idx_1);
 
   // negative indexes allow getting last elemets like in python
   idx_0 = (idx_0 < 0) ? src->dimension.d[0] - idx_0 : idx_0;
   idx_1 = (idx_1 < 0) ? src->dimension.d[1] - idx_1 : idx_1;
+
+  printf("%s i=%d j=%d\n", __FUNCTION__, idx_0, idx_1);
 
 
   if (idx_0 >= src->dimension.d[0]){
@@ -404,7 +465,9 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   dst->dimension.count = 0;
   dst->len = 1;
   dst->start = src->start + src->dimension.d[1]* idx_0 + idx_1;
+  funk_print_node_info(dst);
 
+  printf("las pelotas\n");
 }
 
 void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i){
@@ -504,12 +567,8 @@ void funk_create_2d_matrix(struct tpool * pool, struct tnode * node, struct tnod
 
 }
 
-void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
-  #ifdef FUNK_DEBUG_BUILD
-  if (g_funk_internal_function_tracing_enabled)
-    printf("%s %s[%d] = %d\n", __FUNCTION__, ((pool == &funk_global_memory_pool)?"gpool":"fpool"),
-    pool->tail, val);
-  #endif
+void funk_create_scalar(struct tpool * pool, struct tnode * n, void * val, int32_t type){
+
 
   n->start  = pool->tail;
   n->len = 1;
@@ -518,10 +577,38 @@ void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
 
   pool->tail = (pool->tail + 1) % FUNK_MAX_POOL_SIZE;
 
-  pool->data[n->start].type = type_int;
-  pool->data[n->start].data.i = val;
+  pool->data[n->start].type = type;
 
+  switch (type) {
+    case type_int:
+    pool->data[n->start].data.i = *(int*)val;
+    break;
 
+    case type_double:
+    pool->data[n->start].data.f = *(double*)val;
+    break;
+  }
+
+}
+
+void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+    printf("%s %s[%d] = %d\n", __FUNCTION__, ((pool == &funk_global_memory_pool)?"gpool":"fpool"),
+    pool->tail, val);
+  #endif
+
+  funk_create_scalar(pool, n, (void*)&val, type_int);
+}
+
+void funk_create_float_scalar(struct tpool * pool, struct tnode * n, double val){
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+    printf("%s %s[%d] = %f\n", __FUNCTION__, ((pool == &funk_global_memory_pool)?"gpool":"fpool"),
+    pool->tail, val);
+  #endif
+
+  funk_create_scalar(pool, n, (void*)&val, type_double);
 }
 
 void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t * list , int32_t size ){
@@ -661,6 +748,11 @@ void funk_get_next_node(struct tnode *dst, struct tnode * n){
       printf("%s %s start: %d len: %d\n", __FUNCTION__, ((n->pool == &funk_global_memory_pool)? "gpool":"fpool"), n->start, n->len);
   #endif
    dst->pool = n->pool;
+   dst->dimension.count = n->dimension.count;
+   for (int i =0; i < FUNK_MAX_DIMENSIONS; i++){
+     dst->dimension.d[i] = n->dimension.d[i];
+   }
+
    if (n->len == 0){
      dst->start = n->start;
      dst->len = 1;
@@ -707,10 +799,21 @@ void funk_debug_function_entry_hook(void){
 }
 
 void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n, unsigned char dst_on_stack){
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("START %s \n", __FUNCTION__);
+  #endif
+
   for (int i = 0; i < n; ++i){
-      dst[i] = src[i];
+     funk_copy_node(&dst[i], &src[i]);
+      //dst[i] = src[i];
 
   }
+
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      printf("END %s \n", __FUNCTION__);
+  #endif
 
 }
 
@@ -781,7 +884,7 @@ void funk_add_ri(struct tnode * node_r, int32_t r_offset,
   }
   #endif
 }
-
+/*
 void funk_add_rr(struct tnode * node_r, int32_t r_offset,
                  struct tnode * node_a, int32_t a_offset,
                  struct tnode * node_b, int32_t b_offset)
@@ -851,6 +954,184 @@ void funk_add_rr(struct tnode * node_r, int32_t r_offset,
 
 }
 
+*/
+void funk_mul(void *x, void *a, void *b, int type){
+  if (type == 1){
+    *((double *)x) = (double)(*(double*)a) * (double)(*(double*)b);
+  } else {
+    *((int *)x) = (int)(*(int*)a) * (int)(*(int*)b);
+  }
+}
+
+void funk_div(void *x, void *a, void *b, int type){
+  if (type == 1){
+    *((double *)x) = (double)(*(double*)a) / (double)(*(double*)b);
+  } else {
+    *((int *)x) = (int)(*(int*)a) / (int)(*(int*)b);
+  }
+}
+
+void funk_add(void *x, void *a, void *b, int type){
+  if (type == 1){
+    *((double *)x) = (double)(*(double*)a) + (double)(*(double*)b);
+  } else {
+    *((int *)x) = (int)(*(int*)a) + (int)(*(int*)b);
+  }
+}
+
+void funk_sub(void *x, void *a, void *b, int type){
+  if (type == 1){
+    *((double *)x) = (double)(*(double*)a) - (double)(*(double*)b);
+  } else {
+    *((int *)x) = (int)(*(int*)a) - (int)(*(int*)b);
+  }
+}
+
+void funk_mod(void *x, void *a, void *b, int type){
+    *((int *)x) = (int)(*(int*)a) % (int)(*(int*)b);
+
+}
+
+
+
+void funk_arith_op_rr(struct tnode * node_r, int32_t r_offset,
+                 struct tnode * node_a, int32_t a_offset,
+                 struct tnode * node_b, int32_t b_offset,
+                 void (*f)(void *, void *, void *, int ))
+  {
+
+
+    if (a_offset > node_a->len){
+      printf("-E- Invalid index %d is greater than array size of %d", a_offset, node_a->len );
+    }
+
+    if (b_offset > node_b->len){
+      printf("-E- Invalid index %d is greater than array size of %d", b_offset, node_b->len );
+    }
+
+    if (r_offset > node_r->len){
+      printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
+    }
+
+  struct tdata a = node_a->pool->data[node_a->start + a_offset];
+  struct tdata b = node_b->pool->data[node_b->start + b_offset];
+  struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
+
+  unsigned char t1 = a.type;
+  unsigned char t2 = b.type;
+
+  if (t2 == type_empty_array) t2 = type_int;
+
+  if (t1 == type_empty_array) t1 = type_int;
+
+  if (t1 == type_int && t2 == type_int){
+      f((void*)&r->data.i, (void*)&a.data.i, (void*)&b.data.i, 0);
+      r->type = type_int;
+
+  }else if (t1 == type_double && t2 == type_double){
+      f((void*)&r->data.f, (void*)&a.data.f, (void*)&b.data.f, 1);
+      r->type = type_double;
+
+  } else if (t1 == type_double && t2 == type_int){
+      f((void*)&r->data.f, (void*)&a.data.f, (void*)&b.data.i, 1);
+      r->type = type_double;
+
+  } else if (t1 == type_int && t2 == type_double){
+      f((void*)&r->data.f, (void*)&a.data.i, (void*)&b.data.f, 1);
+      r->type = type_double;
+
+  } else {
+    printf("-E- %s: invalid types: ", __FUNCTION__);
+
+    funk_print_type(t1);
+    printf(" , ");
+    funk_print_type(t2);
+    printf("\n");
+
+    r->type = type_invalid;
+  }
+
+  #ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+      debug_print_arith_operation(node_r, r_offset, node_a, a_offset, node_b, b_offset);
+  #endif
+
+}
+
+void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
+                 struct tnode * node_a, int32_t a_offset,
+                 struct tnode * node_b, int32_t b_offset){
+
+
+                   funk_arith_op_rr(node_r, r_offset,
+                                    node_a, a_offset,
+                                    node_b, b_offset, funk_mul);
+                 }
+
+void funk_add_rr(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                struct tnode * node_b, int32_t b_offset){
+
+
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   node_b, b_offset, funk_add);
+                }
+
+void funk_sub_rr(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                struct tnode * node_b, int32_t b_offset){
+
+
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   node_b, b_offset, funk_sub);
+                }
+
+void funk_div_rr(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                struct tnode * node_b, int32_t b_offset){
+
+
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   node_b, b_offset, funk_div);
+                }
+
+void funk_mod_rr(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                struct tnode * node_b, int32_t b_offset){
+
+
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   node_b, b_offset, funk_mod);
+                }
+
+void funk_add_rf(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                double value){
+
+                  struct tnode node_b;
+                  //TODO: maybe create a smaller pool for this?
+                  funk_create_float_scalar(&funk_functions_memory_pool, &node_b, value);
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   &node_b, 0, funk_add);
+                }
+
+void funk_sub_rf(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                double value){
+
+                  struct tnode node_b;
+                  //TODO: maybe create a smaller pool for this?
+                  funk_create_float_scalar(&funk_functions_memory_pool, &node_b, value);
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   &node_b, 0, funk_sub);
+                }
+/*
 void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
                  struct tnode * node_a, int32_t a_offset,
                  struct tnode * node_b, int32_t b_offset)
@@ -906,6 +1187,7 @@ void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
   #endif
 
 }
+*/
 #if 0
 void funk_div_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
   if (n1->pd.type == 2 && n2->pd.type == 2){
@@ -1144,7 +1426,7 @@ void print_scalar(struct tnode * n){
       printf("\n");
     }
   } else {
-    printf(" [...] \n");
+    printf(" [...] %d-dimensional with %d elements\n", n->dimension.count, n->len);
   }
 
 

@@ -6,7 +6,7 @@ _render_board( h <~ [t], k, tlx, tly, w, s ):
     x <- (k % w) * s + tlx
     y <- (k / w) * s + tly
 
-    s2d_quad(x+1., y+1., x+s-1., y+1., x+s-1., y+s-1., x+1., y+s-1., h, h, 0.5, 1.)
+    s2d_quad(x+1, y+1, x+s, y+1, x+s, y+s, x+1, y+s, h, h, 0.5, 1.)
 
     _render_board(t, k + 1, tlx, tly, w, s).
 
