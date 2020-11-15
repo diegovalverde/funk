@@ -74,7 +74,7 @@
 
     boolean_binary_term: rhs_bool_factor boolean_binary_term_
 
-    rhs_bool_factor:  factor [rhs_bool_factor_] -> action_rhs_bool_factor
+    rhs_bool_factor:  expr [rhs_bool_factor_] -> action_rhs_bool_factor
     rhs_bool_factor_: "%" factor          -> action_bool_mod
 
     boolean_binary_term_:    ">"  factor  -> action_bool_gt

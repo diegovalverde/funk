@@ -68,8 +68,8 @@ class Emitter:
         store i8 {funk_type}, i8* %{0}, align 8
         """.format(p[0], str_type=funk_types.to_str[funk_type], node=node, funk_type=funk_type)
 
-    def get_node_data_value(self, node, as_type=funk_types.int):
-        p = [x for x in range(self.index, self.index + 4)]
+    def get_node_data_value(self, node, as_type=funk_types.int,offset = 0):
+        p = [x for x in range(self.index, self.index + 1)]
         self.index = p[-1] + 1
 
         if as_type == funk_types.double:
@@ -82,14 +82,11 @@ class Emitter:
             """.format(p[0], p[1], p[2], p[3], node=node)
         else:
             self.code += """
-            ;; Get node.data.value
-            %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
-            %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 1
-            %{2} = bitcast %union.data_type* %{1} to i32*
-            %{3} = load i32, i32* %{2}, align 8
-            """.format(p[0], p[1], p[2], p[3], node=node)
+            ;; Get node.data.value INT
+            %{0} = call i32 @funk_get_node_value_int(%struct.tnode* {node}, i32 {offset})
+            """.format(p[0], node=node, offset=offset)
 
-        return '%{}'.format(p[-1])
+        return '%{}'.format(p[0])
 
     def set_node_data_value(self, name, node, value, as_type, offset=0):
 

@@ -14,7 +14,7 @@
 // using the interactive debugger
 #ifdef FUNK_DEBUG_BUILD
 uint32_t g_funk_debug_current_executed_line = 0;
-uint32_t g_funk_internal_function_tracing_enabled = 1;
+uint32_t g_funk_internal_function_tracing_enabled = 0;
 #endif
 enum funk_types{
 type_invalid = 0,
@@ -228,6 +228,7 @@ void funk_print_type(unsigned char type){
   }
 
 }
+
 
 #if 0
 void funk_slt_ri(struct tnode * r, struct tnode * n1, int lit){
@@ -450,8 +451,6 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   idx_0 = (idx_0 < 0) ? src->dimension.d[0] - idx_0 : idx_0;
   idx_1 = (idx_1 < 0) ? src->dimension.d[1] - idx_1 : idx_1;
 
-  printf("%s i=%d j=%d\n", __FUNCTION__, idx_0, idx_1);
-
 
   if (idx_0 >= src->dimension.d[0]){
     printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[0]);
@@ -465,9 +464,8 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   dst->dimension.count = 0;
   dst->len = 1;
   dst->start = src->start + src->dimension.d[1]* idx_0 + idx_1;
-  funk_print_node_info(dst);
+  
 
-  printf("las pelotas\n");
 }
 
 void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i){
@@ -724,7 +722,12 @@ void funk_set_node_value_int(struct tnode  * node, uint32_t offset, uint32_t val
   node->pool->data[node->start + offset].data.i = value;
 }
 
-
+int32_t funk_get_node_value_int(struct tnode * node, int32_t offset){
+    if (offset > node->len){
+      printf("-E- %s: offset %d out of bounds for len %d", __FUNCTION__, offset, node->len);
+    }
+    return node->pool->data[node->start + offset].data.i;
+}
 
 void funk_print_pool(struct tpool * pool){
 
@@ -795,8 +798,9 @@ void funk_debug_function_entry_hook(const char * function_name){
 
 
 void foo(void){
+  struct tnode node;
 
-  funk_debug_function_entry_hook("caca");
+  int caca = funk_get_node_value_int(&node, 0);
 
 }
 
@@ -924,6 +928,36 @@ void funk_mod(void *x, void *a, void *b, int type){
 
 }
 
+void funk_slt(void *x, void *a, void *b, int type){
+
+  if (type == 1){
+    *((double *)x) = ((double)(*(double*)a) < (double)(*(double*)b)) ? 1 :0 ;
+  } else {
+    *((int *)x) = ((int)(*(int*)a) < (int)(*(int*)b)) ? 1 : 0;
+  }
+
+}
+
+void funk_sgt(void *x, void *a, void *b, int type){
+
+  if (type == 1){
+    *((double *)x) = ((double)(*(double*)a) > (double)(*(double*)b)) ? 1 :0 ;
+  } else {
+    *((int *)x) = ((int)(*(int*)a) > (int)(*(int*)b)) ? 1 : 0;
+  }
+
+}
+
+void funk_or(void *x, void *a, void *b, int type){
+
+  if (type == 1){
+    *((double *)x) = ((double)(*(double*)a) != 0.0 || (double)(*(double*)b) != 0.0) ? 1 :0 ;
+  } else {
+    *((int *)x) = ((int)(*(int*)a) != 0 ||  (int)(*(int*)b) != 0) ? 1 : 0;
+  }
+
+}
+
 
 
 void funk_arith_op_rr(struct tnode * node_r, int32_t r_offset,
@@ -1040,6 +1074,16 @@ void funk_mod_rr(struct tnode * node_r, int32_t r_offset,
                                    node_b, b_offset, funk_mod);
                 }
 
+void funk_or_rr(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                struct tnode * node_b, int32_t b_offset){
+
+
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   node_b, b_offset, funk_or);
+                }
+
 void funk_add_rf(struct tnode * node_r, int32_t r_offset,
                 struct tnode * node_a, int32_t a_offset,
                 double value){
@@ -1052,77 +1096,56 @@ void funk_add_rf(struct tnode * node_r, int32_t r_offset,
                                    &node_b, 0, funk_add);
                 }
 
+void funk_sub_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
+
+                  struct tnode node_b;
+
+                  funk_create_int_scalar(&funk_functions_memory_pool, &node_b, value);
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   &node_b, 0, funk_sub);
+                }
+
 void funk_sub_rf(struct tnode * node_r, int32_t r_offset,
                 struct tnode * node_a, int32_t a_offset,
                 double value){
 
                   struct tnode node_b;
-                  //TODO: maybe create a smaller pool for this?
+
                   funk_create_float_scalar(&funk_functions_memory_pool, &node_b, value);
                   funk_arith_op_rr(node_r, r_offset,
                                    node_a, a_offset,
                                    &node_b, 0, funk_sub);
                 }
-/*
-void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
-                 struct tnode * node_a, int32_t a_offset,
-                 struct tnode * node_b, int32_t b_offset)
-  {
-    #ifdef FUNK_DEBUG_BUILD
-    //printf("%s ", __FUNCTION__);
-    #endif
 
-    if (a_offset > node_a->len){
-      printf("-E- Invalid index %d is greater than array size of %d", a_offset, node_a->len );
-    }
+void funk_slt_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
 
-    if (b_offset > node_b->len){
-      printf("-E- Invalid index %d is greater than array size of %d", b_offset, node_b->len );
-    }
-
-    if (r_offset > node_r->len){
-      printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
-    }
-
-  struct tdata a = node_a->pool->data[node_a->start + a_offset];
-  struct tdata b = node_b->pool->data[node_b->start + b_offset];
-  struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
-
-  unsigned char t1 = a.type;
-  unsigned char t2 = b.type;
-
-  if (t1 == type_int && t2 == type_int){
-      r->data.i = a.data.i * b.data.i;
-      r->type = type_int;
-
-  }else if (t1 == type_double && t2 == type_double){
-      r->data.f = a.data.f * b.data.f;
-      r->type = type_double;
-
-  } else if (t1 == type_double && t2 == type_int){
-      r->data.f = a.data.f * (double)(b.data.i);
-      r->type = type_double;
-
-  } else if (t1 == type_int && t2 == type_double){
-      r->data.f = (double)a.data.i * b.data.f;
-      r->type = type_double;
-
-  } else {
-    //Invalid data
-    printf("-E- funk_mul_rr: invalid types:\n ");
-
-    r->type = type_invalid;
-  }
-
-  #ifdef FUNK_DEBUG_BUILD
-      //debug_print_arith_operation(node_r, r_offset, node_a, a_offset, node_b, b_offset);
-  #endif
+                struct tnode node_b;
+                funk_create_int_scalar(&funk_functions_memory_pool, &node_b, value);
+                funk_arith_op_rr(node_r, r_offset,
+                                 node_a, a_offset,
+                                 &node_b, 0, funk_slt);
 
 }
-*/
+
+void funk_sgt_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
+
+                struct tnode node_b;
+                funk_create_int_scalar(&funk_functions_memory_pool, &node_b, value);
+                funk_arith_op_rr(node_r, r_offset,
+                                 node_a, a_offset,
+                                 &node_b, 0, funk_sgt);
+
+}
 
 #if 0
-
+/*
 void funk_div_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
   if (n1->pd.type == 2 && n2->pd.type == 2){
       r->pd.data.f = n1->pd.data.f / n2->pd.data.f;
@@ -1327,6 +1350,7 @@ int rand_range(int lower, int upper){
 
 
 }
+*/
 #endif
 
 void funk_print_dimension(struct tnode * n){
@@ -1338,8 +1362,15 @@ void funk_print_dimension(struct tnode * n){
 }
 
 void print_scalar(struct tnode * n){
-  printf("%s\n", __FUNCTION__ );
-  funk_print_node_info(n);
+
+#ifdef FUNK_DEBUG_BUILD
+  if (g_funk_internal_function_tracing_enabled)
+  {
+    printf("%s\n", __FUNCTION__ );
+    funk_print_node_info(n);
+  }
+#endif
+
   if (n->dimension.count == 0){
 
     funk_print_scalar_element(n->pool->data[n->start]);
@@ -1363,11 +1394,6 @@ void print_scalar(struct tnode * n){
   } else {
     printf(" [...] %d-dimensional with %d elements\n", n->dimension.count, n->len);
   }
-
-
-
-
-
 
 }
 
