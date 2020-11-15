@@ -229,162 +229,6 @@ void funk_print_type(unsigned char type){
 
 }
 
-
-#if 0
-void funk_slt_ri(struct tnode * r, struct tnode * n1, int lit){
-  if (n1->pd.type == type_int){
-      r->pd.data.i = (n1->pd.data.i < lit) ? 1 : 0;
-      r->pd.type = type_int;
-  } else if (n1->pd.type == type_double ){
-    r->pd.data.i = (((int)n1->pd.data.f) < lit) ? 1 : 0;;
-    r->pd.type = type_int;
-  } else {
-    //Invalid data
-    r->pd.type = type_invalid;
-  }
-
-  }
-
-
-  void funk_sgt_ri(struct tnode * r, struct tnode * n1, int lit){
-    if (n1->pd.type == type_int){
-        r->pd.data.i = (n1->pd.data.i > lit) ? 1 : 0;
-        r->pd.type = type_int;
-    } else if (n1->pd.type == type_double ){
-      r->pd.data.i = (((int)n1->pd.data.f) > lit) ? 1 : 0;;
-      r->pd.type = type_int;
-    } else {
-      //Invalid data
-      r->pd.type = type_invalid;
-    }
-
-    }
-
-
-
-      void funk_sge_ri(struct tnode * r, struct tnode * n1, int lit){
-        if (n1->pd.type == type_int){
-            r->pd.data.i = (n1->pd.data.i >= lit) ? 1 : 0;
-            r->pd.type = type_int;
-        } else if (n1->pd.type == type_double ){
-          r->pd.data.i = (((int)n1->pd.data.f) >= lit) ? 1 : 0;;
-          r->pd.type = type_int;
-        } else {
-          //Invalid data
-          r->pd.type = type_invalid;
-        }
-
-        }
-
-    void funk_sge_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
-      if (n1->pd.type == type_int && n2->pd.type == type_int){
-          r->pd.data.i = (n1->pd.data.i >= n2->pd.data.i) ? 1 : 0;
-          r->pd.type = type_int;
-      } else if (n1->pd.type == type_double && n2->pd.type == type_double){
-
-        r->pd.data.i = (n1->pd.data.f >= n2->pd.data.f) ? 1 : 0;
-        r->pd.type = type_int;
-      } else {
-        printf("funk_sge_rr: invalid types %d %d\n", n1->pd.type, n2->pd.type);
-        r->pd.type = type_invalid;
-      }
-
-      }
-
-void funk_flt_rf(struct tnode * r, struct tnode * n1, double lit){
-  if (n1->pd.type == type_double){
-      r->pd.data.i = (n1->pd.data.f < lit) ? 1 : 0;
-      r->pd.type = type_int;
-  } else if (n1->pd.type == type_int ){
-    r->pd.data.f = (((double)n1->pd.data.i) < lit) ? 1 : 0;;
-    r->pd.type = type_int;
-  } else {
-    //Invalid data
-    r->pd.type = type_invalid;
-  }
-
-}
-
-void funk_mod_ri(struct tnode * r, struct tnode * n1, int lit){
-  if (n1->pd.type == type_double){
-      r->pd.data.f = (int)(n1->pd.data.f) % lit;
-      r->pd.type = type_int;
-  } else if (n1->pd.type == type_int ){
-    r->pd.data.i = n1->pd.data.i % lit;
-    r->pd.type = type_int;
-  } else {
-    //Invalid data
-    printf("funk_mod_ri: invalid types %d Int\n ", n1->pd.type);
-    r->pd.type = type_invalid;
-  }
-
-}
-
-void funk_eq_ri(struct tnode * r, struct tnode * n1, int lit){
-  if (n1->pd.type == type_double){
-    r->pd.data.i = (((int)n1->pd.data.f) == lit) ? 1 : 0;
-    r->pd.type = type_int;
-  } else if (n1->pd.type == type_int ){
-    r->pd.data.i = (n1->pd.data.i == lit) ? 1 : 0;
-    r->pd.type = type_int;
-  } else {
-    //Invalid data
-    printf("funk_eq_ri: invalid types %d\n ", n1->pd.type);
-    r->pd.type = type_invalid;
-  }
-
-}
-
-
-void funk_eq_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
-  if (n1->pd.type == type_double && n2->pd.type == type_double){
-    r->pd.data.i = (n1->pd.data.f == n2->pd.data.f) ? 1 : 0;
-    r->pd.type = type_int;
-  } else if (n1->pd.type == type_int && n2->pd.type == type_int){
-    r->pd.data.i = (n1->pd.data.i == n2->pd.data.i) ? 1 : 0;
-    r->pd.type = type_int;
-  } else {
-    //Invalid data
-    printf("funk_eq_rr: invalid types %d\n ", n1->pd.type);
-    r->pd.type = type_invalid;
-  }
-
-}
-
-void funk_or_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
-  if (n1->pd.type == type_int && n2->pd.type == type_int){
-      r->pd.data.i = ((n1->pd.data.i != 0) || (n2->pd.data.i != 0)) ? 1 : 0;
-      r->pd.type = type_int;
-  } else if (n1->pd.type == type_double && n2->pd.type == type_double){
-    r->pd.data.f= ((n1->pd.data.f != 0.0f) || (n2->pd.data.f != 0.0f)) ? 1.0f : 0.0f;
-    r->pd.type = type_double;
-  } else if (n1->pd.type != n2->pd.type){
-
-    printf("funk_or_rr: invalid types %d, %d\n ", n1->pd.type, n2->pd.type);
-    r->pd.type = type_invalid;
-  } else {
-    r->pd.type = type_invalid;
-  }
-}
-
-
-void funk_and_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
-
-  if (n1->pd.type == type_int && n2->pd.type == type_int){
-      r->pd.data.i = ((n1->pd.data.i != 0) && (n2->pd.data.i != 0)) ? 1 : 0;
-      r->pd.type = type_int;
-  } else if (n1->pd.type == type_double && n2->pd.type == type_double){
-    r->pd.data.f= ((n1->pd.data.f != 0.0f) && (n2->pd.data.f != 0.0f)) ? 1.0f : 0.0f;
-    r->pd.type = type_double;
-  } else if (n1->pd.type != n2->pd.type){
-    printf("funk_and_rr: invalid types %d, %d\n ", n1->pd.type, n2->pd.type);
-    r->pd.type = type_invalid;
-  } else {
-    r->pd.type = type_invalid;
-  }
-}
-#endif
-
 void funk_init(void){
   #ifdef FUNK_DEBUG_BUILD
   printf("%s ", __FUNCTION__);
@@ -464,7 +308,7 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   dst->dimension.count = 0;
   dst->len = 1;
   dst->start = src->start + src->dimension.d[1]* idx_0 + idx_1;
-  
+
 
 }
 
@@ -948,6 +792,16 @@ void funk_sgt(void *x, void *a, void *b, int type){
 
 }
 
+void funk_sge(void *x, void *a, void *b, int type){
+
+  if (type == 1){
+    *((double *)x) = ((double)(*(double*)a) >= (double)(*(double*)b)) ? 1 :0 ;
+  } else {
+    *((int *)x) = ((int)(*(int*)a) >= (int)(*(int*)b)) ? 1 : 0;
+  }
+
+}
+
 void funk_or(void *x, void *a, void *b, int type){
 
   if (type == 1){
@@ -1143,7 +997,17 @@ void funk_sgt_ri(struct tnode * node_r, int32_t r_offset,
                                  &node_b, 0, funk_sgt);
 
 }
+void funk_sge_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
 
+                struct tnode node_b;
+                funk_create_int_scalar(&funk_functions_memory_pool, &node_b, value);
+                funk_arith_op_rr(node_r, r_offset,
+                                 node_a, a_offset,
+                                 &node_b, 0, funk_sge);
+
+}
 #if 0
 /*
 void funk_div_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){

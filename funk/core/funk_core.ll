@@ -2794,6 +2794,55 @@ define void @funk_sgt(i8*, i8*, i8*, i32) #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @funk_sge(i8*, i8*, i8*, i32) #0 {
+  %5 = alloca i8*, align 8
+  %6 = alloca i8*, align 8
+  %7 = alloca i8*, align 8
+  %8 = alloca i32, align 4
+  store i8* %0, i8** %5, align 8
+  store i8* %1, i8** %6, align 8
+  store i8* %2, i8** %7, align 8
+  store i32 %3, i32* %8, align 4
+  %9 = load i32, i32* %8, align 4
+  %10 = icmp eq i32 %9, 1
+  br i1 %10, label %11, label %24
+
+11:                                               ; preds = %4
+  %12 = load i8*, i8** %6, align 8
+  %13 = bitcast i8* %12 to double*
+  %14 = load double, double* %13, align 8
+  %15 = load i8*, i8** %7, align 8
+  %16 = bitcast i8* %15 to double*
+  %17 = load double, double* %16, align 8
+  %18 = fcmp oge double %14, %17
+  %19 = zext i1 %18 to i64
+  %20 = select i1 %18, i32 1, i32 0
+  %21 = sitofp i32 %20 to double
+  %22 = load i8*, i8** %5, align 8
+  %23 = bitcast i8* %22 to double*
+  store double %21, double* %23, align 8
+  br label %36
+
+24:                                               ; preds = %4
+  %25 = load i8*, i8** %6, align 8
+  %26 = bitcast i8* %25 to i32*
+  %27 = load i32, i32* %26, align 4
+  %28 = load i8*, i8** %7, align 8
+  %29 = bitcast i8* %28 to i32*
+  %30 = load i32, i32* %29, align 4
+  %31 = icmp sge i32 %27, %30
+  %32 = zext i1 %31 to i64
+  %33 = select i1 %31, i32 1, i32 0
+  %34 = load i8*, i8** %5, align 8
+  %35 = bitcast i8* %34 to i32*
+  store i32 %33, i32* %35, align 4
+  br label %36
+
+36:                                               ; preds = %24, %11
+  ret void
+}
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
 define void @funk_or(i8*, i8*, i8*, i32) #0 {
   %5 = alloca i8*, align 8
   %6 = alloca i8*, align 8
@@ -3409,6 +3458,29 @@ define void @funk_sgt_ri(%struct.tnode*, i32, %struct.tnode*, i32, i32) #0 {
   %15 = load %struct.tnode*, %struct.tnode** %8, align 8
   %16 = load i32, i32* %9, align 4
   call void @funk_arith_op_rr(%struct.tnode* %13, i32 %14, %struct.tnode* %15, i32 %16, %struct.tnode* %11, i32 0, void (i8*, i8*, i8*, i32)* @funk_sgt)
+  ret void
+}
+
+; Function Attrs: noinline nounwind optnone ssp uwtable
+define void @funk_sge_ri(%struct.tnode*, i32, %struct.tnode*, i32, i32) #0 {
+  %6 = alloca %struct.tnode*, align 8
+  %7 = alloca i32, align 4
+  %8 = alloca %struct.tnode*, align 8
+  %9 = alloca i32, align 4
+  %10 = alloca i32, align 4
+  %11 = alloca %struct.tnode, align 8
+  store %struct.tnode* %0, %struct.tnode** %6, align 8
+  store i32 %1, i32* %7, align 4
+  store %struct.tnode* %2, %struct.tnode** %8, align 8
+  store i32 %3, i32* %9, align 4
+  store i32 %4, i32* %10, align 4
+  %12 = load i32, i32* %10, align 4
+  call void @funk_create_int_scalar(%struct.tpool* @funk_functions_memory_pool, %struct.tnode* %11, i32 %12)
+  %13 = load %struct.tnode*, %struct.tnode** %6, align 8
+  %14 = load i32, i32* %7, align 4
+  %15 = load %struct.tnode*, %struct.tnode** %8, align 8
+  %16 = load i32, i32* %9, align 4
+  call void @funk_arith_op_rr(%struct.tnode* %13, i32 %14, %struct.tnode* %15, i32 %16, %struct.tnode* %11, i32 0, void (i8*, i8*, i8*, i32)* @funk_sge)
   ret void
 }
 

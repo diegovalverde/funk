@@ -252,6 +252,7 @@ class TreeToAst(Transformer):
 
     def action_nested_list(self, children):
         return children
+
     def action_list_concat_lsh(self, children):
         lhs = children[0]
 
@@ -265,11 +266,20 @@ class TreeToAst(Transformer):
 
         return funk_ast.ListConcat(self.funk, left=None, right=rhs)
 
-    def action_bool_and(self, token):
-        return funk_ast.And(self.funk, right=token[0])
+    def action_bool_and(self, tokens):
+        if len(tokens) > 1:
+            for i in range(1, len(tokens)):
+                tokens[i].left = tokens[i - 1]
 
-    def action_bool_or(self, token):
-        return funk_ast.Or(self.funk, right=token[0])
+        return funk_ast.And(self.funk, right=tokens[-1])
+
+    def action_bool_or(self, tokens):
+
+        if len(tokens) > 1:
+            for i in range(1,len(tokens)):
+                tokens[i].left = tokens[i-1]
+
+        return funk_ast.Or(self.funk, right=tokens[-1])
 
     def action_bool_mod(self, token):
         # Note: this returns an integer (not a TNode)
