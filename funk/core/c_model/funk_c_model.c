@@ -725,11 +725,6 @@ void funk_set_node_value_int(struct tnode  * node, uint32_t offset, uint32_t val
 }
 
 
-void foo(void){
-  struct tnode node;
-
-
-}
 
 void funk_print_pool(struct tpool * pool){
 
@@ -765,7 +760,7 @@ void funk_get_next_node(struct tnode *dst, struct tnode * n){
 
  }
 
-void funk_debug_function_entry_hook(void){
+void funk_debug_function_entry_hook(const char * function_name){
 
   #ifdef FUNK_DEBUG_BUILD
 
@@ -775,7 +770,7 @@ void funk_debug_function_entry_hook(void){
   if (run_until_the_end == 1)
     return;
 
-  printf("Stopped at the beginning of function\n");
+  printf("\n\n\n=== %s === \n", function_name);
   do {
       printf(">");
       fgets(str,8,stdin);
@@ -796,6 +791,13 @@ void funk_debug_function_entry_hook(void){
 
 
   #endif
+}
+
+
+void foo(void){
+
+  funk_debug_function_entry_hook("caca");
+
 }
 
 void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n, unsigned char dst_on_stack){
@@ -884,77 +886,7 @@ void funk_add_ri(struct tnode * node_r, int32_t r_offset,
   }
   #endif
 }
-/*
-void funk_add_rr(struct tnode * node_r, int32_t r_offset,
-                 struct tnode * node_a, int32_t a_offset,
-                 struct tnode * node_b, int32_t b_offset)
-  {
-    #ifdef FUNK_DEBUG_BUILD
-    if (g_funk_internal_function_tracing_enabled)
-      printf("%s ", __FUNCTION__);
-    #endif
 
-    if (a_offset > node_a->len){
-      printf("-E- Invalid index %d is greater than array size of %d", a_offset, node_a->len );
-    }
-
-    if (b_offset > node_b->len){
-      printf("-E- Invalid index %d is greater than array size of %d", b_offset, node_b->len );
-    }
-
-    if (r_offset > node_r->len){
-      printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
-    }
-
-  struct tdata a = node_a->pool->data[node_a->start + a_offset];
-  struct tdata b = node_b->pool->data[node_b->start + b_offset];
-  struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
-
-  unsigned char t1 = a.type;
-  unsigned char t2 = b.type;
-
-  if (t2 == type_empty_array)
-    t2 = type_int;
-
-    if (t1 == type_empty_array)
-      t1 = type_int;
-
-  if (t1 == type_int && t2 == type_int){
-      r->data.i = a.data.i + b.data.i;
-      r->type = type_int;
-
-  }else if (t1 == type_double && t2 == type_double){
-      r->data.f = a.data.f + b.data.f;
-      r->type = type_double;
-
-  } else if (t1 == type_double && t2 == type_int){
-      r->data.f = a.data.f + (double)(b.data.i);
-      r->type = type_double;
-
-  } else if (t1 == type_int && t2 == type_double){
-      r->data.f = (double)a.data.i + b.data.f;
-      r->type = type_double;
-
-  } else {
-    //Invalid data
-    printf("-E- %s: invalid types: ", __FUNCTION__);
-
-    funk_print_type(t1);
-    printf(" , ");
-    funk_print_type(t2);
-    printf("\n");
-
-    r->type = type_invalid;
-  }
-
-  #ifdef FUNK_DEBUG_BUILD
-    if (g_funk_internal_function_tracing_enabled)
-      debug_print_arith_operation(node_r, r_offset, node_a, a_offset, node_b, b_offset);
-  #endif
-
-}
-
-*/
 void funk_mul(void *x, void *a, void *b, int type){
   if (type == 1){
     *((double *)x) = (double)(*(double*)a) * (double)(*(double*)b);
@@ -1188,7 +1120,9 @@ void funk_mul_rr(struct tnode * node_r, int32_t r_offset,
 
 }
 */
+
 #if 0
+
 void funk_div_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
   if (n1->pd.type == 2 && n2->pd.type == 2){
       r->pd.data.f = n1->pd.data.f / n2->pd.data.f;
@@ -1404,7 +1338,8 @@ void funk_print_dimension(struct tnode * n){
 }
 
 void print_scalar(struct tnode * n){
-
+  printf("%s\n", __FUNCTION__ );
+  funk_print_node_info(n);
   if (n->dimension.count == 0){
 
     funk_print_scalar_element(n->pool->data[n->start]);
@@ -1627,41 +1562,6 @@ struct tnode * funk_CreateLinkedListConstInt(int start, int end, int val ){
    return head;
 }
 
-struct tnode * createLinkedList(int start, int end, unsigned char type ){
-   struct tnode * head = NULL;
-   struct tnode * prev = NULL;
-   struct tnode * node = NULL;
-
-  int i = 0;
-  for (i = start; i <= end; ++i){
-    node = (struct tnode*)malloc(sizeof(struct tnode));
-    node->type = type_array;
-    node->pd.type = type;
-    node->pd.data.i = i;
-    registerHeapAllocation(node);
-
-    if (prev){
-        prev->next = node;
-    } else {
-      head = node;
-    }
-    prev = node;
-  }
-
-   struct tnode * tail = (struct tnode*)malloc(sizeof(struct tnode));
-   tail->type = type_empty_array; //empty_array
-   tail->pd.type = type;
-
-   if (node != NULL)
-      node->next = tail;
-
-   if (head == NULL)
-      head = tail;
-
-   tail->next = NULL;
-   tail->pd.data.i = i;
-   return head;
-}
 #endif
 
 float funk_ToFloat(struct tnode * n){
@@ -1692,7 +1592,7 @@ Output: List of numbers
     exit(1);
   }
 
-  if (1){//g_funk_verbosity > 0){
+  if (g_funk_verbosity > 0){
     printf("-D- Opened file '%s'",path);
   }
 
@@ -1704,7 +1604,6 @@ Output: List of numbers
 
   while(fscanf(fp,"%d",&value) == 1)
   {
-    printf("pool[%d] = %d\n", pool->tail, value);
     pool->data[pool->tail].data.i = value;
     pool->data[pool->tail].type = type_int;
     pool->tail = (pool->tail + 1 )%FUNK_MAX_POOL_SIZE;
@@ -1712,7 +1611,7 @@ Output: List of numbers
   }
 
   dst->len = count;
-  printf("node: %d %d\n", dst->start, dst->len);
+
   fclose(fp);
 
 

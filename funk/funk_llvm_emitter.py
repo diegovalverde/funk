@@ -21,6 +21,23 @@ from . import funk_constants
 from . import funk_ast
 
 
+def add_constant_string_symbol(funk, arg):
+    format_string = arg
+    format_len = len(format_string) + 1
+
+    symbol = '@.str_{cnt}'.format(cnt=funk.strings_count)
+    symbol_len = '[{format_len} x i8]'.format(format_len=format_len)
+
+    funk.preamble += \
+        """
+    {symbol} = private unnamed_addr constant [{format_len} x i8] c"{format_string}\00", align 1
+        """.format(symbol=symbol, cnt=funk.strings_count, format_len=format_len, format_string=format_string)
+
+    funk.strings_count += 1
+
+    return symbol, symbol_len
+
+
 class Emitter:
     def __init__(self):
         self.index = 1
@@ -325,12 +342,24 @@ class Emitter:
 
         return '%{}'.format(p[0])
 
-    def call_function(self, fn, arguments, result=None):
+    def call_function(self, funk, fn, arguments, result=None):
         self.add_comment('====== call function {} {}'.format(fn, arguments))
 
+        extern_name = 'extern::{}'.format(fn)
+        if fn in funk.function_debug_name_map:
+            name_str, format_len = funk.function_debug_name_map[fn]
+        elif extern_name in funk.function_debug_name_map:
+            name_str, format_len = funk.function_debug_name_map[extern_name]
+        else:
+            funk.function_debug_name_map[extern_name] = add_constant_string_symbol(funk,extern_name)
+            name_str, format_len =  funk.function_debug_name_map[extern_name]
+
+
+
         self.code += """
-        call void @funk_debug_function_entry_hook()
-        """
+        call void @funk_debug_function_entry_hook(i8* getelementptr inbounds ({format_len}, {format_len}* {name_str}, i64 0, i64 0))
+        """.format(name_str=name_str, format_len=format_len)
+
         n = len(arguments)
         self.add_comment('Create the argument array')
         array = self.alloc_array_on_stack(n)
@@ -389,11 +418,13 @@ class Emitter:
         self.index = p[-1] + 1
         return '%{}'.format(p[-1])
 
-    def open_function(self, name, arg_count, ret_type='void'):
+    def open_function(self, funk, name, arg_count, ret_type='void'):
         self.index = 0
         self.scope_arg_map = {}
         self.scope_result_idx = None
         p = [None]
+
+        funk.function_debug_name_map[name] = add_constant_string_symbol(funk, name)
 
         if name == 'main':
             self.code += """
@@ -521,7 +552,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         """.format(p[0], left=left, right=right)
 
         return '%{}'.format(p[-1])
-
 
     def malloc_right_node(self, ptr_left):
         p = [x for x in range(self.index, self.index + 1)]
@@ -655,7 +685,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[1])
 
-    def create_slice(self, node, indexes):
+    def create_slice(self, node, indexes, result=None):
 
 
         all_indexes_are_int = True
@@ -684,20 +714,24 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             i = indexes[0].eval()
             j = indexes[1].eval()
 
-            p = [x for x in range(self.index, self.index + 1)]
-            self.index = p[-1] + 1
+            if result is None:
+                p = [x for x in range(self.index, self.index + 1)]
+                self.index = p[-1] + 1
+                self.code += """
+                ;; allocate result
+                %{0} = alloca %struct.tnode, align 8
+                """.format(p[0])
+                result = '%{}'.format(p[0])
 
             self.code += """
             ;; create slice
-            ;; allocate result
-            %{0} = alloca %struct.tnode, align 8
-             call void @funk_create_list_slide_2d_var(%struct.tnode* {node}, %struct.tnode * %{0}, %struct.tnode * {i}, %struct.tnode * {j})
-        """.format(p[0], node=node, i=i, j=j)
+             call void @funk_create_list_slide_2d_var(%struct.tnode* {node}, %struct.tnode * {result}, %struct.tnode * {i}, %struct.tnode * {j})
+            """.format( node=node, i=i, j=j, result=result)
         else:
             print('ERROR multi-dimension slicing Unimplemented')
             raise
 
-        return '%{}'.format(p[0])
+        return result
 
     def alloc_tnode(self, name, value, pool, data_type):
         p = [x for x in range(self.index, self.index + 1)]
@@ -775,20 +809,17 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             arg = arg_expr.eval()
 
             if arg[:1] != '%':
-                format_string = arg
-                format_len = len(format_string) + 1
+                str_reg, format_len = add_constant_string_symbol(funk, arg)
+
                 p = [x for x in range(self.index, self.index + 1)]
-                funk.preamble += \
-                    """
-@.str_{cnt} = private unnamed_addr constant [{format_len} x i8] c"{format_string}\00", align 1
-                    """.format(cnt=funk.strings_count, format_len=format_len, format_string=format_string)
+
 
                 self.code += """
         ;;Print a string
-        %{0} = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
-                    p[0], format_len=format_len, cnt=funk.strings_count)
+        %{0} = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ({format_len}, {format_len}* {str_reg} , i32 0, i32 0))""".format(
+                    p[0], format_len=format_len, str_reg=str_reg)
 
-                funk.strings_count += 1
+
 
                 self.index = p[-1] + 1
             else:
@@ -1049,7 +1080,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
          """.format(p[0], ptr=ptr, node=node, n=n)
 
         return node
-
 
     def fread_list(self, funk, args, result, pool=' @funk_global_memory_pool'):
         if len(args) != 1:

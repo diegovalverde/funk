@@ -79,6 +79,8 @@ class Funk:
 
         self.debug = debug
         function_declarations = None
+        self.function_debug_name_map = {}
+
         try:
             ll1_path = '{}/funk_ll1.lark'.format(os.path.dirname(os.path.abspath(__file__)))
             with open(ll1_path, 'r') as myfile:

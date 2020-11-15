@@ -282,9 +282,9 @@ class Identifier:
 
         return string
 
-    def eval_node_index(self,node):
+    def eval_node_index(self,node,result=None):
         if self.indexes is not None:
-            return self.funk.emitter.create_slice(node, self.indexes)
+            return self.funk.emitter.create_slice(node, self.indexes, result=result)
         else:
             return node
 
@@ -292,15 +292,13 @@ class Identifier:
         # Check the current function that we are building
         # To see if the identifier is a function argument
 
-
-
         for arg in self.funk.function_scope.args:
             if arg == self.name:
                 idx = self.funk.function_scope.args.index(arg)
                 node = self.funk.emitter.get_function_argument_tnode(idx)
-                if result is not None:
-                    self.funk.emitter.copy_node(node, result)
-                return self.eval_node_index(node)
+               # if result is not None:
+               #     self.funk.emitter.copy_node(node, result)
+                return self.eval_node_index(node, result)
 
         for head_tail in self.funk.function_scope.tail_pairs:
             head, tail = head_tail
@@ -691,7 +689,7 @@ class FunctionCall(Expression):
 
         # First check if this is globally defined function
         if name in self.funk.functions:
-            return self.funk.emitter.call_function(name, [create_ast_anon_symbol(self.funk, a) for a in self.args], result=result)
+            return self.funk.emitter.call_function(self.funk, name, [create_ast_anon_symbol(self.funk, a) for a in self.args], result=result)
 
         # Now check if this is an input argument containing a function pointer
         i = 0
@@ -873,7 +871,7 @@ class FunctionMap:
         self.funk.set_function_scope(scope_name)
 
         # Now implement the function
-        arity = self.funk.emitter.open_function(self.name, len(self.arguments))
+        arity = self.funk.emitter.open_function(self.funk, self.name, len(self.arguments))
 
         index = 0
         for clause in self.clauses:
