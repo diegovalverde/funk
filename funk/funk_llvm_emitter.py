@@ -97,33 +97,33 @@ class Emitter:
         else:
             self.code += """
         ;; {name}.data.value = {value} -- int
-          call void @funk_set_node_value_int(%struct.tnode* {node}, i32 0, i32 {value})
+          call void @funk_set_node_value_int(%struct.tnode* {node}, i32 {offset}, i32 {value})
         """.format(node=node, value=value, name=name, offset=offset)
 
             #raise Exception('Unsupported type {}'.format(type))
 
-    def get_node_data_type(self, node, ret_i8=False):
+    def get_node_data_type(self, node, ret_i8=False, offset=0):
 
         if ret_i8:
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+            self.code += """
+            ;;Get node.data.type
+            %{0} = alloca i8, align 1
+            call void @funk_get_node_type(%struct.tnode* {node}, i32 {offset}, i8* %{0})
+            """.format(p[0],  node=node, offset=offset)
+
+        else:
             p = [x for x in range(self.index, self.index + 3)]
             self.index = p[-1] + 1
             self.code += """
-            ;;Get node.data.type
-            %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
-            %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 0
-            %{2} = load i8, i8* %{1}, align 8
-            """.format(p[0], p[1], p[2], node=node)
+            ;;Get node.data.type (i32)
+            %{0} = alloca i8, align 1
+            call void @funk_get_node_type(%struct.tnode* {node}, i32 {offset}, i8* %{0})
+            %{1} = load i8, i8* %{0}, align 1
+            %{2} = zext i8 %{1} to i32
 
-        else:
-            p = [x for x in range(self.index, self.index + 4)]
-            self.index = p[-1] + 1
-            self.code += """
-            ;;Get node.data.type
-            %{0} = getelementptr inbounds %struct.tnode, %struct.tnode* {node}, i32 0, i32 1
-            %{1} = getelementptr inbounds %struct.tdata, %struct.tdata* %{0}, i32 0, i32 0
-            %{2} = load i8, i8* %{1}, align 8
-            %{3} = zext i8 %{2} to i32
-            """.format(p[0], p[1], p[2], p[3], node=node)
+            """.format(p[0], p[1], p[2], node=node, offset=offset)
 
         return '%{}'.format(p[-1])
 

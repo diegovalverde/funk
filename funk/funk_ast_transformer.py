@@ -48,8 +48,8 @@ class TreeToAst(Transformer):
             print('--Debug-- statement', token)
         return token
 
-    @staticmethod
-    def parse_function_firm(firm):
+
+    def parse_function_firm(self, firm):
         if len(firm) == 0:
             return None, None, None, None
 
@@ -64,6 +64,9 @@ class TreeToAst(Transformer):
             firm.pop()
 
         for arg in firm:
+            if isinstance(arg, funk_ast.IntegerConstant) or isinstance(arg, funk_ast.DoubleConstant):
+                arg = funk_ast.PatternMatchLiteral(self.funk, arg)
+
             if isinstance(arg, funk_ast.HeadTail):
                 fn_arguments.append(arg.head)
                 tail_pairs.append([arg.head, arg.tail])

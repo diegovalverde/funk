@@ -88,6 +88,7 @@ class IntegerConstant:
         self.value = value
         self.funk = funk
         self.sign = 1
+        self.name = ''
 
     def replace_symbol(self, symbol, value):
         pass
@@ -755,6 +756,7 @@ class FunctionClause:
 
             # So the first function arguments is always the pointer to the
             # return value and the second (#1) is the arity (passed as a constant)
+            self.funk.emitter.add_comment('Check clause arity or exit. Arity = {}'.format(self.arguments))
             self.funk.emitter.br_cond('eq', '%1', len(self.arguments), label_next, clause_exit_label)
 
             # check for clause pattern matches
@@ -769,7 +771,7 @@ class FunctionClause:
                     last = pm_count + 1 == len(self.pattern_matches)
 
                     if last:
-                        label_next = clause_entry_label
+                        label_next = clause_precondition_label if self.preconditions is not None else clause_entry_label # BUG, shall be preconditions if there are any
                     else:
                         label_next = '{}_clause_{}_pattern_match_{}'.format(name, clause_idx, pm_count)
 
@@ -791,6 +793,7 @@ class FunctionClause:
 
                     if not last:
                         self.funk.emitter.add_label(label_next)
+                    pm_count += 1
 
             # check for clause preconditions
 
@@ -799,7 +802,8 @@ class FunctionClause:
                 self.funk.emitter.add_comment('{}'.format(self.preconditions))
                 result = self.preconditions.eval()
                 self.funk.emitter.br_cond('eq', self.funk.emitter.get_node_data_value(result), 1, clause_entry_label, clause_exit_label)
-
+            else:
+                self.funk.emitter.add_comment('clause {} has no preconditions'.format(clause_idx))
 
             self.funk.emitter.add_comment('========= Emitting clause {} ========'.format(clause_idx))
             self.funk.emitter.add_label(clause_entry_label)

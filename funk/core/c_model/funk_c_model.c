@@ -643,8 +643,10 @@ void funk_debug_function_entry_hook(const char * function_name){
 
 void foo(void){
   struct tnode node;
+  unsigned char type;
 
-  int caca = funk_get_node_value_int(&node, 0);
+funk_get_node_type(&node, 0, &type);
+int t = (int32_t)type;
 
 }
 
@@ -798,6 +800,17 @@ void funk_sge(void *x, void *a, void *b, int type){
     *((double *)x) = ((double)(*(double*)a) >= (double)(*(double*)b)) ? 1 :0 ;
   } else {
     *((int *)x) = ((int)(*(int*)a) >= (int)(*(int*)b)) ? 1 : 0;
+  }
+
+}
+
+
+void funk_eq(void *x, void *a, void *b, int type){
+
+  if (type == 1){
+    *((double *)x) = ((double)(*(double*)a) == (double)(*(double*)b)) ? 1 :0 ;
+  } else {
+    *((int *)x) = ((int)(*(int*)a) == (int)(*(int*)b)) ? 1 : 0;
   }
 
 }
@@ -1008,6 +1021,20 @@ void funk_sge_ri(struct tnode * node_r, int32_t r_offset,
                                  &node_b, 0, funk_sge);
 
 }
+
+
+void funk_eq_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
+
+                struct tnode node_b;
+                funk_create_int_scalar(&funk_functions_memory_pool, &node_b, value);
+                funk_arith_op_rr(node_r, r_offset,
+                                 node_a, a_offset,
+                                 &node_b, 0, funk_eq);
+
+}
+
 #if 0
 /*
 void funk_div_rr(struct tnode * r, struct tnode * n1, struct tnode * n2){
