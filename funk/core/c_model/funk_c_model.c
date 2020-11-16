@@ -193,6 +193,11 @@ void funk_print_type(unsigned char type){
 
 }
 
+void funk_exit(){
+  printf("-I- Exiting\n");
+  exit(0);
+}
+
 void funk_init(void){
   #ifdef FUNK_DEBUG_BUILD
   printf("%s ", __FUNCTION__);
@@ -539,7 +544,7 @@ int32_t funk_get_node_value_int(struct tnode * node, int32_t offset){
 
 void funk_print_pool(struct tpool * pool){
 
-   for (int i = 0; i < 64; i++){
+   for (int i = 0; i < 32; i++){
 
      funk_print_scalar_element(pool->data[i]);
      if (i >0 && (i + 1) % 7 == 0)
@@ -776,7 +781,15 @@ void funk_eq(void *x, void *a, void *b, int type){
   } else {
     *((int *)x) = ((int)(*(int*)a) == (int)(*(int*)b)) ? 1 : 0;
   }
+}
 
+void funk_ne(void *x, void *a, void *b, int type){
+
+  if (type == 1){
+    *((double *)x) = ((double)(*(double*)a) != (double)(*(double*)b)) ? 1 :0 ;
+  } else {
+    *((int *)x) = ((int)(*(int*)a) != (int)(*(int*)b)) ? 1 : 0;
+  }
 }
 
 void funk_or(void *x, void *a, void *b, int type){
@@ -915,6 +928,16 @@ void funk_or_rr(struct tnode * node_r, int32_t r_offset,
                                    node_b, b_offset, funk_or);
                 }
 
+void funk_ne_rr(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                struct tnode * node_b, int32_t b_offset){
+
+
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   node_b, b_offset, funk_ne);
+                }
+
 void funk_add_rf(struct tnode * node_r, int32_t r_offset,
                 struct tnode * node_a, int32_t a_offset,
                 double value){
@@ -937,6 +960,18 @@ void funk_sub_ri(struct tnode * node_r, int32_t r_offset,
                   funk_arith_op_rr(node_r, r_offset,
                                    node_a, a_offset,
                                    &node_b, 0, funk_sub);
+                }
+
+void funk_div_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
+
+                  struct tnode node_b;
+
+                  funk_create_int_scalar(&funk_functions_memory_pool, &node_b, value);
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   &node_b, 0, funk_div);
                 }
 
 void funk_sub_rf(struct tnode * node_r, int32_t r_offset,
@@ -1145,11 +1180,6 @@ void printCollectorStatus(){
 }
 
 
-void funk_exit(){
-  collectGarbage();
-  printf("-I- Exiting\n");
-  exit(0);
-}
 
  void createLhsStackVar(struct tnode * p){
   p->next = NULL;

@@ -312,6 +312,12 @@ class TreeToAst(Transformer):
         else:
             return funk_ast.EqualThan(self.funk, right=token[0])
 
+    def action_bool_neq(self, token):
+        if len(token) == 2:
+            return funk_ast.NotEqualThan(self.funk, left=token[0], right=token[1])
+        else:
+            return funk_ast.NotEqualThan(self.funk, right=token[0])
+
     def action_rhs_bool_factor(self, token):
         if len(token) == 2 and isinstance(token[1], funk_ast.BinaryOp):
 

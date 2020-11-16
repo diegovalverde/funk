@@ -522,6 +522,15 @@ class EqualThan(BoolBinaryOp):
         l, r = BoolBinaryOp.eval(self, result)
         return self.funk.emitter.icmp_signed('eq', l, r)
 
+class NotEqualThan(BoolBinaryOp):
+    def __repr__(self):
+        return 'NotEqual({} , {})'.format(self.left, self.right)
+
+    def eval(self, result=None):
+        l, r = BoolBinaryOp.eval(self, result)
+        return self.funk.emitter.icmp_signed('ne', l, r)
+
+
 class LessThan(BoolBinaryOp):
     def __repr__(self):
         return 'LessThan({} , {})'.format(self.left, self.right)
