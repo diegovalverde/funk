@@ -46,6 +46,7 @@ enum FUNK_CONFIG_PARAMS{
 
 uint32_t g_funk_print_array_max_elements = 30;
 uint32_t g_funk_print_array_element_per_row = 50;
+uint32_t g_debug_continue = 0;
 uint32_t g_funk_verbosity = 0;
 
 
@@ -94,6 +95,15 @@ void funk_sleep(int aSeconds){
   sleep(aSeconds);
 }
 
+void funk_increment_pool_tail(struct tpool * pool, uint32_t len){
+  if (pool == &funk_global_memory_pool && (pool->tail + len >= FUNK_MAX_POOL_SIZE) ){
+    printf("%s -I- wrapping around pool %s. tail = %d, max = %d\n", __FUNCTION__,
+    ((pool == &funk_global_memory_pool)?"gpool":"fpool"),
+     pool->tail, FUNK_MAX_POOL_SIZE);
+    g_debug_continue = 0;
+  }
+  pool->tail = (pool->tail + len) % FUNK_MAX_POOL_SIZE;
+}
 
 void funk_print_node_info(struct tnode * n){
   #ifdef FUNK_DEBUG_BUILD
@@ -355,7 +365,8 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
 
     n->start  = pool->tail;
     n->len = size;
-    pool->tail = (pool->tail + size) % FUNK_MAX_POOL_SIZE;
+
+    funk_increment_pool_tail(pool, size);
 
     for (int i = 0; i < size; i++){
       pool->data[n->start + i] = list[i].pool->data[list[i].start];
@@ -386,7 +397,8 @@ void funk_create_scalar(struct tpool * pool, struct tnode * n, void * val, int32
   n->pool = pool;
   n->dimension.count = 1;
 
-  pool->tail = (pool->tail + 1) % FUNK_MAX_POOL_SIZE;
+  funk_increment_pool_tail(pool,1);
+
 
   pool->data[n->start].type = type;
 
@@ -433,7 +445,8 @@ void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t
   n->pool = pool;
   n->dimension.count = 1;
 
-  pool->tail = (pool->tail + size) % FUNK_MAX_POOL_SIZE;
+  funk_increment_pool_tail(pool, size);
+
 
   for (int i = 0; i < size; i++){
     pool->data[n->start + i].type = type_int;
@@ -542,9 +555,9 @@ int32_t funk_get_node_value_int(struct tnode * node, int32_t offset){
     return node->pool->data[node->start + offset].data.i;
 }
 
-void funk_print_pool(struct tpool * pool){
-
-   for (int i = 0; i < 32; i++){
+void funk_print_pool(struct tpool * pool, int begin, int len){
+  printf("tail @: %d\n", pool->tail);
+   for (int i = begin; i < begin + len; i++){
 
      funk_print_scalar_element(pool->data[i]);
      if (i >0 && (i + 1) % 7 == 0)
@@ -581,10 +594,13 @@ void funk_debug_function_entry_hook(const char * function_name){
   #ifdef FUNK_DEBUG_BUILD
 
   char str[8];
-  static int run_until_the_end = 0;
 
-  if (run_until_the_end == 1)
+
+  if (funk_global_memory_pool.tail + 1 == FUNK_MAX_POOL_SIZE){
+    printf("\n\n\n=== funk_global_memory_pool.tail = %d about to reach max of %d\n", funk_global_memory_pool.tail, FUNK_MAX_POOL_SIZE);
+  } else if (g_debug_continue == 1){
     return;
+  }
 
   printf("\n\n\n=== %s === \n", function_name);
   do {
@@ -592,16 +608,20 @@ void funk_debug_function_entry_hook(const char * function_name){
       fgets(str,8,stdin);
 
       if (!strncmp(str,"gpool",5)){
-        funk_print_pool(&funk_global_memory_pool);
+        int begin, len;
+        printf("begin len:");
+        scanf("%d %d", &begin, &len);
+
+        funk_print_pool(&funk_global_memory_pool, begin, len);
       } else if (!strncmp(str,"fpool",5)){
-        funk_print_pool(&funk_functions_memory_pool);
-      } else if (!strncmp(str,"nostop",6)){
-        run_until_the_end = 1;
+        funk_print_pool(&funk_functions_memory_pool,0,32);
+      } else if (!strncmp(str,"r",1)){
+        g_debug_continue = 1;
       } else if (!strncmp(str,"q",1)){
         exit(0);
       }
 
-  } while (strncmp(str,"c",1));
+  } while (strncmp(str,"c",1) && strncmp(str,"r",1));
 
 
 
@@ -1081,190 +1101,6 @@ void print_scalar(struct tnode * n){
 void print_2d_array(struct tnode * n, uint32_t i, uint32_t j){
   funk_print_scalar_element(n->pool->data[n->start + n->dimension.d[1]*i + j ]);
 }
-#if 0
-struct tnode * funk_concatenate_lists(struct tnode * left, struct tnode * right){
-  int i = 0;
-  struct tnode * p = left;
-  while(p && p->next->type != type_empty_array)
-  {
-
-    p = p->next;
-    i++;
-  }
-
-  //make sure the dummy node will get deleted eventually
-  p->next->refCount = 0;
-
-
-  p->next = right;
-  print_scalar(left);
-
-  return left;
-
-}
-
-double rand_double(double lower, double upper){
-
-  return (((double)rand()/(double)(RAND_MAX)) * (upper-lower)) + lower;
-
-
-}
-
-struct gcNode {
-  struct tnode * ptr;
-  struct gcNode * next;
-};
-
-struct GC {
-  struct gcNode * head;
-  struct gcNode * tail;
-} gCollector;
-
-void initGarbageCollector( void ){
-  gCollector.head = (struct gcNode*)malloc(sizeof(struct gcNode));
-  gCollector.head->ptr = NULL;
-  gCollector.head->next = NULL;
-  gCollector.tail = gCollector.head;
-};
-
- void collectGarbage( void ){
-
-
-  struct gcNode * prev = gCollector.head;
-  struct gcNode * p = gCollector.head->next;
-
-  while (p && p->next){
-    if (p->ptr && p->ptr->refCount <= 0){
-      free(p->ptr);
-      prev->next = p->next;
-      free(p);
-      p = prev->next;
-    } else {
-      prev = p;
-      p = p->next;
-    }
-  }
-}
-
-void printCollectorStatus(){
-  printf("===== garbage collector =====\n");
-
-  struct gcNode * prev = gCollector.head;
-  struct gcNode * p = gCollector.head->next;
-  int i = 0;
-  while (p && p->next){
-    if (p->ptr){
-      printf("%d: addr: %p ref_cnt: %d val:", i, p->ptr, p->ptr->refCount);
-      switch (p->ptr->pd.type) {
-        case type_double:
-          printf("<double> %f\n", p->ptr->pd.data.f);
-          break;
-        case type_int:
-          printf("<int> %d\n", p->ptr->pd.data.i);
-          break;
-        case type_invalid:
-          printf("<invalid_data_type>\n");
-          break;
-        default:
-          printf("<unknown type>\n");
-          break;
-      }
-
-    } else {
-      printf("null\n");
-    }
-    i++;
-    p = p->next;
-  }
-
-}
-
-
-
- void createLhsStackVar(struct tnode * p){
-  p->next = NULL;
-  p->refCount = 0;
-}
-
- void markNodeForGarbageCollection(struct tnode * p){
-  while (p){
-
-    p->refCount = 0;
-    p = p->next;
-  }
-}
-
-void registerHeapAllocation(struct tnode * n){
-
-  n->refCount = 1;
-
-  gCollector.tail->next = (struct gcNode*)malloc(sizeof(struct gcNode));
-  gCollector.tail = gCollector.tail->next;
-  gCollector.tail->next = NULL;
-  gCollector.tail->ptr = n;
-
-
-}
-
-
-struct tnode * funk_mallocNodeRight(struct tnode * head){
-
-  struct tnode* p_right = (struct tnode*)malloc(sizeof(struct tnode));
-  p_right->next = NULL;
-
-  head->next = p_right;
-  head->type = type_array;
-  p_right->pd.type = head->pd.type;
-  p_right->pd.data.i = -1;
-  p_right->type = type_array;
-
-  return p_right;
-}
-
-struct tnode funk_listFillerIota(int i){
-  struct tnode node;
-  node.pd.type = type_int;
-  node.pd.data.i = i;
-  return node;
-}
-
-struct tnode * funk_CreateLinkedListConstInt(int start, int end, int val ){
-   struct tnode * head = NULL;
-   struct tnode * prev = NULL;
-   struct tnode * node = NULL;
-
-  int i = 0;
-  for (i = start; i <= end; ++i){
-    node = (struct tnode*)malloc(sizeof(struct tnode));
-    node->type = type_array; //List Node
-    node->pd.type = type_int;
-    node->pd.data.i = val;
-    registerHeapAllocation(node);
-
-    if (prev){
-        prev->next = node;
-    } else {
-      head = node;
-    }
-    prev = node;
-  }
-
-   struct tnode * tail = (struct tnode*)malloc(sizeof(struct tnode));
-   tail->type = type_empty_array;
-   tail->pd.type = type_empty_array;
-
-   if (node != NULL)
-      node->next = tail;
-
-   if (head == NULL)
-      head = tail;
-
-   tail->next = NULL;
-   tail->pd.data.i = i;
-   return head;
-}
-
-#endif
 
 float funk_ToFloat(struct tnode * n){
   if (n->pool->data[n->start].type == type_int){
@@ -1308,7 +1144,8 @@ Output: List of numbers
   {
     pool->data[pool->tail].data.i = value;
     pool->data[pool->tail].type = type_int;
-    pool->tail = (pool->tail + 1 )%FUNK_MAX_POOL_SIZE;
+    funk_increment_pool_tail(pool, 1);
+
     count++;
   }
 
