@@ -245,18 +245,6 @@ class FixedSizeLiteralList(List):
     def __repr__(self):
         return 'FixedSizeLiteralList({})'.format(self.elements)
 
-    def eval(self, result=None):
-
-        dimensions = self.get_dimensions()
-        flattened_list = self.flatten(self.elements)
-
-        literal_list = []
-        for element in flattened_list:
-            literal_list.append(element.eval(result=result))
-
-
-        return self.funk.alloc_literal_list_symbol(literal_list, dimensions)
-
     def __deepcopy__(self, memo):
         # create a copy with self.linked_to *not copied*, just referenced.
         return FixedSizeLiteralList(self.funk, name=self.name, elements=copy.deepcopy(self.elements, memo))
@@ -613,14 +601,14 @@ class Range:
         if self.expr.__repr__() == self.identifier.__repr__():
             for i in range(range_start, range_end):
                 list_elements.append(IntegerConstant(self.funk, i))
-                return FixedSizeLiteralList(self.funk, '', list_elements)
+            return FixedSizeLiteralList(self.funk, '', list_elements)
 
         elif isinstance(self.expr, FixedSizeLiteralList):
             #orig_args = copy.copy(self.expr.args)
             for i in range(range_start, range_end):
                 list_elements.append( self.expr )
                 #list_elements[-1].replace_symbol(self.identifier, IntegerConstant(self.funk, i))
-                return FixedSizeLiteralList(self.funk, '', list_elements)
+            return FixedSizeLiteralList(self.funk, '', list_elements)
         else:
             for i in range(range_start, range_end):
                 list_elements.append( copy.deepcopy(self.expr) )  # the funk pointer is preventing the deepcopy!
