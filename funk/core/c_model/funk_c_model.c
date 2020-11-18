@@ -15,6 +15,8 @@
 #ifdef FUNK_DEBUG_BUILD
 uint32_t g_funk_debug_current_executed_line = 0;
 uint32_t g_funk_internal_function_tracing_enabled = 0;
+
+
 #endif
 enum funk_types{
 type_invalid = 0,
@@ -54,6 +56,7 @@ uint32_t g_funk_verbosity = 0;
 #define FUNK_MAX_POOL_SIZE 1024
 struct tnode;
 
+
 struct tdata
 {
   unsigned char type;
@@ -86,6 +89,56 @@ struct tnode
 
 struct tnode gRenderLoopState;
 
+
+#ifdef FUNK_DEBUG_BUILD
+void print_scalar(struct tnode * n);
+
+ #define SZ_DBG_NODES 1024
+ struct tnode g_debug_nodes[SZ_DBG_NODES];
+ int32_t g_debug_node_tail = 0;
+
+ void funk_debug_register_node(struct tnode * n)
+ {
+   g_debug_nodes[g_debug_node_tail] = *n;
+   g_debug_node_tail = (g_debug_node_tail + 1) % SZ_DBG_NODES;
+ }
+
+ #define INSIDE(x,a,b) (x >= a && x <= b)
+
+ void funk_print_node_info(struct tnode * n);
+
+ void funk_print_nodes(struct tpool * pool){
+   for (int i =0; i < g_debug_node_tail; i++){
+     if (pool == g_debug_nodes[i].pool){
+        printf("%d: ",i); funk_print_node_info(&g_debug_nodes[i]); printf("\n");}
+   }
+ }
+
+ void funk_debug_collision_checker(void){
+   for (int i = 0; i < FUNK_MAX_POOL_SIZE; i++){
+     for (int j = 0; j < FUNK_MAX_POOL_SIZE; j++){
+       if (i == j)
+        continue;
+
+
+       if (g_debug_nodes[i].pool == g_debug_nodes[j].pool &&
+       (INSIDE(g_debug_nodes[i].start, g_debug_nodes[j].start, g_debug_nodes[j].start + g_debug_nodes[j].len) ||
+       INSIDE(g_debug_nodes[j].start, g_debug_nodes[i].start, g_debug_nodes[i].start + g_debug_nodes[i].len) ||
+       INSIDE(g_debug_nodes[i].start + g_debug_nodes[i].len, g_debug_nodes[j].start, g_debug_nodes[j].start + g_debug_nodes[j].len) ||
+       INSIDE(g_debug_nodes[j].start + g_debug_nodes[j].len, g_debug_nodes[i].start, g_debug_nodes[i].start + g_debug_nodes[i].len)))
+       {
+         printf("collision ");
+         funk_print_node_info(&g_debug_nodes[i]);
+         funk_print_node_info(&g_debug_nodes[j]);
+       }
+
+     }
+   }
+ }
+
+#endif
+
+
 void funk_sleep(int aSeconds){
   static int first = 1;
   if (first){
@@ -117,7 +170,6 @@ void funk_print_node_info(struct tnode * n){
       printf("END %s \n", __FUNCTION__);
   #endif
 }
-
 
 void funk_copy_node(struct tnode * dst, struct tnode * src){
   #ifdef FUNK_DEBUG_BUILD
@@ -288,6 +340,9 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   dst->len = 1;
   dst->start = src->start + src->dimension.d[1]* idx_0 + idx_1;
 
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(dst);
+  #endif
 
 }
 
@@ -311,6 +366,10 @@ void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , stru
   dst->dimension.count = 0;
   dst->len = 1;
   dst->start = src->start + src->dimension.d[0]* idx_0;
+
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(dst);
+  #endif
 
 }
 
@@ -343,7 +402,9 @@ void funk_create_list_slide(struct tnode * src, struct tnode * dst , int32_t * i
   if (dst->start >= src->len){
     printf("-E- %s index %d out of range for len %d\n", __FUNCTION__, dst->start, src->len );
   }
-
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(dst);
+  #endif
 }
 
 void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list , int32_t size ){
@@ -372,7 +433,9 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
       pool->data[n->start + i] = list[i].pool->data[list[i].start];
     }
   }
-
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(n);
+  #endif
 }
 
 void funk_create_2d_matrix(struct tpool * pool, struct tnode * node, struct tnode * list, int32_t n, int32_t m ){
@@ -387,6 +450,9 @@ void funk_create_2d_matrix(struct tpool * pool, struct tnode * node, struct tnod
   node->dimension.d[1] = m;
   printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
 
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(node);
+  #endif
 }
 
 void funk_create_scalar(struct tpool * pool, struct tnode * n, void * val, int32_t type){
@@ -411,6 +477,10 @@ void funk_create_scalar(struct tpool * pool, struct tnode * n, void * val, int32
     pool->data[n->start].data.f = *(double*)val;
     break;
   }
+
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(n);
+  #endif
 
 }
 
@@ -452,6 +522,10 @@ void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t
     pool->data[n->start + i].type = type_int;
     pool->data[n->start + i].data.i = list[i];
   }
+
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(n);
+  #endif
 
 }
 
@@ -619,6 +693,14 @@ void funk_debug_function_entry_hook(const char * function_name){
         g_debug_continue = 1;
       } else if (!strncmp(str,"q",1)){
         exit(0);
+      } else if (!strncmp(str,"fnod",4)){
+        funk_print_nodes(&funk_functions_memory_pool);
+      } else if (!strncmp(str,"gnod",4)){
+        funk_print_nodes(&funk_global_memory_pool);
+      } else if (!strncmp(str,"rs",2)){
+        funk_print_node_info(&gRenderLoopState);
+        printf("\n");
+        print_scalar(&gRenderLoopState);
       }
 
   } while (strncmp(str,"c",1) && strncmp(str,"r",1));
@@ -628,7 +710,6 @@ void funk_debug_function_entry_hook(const char * function_name){
 
   #endif
 }
-
 
 void foo(void){
   struct tnode node;
@@ -793,7 +874,6 @@ void funk_sge(void *x, void *a, void *b, int type){
 
 }
 
-
 void funk_eq(void *x, void *a, void *b, int type){
 
   if (type == 1){
@@ -821,8 +901,6 @@ void funk_or(void *x, void *a, void *b, int type){
   }
 
 }
-
-
 
 void funk_arith_op_rr(struct tnode * node_r, int32_t r_offset,
                  struct tnode * node_a, int32_t a_offset,
@@ -1136,9 +1214,12 @@ Output: List of numbers
 
   int value = 0;
   int count = 0;
+
+  //TODO: move to function
   dst->start = pool->tail;
   dst->dimension.count = 1;
   dst->pool = pool;
+
 
   while(fscanf(fp,"%d",&value) == 1)
   {
@@ -1146,10 +1227,17 @@ Output: List of numbers
     pool->data[pool->tail].type = type_int;
     funk_increment_pool_tail(pool, 1);
 
+
     count++;
   }
 
   dst->len = count;
+
+
+    #ifdef FUNK_DEBUG_BUILD
+    funk_debug_register_node(dst);
+    #endif
+    //end TODO
 
   fclose(fp);
 
