@@ -91,7 +91,7 @@ struct tnode
 
 };
 
-struct tdata get_node(struct tnode * n, uint32_t i){
+struct tdata * get_node(struct tnode * n, uint32_t i){
 
   uint32_t idx = (n->start + i);
   #ifdef FUNK_DEBUG_BUILD
@@ -99,7 +99,7 @@ struct tdata get_node(struct tnode * n, uint32_t i){
     printf("%s wrapping around %d + %d = %d:%d\n", __FUNCTION__, n->start, i, idx, n->len);
   }
   #endif
-  return n->pool->data[idx % FUNK_MAX_POOL_SIZE];
+  return &(n->pool->data[idx % FUNK_MAX_POOL_SIZE]);
 }
 
 struct tnode gRenderLoopState;
@@ -323,20 +323,18 @@ int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
 
 void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i, struct tnode * node_j){
 
-  //if (node_i->pool->data[node_i->start].type != type_int){
-  if (get_node(node_i, 0).type != type_int){
+  if (get_node(node_i, 0)->type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
-      __FUNCTION__, node_i->pool->data[node_i->start].type );
+      __FUNCTION__, get_node(node_i,0)->type );
   }
 
-  //if (node_j->pool->data[node_j->start].type != type_int){
-  if (get_node(node_j,0).type != type_int){
+  if (get_node(node_j,0)->type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
-      __FUNCTION__, node_j->pool->data[node_j->start].type );
+      __FUNCTION__, get_node(node_j,0)->type );
   }
 
-  int32_t idx_0 = get_node(node_i,0).data.i;//node_i->pool->data[node_i->start].data.i;
-  int32_t idx_1 = get_node(node_j,0).data.i;//node_j->pool->data[node_j->start].data.i;
+  int32_t idx_0 = get_node(node_i,0)->data.i;
+  int32_t idx_1 = get_node(node_j,0)->data.i;
 
 
   // negative indexes allow getting last elemets like in python
@@ -364,12 +362,12 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
 }
 
 void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i){
-  if (node_i->pool->data[node_i->start].type != type_int){
+  if (get_node(node_i,0)->type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
-      __FUNCTION__, node_i->pool->data[node_i->start].type );
+      __FUNCTION__, get_node(node_i,0)->type );
   }
 
-  int32_t idx_0 = node_i->pool->data[node_i->start].data.i;
+  int32_t idx_0 = get_node(node_i, 0)->data.i;
 
   // negative indexes allow getting last elemets like in python
   idx_0 = (idx_0 < 0) ? dst->dimension.d[0] - idx_0 : idx_0;
@@ -447,7 +445,8 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
     funk_increment_pool_tail(pool, size);
 
     for (int i = 0; i < size; i++){
-      pool->data[(n->start + i) % FUNK_MAX_POOL_SIZE] = list[i].pool->data[list[i].start];
+      *get_node(n,i) = *get_node(&list[i],0); //list[i].pool->data[list[i].start]; //??????
+      //pool->data[(n->start + i) % FUNK_MAX_POOL_SIZE] = list[i].pool->data[list[i].start];
     }
   }
   #ifdef FUNK_DEBUG_BUILD
