@@ -17,7 +17,7 @@ echo ";;; ==== Declarations ==== " > funk/core/functions.txt
 echo ";;;" >> funk/core/functions.txt
 grep define funk/core/funk_core.ll >> funk/core/functions.txt
 sed -i '' 's/define/declare/' funk/core/functions.txt
-sed -i '' 's/{//' funk/core/functions.txt
+sed -i '' 's/{$//' funk/core/functions.txt
 echo ";;;" >> funk/core/functions.txt
 
 echo ";; ==== external declarations ====" > funk/core/externals.txt

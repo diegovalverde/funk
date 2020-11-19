@@ -57,8 +57,10 @@ uint32_t g_funk_verbosity = 0;
 struct tnode;
 
 
+
 struct tdata
 {
+
   unsigned char type;
   union data_type{
     double f;
@@ -85,7 +87,20 @@ struct tnode
   uint32_t start, len;
   struct tpool * pool;
   struct tdimensions  dimension; //stride shall be an array of MAX_DIMENSIONS?
+
+
 };
+
+struct tdata get_node(struct tnode * n, uint32_t i){
+
+  uint32_t idx = (n->start + i);
+  #ifdef FUNK_DEBUG_BUILD
+  if (idx % FUNK_MAX_POOL_SIZE == 0){
+    printf("%s wrapping around %d + %d = %d:%d\n", __FUNCTION__, n->start, i, idx, n->len);
+  }
+  #endif
+  return n->pool->data[idx % FUNK_MAX_POOL_SIZE];
+}
 
 struct tnode gRenderLoopState;
 
@@ -308,18 +323,20 @@ int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
 
 void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i, struct tnode * node_j){
 
-  if (node_i->pool->data[node_i->start].type != type_int){
+  //if (node_i->pool->data[node_i->start].type != type_int){
+  if (get_node(node_i, 0).type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
       __FUNCTION__, node_i->pool->data[node_i->start].type );
   }
 
-  if (node_j->pool->data[node_j->start].type != type_int){
+  //if (node_j->pool->data[node_j->start].type != type_int){
+  if (get_node(node_j,0).type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
       __FUNCTION__, node_j->pool->data[node_j->start].type );
   }
 
-  int32_t idx_0 = node_i->pool->data[node_i->start].data.i;
-  int32_t idx_1 = node_j->pool->data[node_j->start].data.i;
+  int32_t idx_0 = get_node(node_i,0).data.i;//node_i->pool->data[node_i->start].data.i;
+  int32_t idx_1 = get_node(node_j,0).data.i;//node_j->pool->data[node_j->start].data.i;
 
 
   // negative indexes allow getting last elemets like in python
@@ -338,7 +355,7 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   dst->pool = src->pool;
   dst->dimension.count = 0;
   dst->len = 1;
-  dst->start = src->start + src->dimension.d[1]* idx_0 + idx_1;
+  dst->start = (src->start + src->dimension.d[1]* idx_0 + idx_1) % FUNK_MAX_POOL_SIZE;
 
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(dst);
@@ -365,7 +382,7 @@ void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , stru
   dst->pool = src->pool;
   dst->dimension.count = 0;
   dst->len = 1;
-  dst->start = src->start + src->dimension.d[0]* idx_0;
+  dst->start = (src->start + src->dimension.d[0]* idx_0) % FUNK_MAX_POOL_SIZE;
 
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(dst);
@@ -392,9 +409,9 @@ void funk_create_list_slide(struct tnode * src, struct tnode * dst , int32_t * i
   dst->dimension.count = 0;
   dst->len = 1;
   if (idx_cnt == 1){
-    dst->start = src->start + idx[0];
+    dst->start = (src->start + idx[0]) % FUNK_MAX_POOL_SIZE;
   } else if (idx_cnt == 2){
-    dst->start = src->start + dst->dimension.d[1]* idx[0] + idx[1];
+    dst->start =  (src->start + dst->dimension.d[1]* idx[0] + idx[1])% FUNK_MAX_POOL_SIZE;
   } else {
     printf("-E- %s %d dimensions are not yet supported\n", __FUNCTION__, idx_cnt );
   }
@@ -423,14 +440,14 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
     n->len = size;
 
   } else {
-
+    printf("->>>>> I- List is not consecutive in pool. Will create a copy\n");
     n->start  = pool->tail;
     n->len = size;
 
     funk_increment_pool_tail(pool, size);
 
     for (int i = 0; i < size; i++){
-      pool->data[n->start + i] = list[i].pool->data[list[i].start];
+      pool->data[(n->start + i) % FUNK_MAX_POOL_SIZE] = list[i].pool->data[list[i].start];
     }
   }
   #ifdef FUNK_DEBUG_BUILD
@@ -1107,6 +1124,7 @@ void funk_sgt_ri(struct tnode * node_r, int32_t r_offset,
                                  &node_b, 0, funk_sgt);
 
 }
+
 void funk_sge_ri(struct tnode * node_r, int32_t r_offset,
                 struct tnode * node_a, int32_t a_offset,
                 int value){
@@ -1118,7 +1136,6 @@ void funk_sge_ri(struct tnode * node_r, int32_t r_offset,
                                  &node_b, 0, funk_sge);
 
 }
-
 
 void funk_eq_ri(struct tnode * node_r, int32_t r_offset,
                 struct tnode * node_a, int32_t a_offset,
@@ -1163,10 +1180,12 @@ void print_scalar(struct tnode * n){
 
 
   } else if (n->dimension.count == 2){
+    printf(">------------------<\n");
+    funk_print_node_info(n);
     printf("\n");
     for (int i = 0; i < n->dimension.d[0]; i++){
       for (int j = 0; j < n->dimension.d[1]; j++){
-          funk_print_scalar_element(n->pool->data[n->start + (i * n->dimension.d[1]) + j]);
+          funk_print_scalar_element(n->pool->data[(n->start + (i * n->dimension.d[1]) + j) % FUNK_MAX_POOL_SIZE]);
       }
       printf("\n");
     }
@@ -1191,12 +1210,7 @@ float funk_ToFloat(struct tnode * n){
   }
 }
 
-
-/*
-Input: ASCII a file with numbers separated by spaces
-Output: List of numbers
-*/
-  void funk_read_list_from_file(struct tpool * pool, struct tnode * dst, char * path ){
+void funk_read_list_from_file(struct tpool * pool, struct tnode * dst, char * path ){
 
 
   FILE *fp;
