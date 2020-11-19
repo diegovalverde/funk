@@ -445,8 +445,8 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
     funk_increment_pool_tail(pool, size);
 
     for (int i = 0; i < size; i++){
-      *get_node(n,i) = *get_node(&list[i],0); //list[i].pool->data[list[i].start]; //??????
-      //pool->data[(n->start + i) % FUNK_MAX_POOL_SIZE] = list[i].pool->data[list[i].start];
+      *get_node(n,i) = *get_node(&list[i],0);
+
     }
   }
   #ifdef FUNK_DEBUG_BUILD
@@ -481,16 +481,16 @@ void funk_create_scalar(struct tpool * pool, struct tnode * n, void * val, int32
 
   funk_increment_pool_tail(pool,1);
 
+  get_node(n,0)->type = type;
 
-  pool->data[n->start].type = type;
 
   switch (type) {
     case type_int:
-    pool->data[n->start].data.i = *(int*)val;
+    get_node(n,0)->data.i = *(int*)val;
     break;
 
     case type_double:
-    pool->data[n->start].data.f = *(double*)val;
+    get_node(n,0)->data.f = *(double*)val;
     break;
   }
 
@@ -535,8 +535,8 @@ void funk_create_list_int_literal(struct tpool * pool, struct tnode * n, int32_t
 
 
   for (int i = 0; i < size; i++){
-    pool->data[n->start + i].type = type_int;
-    pool->data[n->start + i].data.i = list[i];
+    get_node(n,i)->type = type_int;
+    get_node(n,i)->data.i = list[i];
   }
 
   #ifdef FUNK_DEBUG_BUILD
