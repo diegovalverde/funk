@@ -603,7 +603,7 @@ void funk_get_node_type(struct tnode  * node, uint32_t offset, unsigned char * t
   if (node->len > 0 && offset >= node->len){
     printf("-E- %s: offset %d out of bounds for len %d", __FUNCTION__, offset, node->len);
   }
-  *type = node->pool->data[node->start + offset].type;
+  *type = get_node(node, offset)->type;
 
   #ifdef FUNK_DEBUG_BUILD
   if (g_funk_internal_function_tracing_enabled){
@@ -622,7 +622,7 @@ void funk_set_node_type(struct tnode  * node, uint32_t offset, unsigned char typ
   if (offset >= node->len){
     printf("-E- %s: offset %d out of bounds for len %d", __FUNCTION__, offset, node->len);
   }
-  node->pool->data[node->start + offset].type =  type;
+  get_node(node, offset)->type =  type;
 }
 
 void funk_set_node_value_int(struct tnode  * node, uint32_t offset, uint32_t value){
@@ -634,15 +634,15 @@ void funk_set_node_value_int(struct tnode  * node, uint32_t offset, uint32_t val
   if (offset >= node->len){
     printf("-E- %s: offset %d out of bounds for len %d", __FUNCTION__, offset, node->len);
   }
-  node->pool->data[node->start + offset].type = (unsigned char)type_int;
-  node->pool->data[node->start + offset].data.i = value;
+  get_node(node, offset )->type = (unsigned char)type_int;
+  get_node(node, offset )->data.i = value;
 }
 
 int32_t funk_get_node_value_int(struct tnode * node, int32_t offset){
     if (offset > node->len){
       printf("-E- %s: offset %d out of bounds for len %d", __FUNCTION__, offset, node->len);
     }
-    return node->pool->data[node->start + offset].data.i;
+    return get_node(node, offset )->data.i;
 }
 
 void funk_print_pool(struct tpool * pool, int begin, int len){
@@ -670,8 +670,8 @@ void funk_get_next_node(struct tnode *dst, struct tnode * n){
    if (n->len == 0){
      dst->start = n->start;
      dst->len = 1;
-     dst->pool->data[dst->start].type = type_empty_array;
-     dst->pool->data[dst->start].data.i = 0;
+     get_node(dst, 0)->type = type_empty_array;
+     get_node(dst, 0)->data.i = 0;
    } else {
      dst->len = n->len - 1;
      dst->start = n->start+1;
@@ -760,67 +760,14 @@ void debug_print_arith_operation( struct tnode * node_r, int32_t r_offset,
                  struct tnode * node_b, int32_t b_offset){
 
   printf("%s[%d]",((node_a->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_a->start + a_offset );
-  funk_print_scalar_element(node_a->pool->data[node_a->start + a_offset]);
+  funk_print_scalar_element(*get_node(node_a, a_offset ));
   printf(" , ");
   printf("%s[%d]",((node_b->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_b->start + b_offset );
-  funk_print_scalar_element(node_b->pool->data[node_b->start + b_offset]);
+  funk_print_scalar_element(*get_node(node_b, b_offset ));
 
   printf(" = %s[%d]",((node_r->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_r->start + r_offset );
-  funk_print_scalar_element(node_r->pool->data[node_r->start + r_offset]);
+  funk_print_scalar_element(*get_node(node_r, r_offset ));
   printf(" )\n");
-}
-
-void funk_add_ri(struct tnode * node_r, int32_t r_offset,
-                 struct tnode * node_a, int32_t a_offset,
-                 int32_t lit)
-  {
-    #ifdef FUNK_DEBUG_BUILD
-    if (g_funk_internal_function_tracing_enabled)
-        printf("%s ", __FUNCTION__);
-    #endif
-
-    if (a_offset > node_a->len){
-      printf("-E- Invalid index %d is greater than array size of %d", a_offset, node_a->len );
-    }
-
-
-    if (r_offset > node_r->len){
-      printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
-    }
-
-  struct tdata a = node_a->pool->data[node_a->start + a_offset];
-  struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
-
-  unsigned char t1 = a.type;
-
-
-  if (t1 == type_int ){
-      r->data.i = a.data.i + lit;
-      r->type = type_int;
-
-  }else if (t1 == type_double ){
-      r->data.f = a.data.f +  ((double)lit);
-      r->type = type_double;
-
-  } else {
-    //Invalid data
-    printf("-E- funk_mul_rr: invalid types:\n ");
-
-    r->type = type_invalid;
-  }
-  #ifdef FUNK_DEBUG_BUILD
-  if (g_funk_internal_function_tracing_enabled)
-  {
-      printf("%s[%d]",((node_a->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_a->start + a_offset );
-      funk_print_scalar_element(a);
-      printf(" , ");
-      printf("lit(%d)",lit);
-
-      printf(" = %s[%d]",((node_r->pool == &funk_global_memory_pool)?"gpool":"fpool"),node_r->start + r_offset );
-      funk_print_scalar_element(*r);
-      printf(" )\n");
-  }
-  #endif
 }
 
 void funk_mul(void *x, void *a, void *b, int type){
@@ -937,9 +884,9 @@ void funk_arith_op_rr(struct tnode * node_r, int32_t r_offset,
       printf("-E- Invalid index %d is greater than array size of %d", r_offset, node_r->len );
     }
 
-  struct tdata a = node_a->pool->data[node_a->start + a_offset];
-  struct tdata b = node_b->pool->data[node_b->start + b_offset];
-  struct tdata * r = &(node_r->pool->data[node_r->start + r_offset]);
+  struct tdata a = *get_node(node_a, a_offset);
+  struct tdata b = *get_node(node_b, b_offset);
+  struct tdata * r = get_node(node_r, r_offset);
 
   unsigned char t1 = a.type;
   unsigned char t2 = b.type;
@@ -1076,6 +1023,18 @@ void funk_sub_ri(struct tnode * node_r, int32_t r_offset,
                                    &node_b, 0, funk_sub);
                 }
 
+void funk_add_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
+
+                  struct tnode node_b;
+
+                  funk_create_int_scalar(&funk_functions_memory_pool, &node_b, value);
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   &node_b, 0, funk_add);
+                }
+
 void funk_div_ri(struct tnode * node_r, int32_t r_offset,
                 struct tnode * node_a, int32_t a_offset,
                 int value){
@@ -1168,13 +1127,13 @@ void print_scalar(struct tnode * n){
 
   if (n->dimension.count == 0){
 
-    funk_print_scalar_element(n->pool->data[n->start]);
+    funk_print_scalar_element(*get_node(n,0));
 
   } else if (n->dimension.count == 1){
 
 
-    for (int i = n->start; i < (n->start + n->len); i++){
-      funk_print_scalar_element(n->pool->data[i]);
+    for (int i = 0; i < n->len; i++){
+      funk_print_scalar_element(*get_node(n,i));
     }
 
 
@@ -1184,7 +1143,7 @@ void print_scalar(struct tnode * n){
     printf("\n");
     for (int i = 0; i < n->dimension.d[0]; i++){
       for (int j = 0; j < n->dimension.d[1]; j++){
-          funk_print_scalar_element(n->pool->data[(n->start + (i * n->dimension.d[1]) + j) % FUNK_MAX_POOL_SIZE]);
+          funk_print_scalar_element(*get_node(n, i * n->dimension.d[1] + j));
       }
       printf("\n");
     }
@@ -1195,16 +1154,18 @@ void print_scalar(struct tnode * n){
 }
 
 void print_2d_array(struct tnode * n, uint32_t i, uint32_t j){
-  funk_print_scalar_element(n->pool->data[n->start + n->dimension.d[1]*i + j ]);
+  funk_print_scalar_element(*get_node(n, n->dimension.d[1]*i + j));
 }
 
 float funk_ToFloat(struct tnode * n){
-  if (n->pool->data[n->start].type == type_int){
-    return (float)n->pool->data[n->start].data.i;
-  } else if (n->pool->data[n->start].type == type_double){
-    return (float)n->pool->data[n->start].data.f;
+  if (get_node(n,0)->type == type_int){
+    return (float)get_node(n,0)->data.i;
+  } else if (get_node(n,0)->type == type_double){
+    return (float)get_node(n,0)->data.f;
   } else {
-    n->pool->data[n->start].type = type_invalid;
+    get_node(n,0)->type = type_invalid;
+    printf("ERROR %s",__FUNCTION__);
+    exit(1);
     return 0.0f;
   }
 }
@@ -1236,8 +1197,8 @@ void funk_read_list_from_file(struct tpool * pool, struct tnode * dst, char * pa
 
   while(fscanf(fp,"%d",&value) == 1)
   {
-    pool->data[pool->tail].data.i = value;
-    pool->data[pool->tail].type = type_int;
+    get_node(dst, pool->tail)->data.i = value;
+    get_node(dst,pool->tail)->type = type_int;
     funk_increment_pool_tail(pool, 1);
 
 
