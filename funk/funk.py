@@ -217,6 +217,10 @@ target datalayout = ""
         # Let's just fix this in some pre-processing stage
         preprocessed_text = text.replace(',\n', ',')
         preprocessed_text = preprocessed_text.replace('\\/\n', '\\/')
+        preprocessed_text = preprocessed_text.replace('+\n', '+')
+        preprocessed_text = preprocessed_text.replace('-\n', '-')
+        preprocessed_text = preprocessed_text.replace('*\n', '*')
+        preprocessed_text = preprocessed_text.replace('<-\n', '<-')
 
         preprocessed_text = self.replace_macros(preprocessed_text)
 
