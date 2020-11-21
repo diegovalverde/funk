@@ -820,14 +820,8 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
                 self.index = p[-1] + 1
             else:
-                if arg_expr.indexes is not None:
-                    if len(arg_expr.indexes) == 2:
-                        # TODO: Indexes hardcoded to literals
-                        self.code += """
-    call void @print_2d_array(%struct.tnode* {node}, i32 {i}, i32 {j})
-       """.format(node=arg, i =arg_expr.indexes[0].eval(), j=arg_expr.indexes[1].eval())
-                else:
-                    self.code += """
+
+                self.code += """
     call void @print_scalar(%struct.tnode* {node})
         """.format(node=arg)
 

@@ -53,7 +53,7 @@ uint32_t g_funk_verbosity = 0;
 
 
 
-#define FUNK_MAX_POOL_SIZE 1024
+#define FUNK_MAX_POOL_SIZE (50*30*4)
 struct tnode;
 
 
@@ -95,7 +95,7 @@ struct tdata * get_node(struct tnode * n, uint32_t i){
 
   uint32_t idx = (n->start + i);
   #ifdef FUNK_DEBUG_BUILD
-  if (idx % FUNK_MAX_POOL_SIZE == 0){
+  if (idx !=0 && (idx % FUNK_MAX_POOL_SIZE == 0)){
     printf("%s wrapping around %d + %d = %d:%d\n", __FUNCTION__, n->start, i, idx, n->len);
   }
   #endif
@@ -342,18 +342,18 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   idx_1 = (idx_1 < 0) ? src->dimension.d[1] - idx_1 : idx_1;
 
 
-  if (idx_0 >= src->dimension.d[0]){
-    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[0]);
+  if (idx_1 >= src->dimension.d[0]){
+    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_1, src->dimension.d[0]);
   }
 
-  if (idx_1  >= src->dimension.d[1]){
-    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_1, src->dimension.d[1]);
+  if (idx_0  >= src->dimension.d[1]){
+    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[1]);
   }
 
   dst->pool = src->pool;
   dst->dimension.count = 0;
   dst->len = 1;
-  dst->start = (src->start + src->dimension.d[1]* idx_0 + idx_1) % FUNK_MAX_POOL_SIZE;
+  dst->start = (src->start + src->dimension.d[0]* idx_0 + idx_1) % FUNK_MAX_POOL_SIZE;
 
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(dst);
@@ -380,7 +380,7 @@ void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , stru
   dst->pool = src->pool;
   dst->dimension.count = 0;
   dst->len = 1;
-  dst->start = (src->start + src->dimension.d[0]* idx_0) % FUNK_MAX_POOL_SIZE;
+  dst->start = (src->start + idx_0) % FUNK_MAX_POOL_SIZE;
 
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(dst);
@@ -409,7 +409,7 @@ void funk_create_list_slide(struct tnode * src, struct tnode * dst , int32_t * i
   if (idx_cnt == 1){
     dst->start = (src->start + idx[0]) % FUNK_MAX_POOL_SIZE;
   } else if (idx_cnt == 2){
-    dst->start =  (src->start + dst->dimension.d[1]* idx[0] + idx[1])% FUNK_MAX_POOL_SIZE;
+    dst->start =  (src->start + dst->dimension.d[0]* idx[0] + idx[1])% FUNK_MAX_POOL_SIZE;
   } else {
     printf("-E- %s %d dimensions are not yet supported\n", __FUNCTION__, idx_cnt );
   }
@@ -443,11 +443,15 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
     n->len = size;
 
     funk_increment_pool_tail(pool, size);
-
+      printf("NNNNNNN\n");
     for (int i = 0; i < size; i++){
+
+      printf("%d  ",get_node(&list[i],0)->data.i);
+
       *get_node(n,i) = *get_node(&list[i],0);
 
     }
+      printf("NNNNNNN\n");
   }
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(n);
@@ -581,7 +585,7 @@ void funk_print_scalar_element(struct tdata n){
 
     switch( n.type ){
       case type_int:
-        printf(" %5d ", n.data.i);
+        printf(" %3d ", n.data.i);
         break;
       case type_double:
         printf(" %5.5f ", n.data.f);
@@ -704,7 +708,7 @@ void funk_debug_function_entry_hook(const char * function_name){
 
         funk_print_pool(&funk_global_memory_pool, begin, len);
       } else if (!strncmp(str,"fpool",5)){
-        funk_print_pool(&funk_functions_memory_pool,0,32);
+        funk_print_pool(&funk_functions_memory_pool,0,256);
       } else if (!strncmp(str,"r",1)){
         g_debug_continue = 1;
       } else if (!strncmp(str,"q",1)){
@@ -1140,10 +1144,11 @@ void print_scalar(struct tnode * n){
   } else if (n->dimension.count == 2){
     printf(">------------------<\n");
     funk_print_node_info(n);
-    printf("\n");
-    for (int i = 0; i < n->dimension.d[0]; i++){
-      for (int j = 0; j < n->dimension.d[1]; j++){
-          funk_print_scalar_element(*get_node(n, i * n->dimension.d[1] + j));
+    printf("%d x %d \n",n->dimension.d[0], n->dimension.d[1]);
+
+    for (int i = 0; i < n->dimension.d[1]; i++){
+      for (int j = 0; j < n->dimension.d[0]; j++){
+          funk_print_scalar_element(*get_node(n, i * n->dimension.d[0] + j));
       }
       printf("\n");
     }
@@ -1153,8 +1158,19 @@ void print_scalar(struct tnode * n){
 
 }
 
-void print_2d_array(struct tnode * n, uint32_t i, uint32_t j){
-  funk_print_scalar_element(*get_node(n, n->dimension.d[1]*i + j));
+void print_2d_array_element_reg_reg(struct tnode * n, struct tnode * i, struct tnode * j){
+  funk_print_node_info(n);
+  if (n->dimension.count != 2){
+    printf("%s Error cannot address as a matrix since node has %d dimensions", __FUNCTION__, n->dimension.count);
+  }
+  int i_idx = get_node(i,0)->data.i;
+  int j_idx = get_node(j,0)->data.i;
+  printf("XXXXXXX %d, %d: dimension %d", i_idx, j_idx, n->dimension.d[1]);
+  funk_print_scalar_element(*get_node(n, n->dimension.d[0]*i_idx + j_idx));
+}
+
+void print_2d_array_element_int_int(struct tnode * n, uint32_t i, uint32_t j){
+  funk_print_scalar_element(*get_node(n, n->dimension.d[0]*i + j));
 }
 
 float funk_ToFloat(struct tnode * n){
@@ -1219,6 +1235,9 @@ void funk_read_list_from_file(struct tpool * pool, struct tnode * dst, char * pa
 }
 
 void reshape(struct tnode * dst, int * idx, int count){
+  if (get_node(dst,0)->type == type_empty_array){
+    return;
+  }
   dst->dimension.count = count;
   int number_of_elements = 1;
   for (int i = 0;  (i < count && i < FUNK_MAX_DIMENSIONS); i++){
@@ -1226,7 +1245,7 @@ void reshape(struct tnode * dst, int * idx, int count){
     number_of_elements *= dst->dimension.d[i];
   }
 
-  printf("%d:[%d x %d]\n", dst->dimension.count, dst->dimension.d[0],dst->dimension.d[1]);
+  //printf("%d:[%d x %d]\n", dst->dimension.count, dst->dimension.d[0],dst->dimension.d[1]);
 
   if (number_of_elements > dst->len){
     printf("-E- reshape operation not possible for variable with %d elements\n", dst->len);

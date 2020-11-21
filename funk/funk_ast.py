@@ -153,7 +153,7 @@ class List(Expression):
 
             if len(elements) >0 and isinstance(elements[0],List) or isinstance(elements[0], collections.Iterable):
                 return traverse(elements[0], dimensions)
-            return dimensions
+            return list(reversed(dimensions))
 
         if len(self.elements) == 0:
             return [1]
@@ -412,10 +412,11 @@ class PatternMatchIdentifier:
         pass
 
 class BinaryOp(Expression):
-    def __init__(self, funk, left=None, right=None):
+    def __init__(self, funk, left=None, right=None, indexes=None):
         self.funk = funk
         self.left = left
         self.right = right
+        self.indexes = indexes
 
     def replace_symbol(self, symbol, value):
 
