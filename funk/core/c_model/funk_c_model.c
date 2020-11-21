@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 
-#define FUNK_DEBUG_BUILD 1
+//#define FUNK_DEBUG_BUILD 1
 
 // when compiling an application using debug mode
 // the compiler updates the  g_funk_debug_current_executed_line for
@@ -214,12 +214,9 @@ void set_s2d_user_global_state(struct tnode * n){
       printf("START %s \n", __FUNCTION__);
   #endif
 
-  funk_print_node_info(n);
 
   funk_copy_node( &gRenderLoopState, n);
 
-  funk_print_node_info(&gRenderLoopState);
-  printf(">>>>\n");
 
   #ifdef FUNK_DEBUG_BUILD
   if (g_funk_internal_function_tracing_enabled)
@@ -234,7 +231,7 @@ struct tnode get_s2d_user_global_state(){
       printf("START %s \n", __FUNCTION__);
   #endif
 
-  funk_print_node_info(&gRenderLoopState);
+  //(&gRenderLoopState);
 
   #ifdef FUNK_DEBUG_BUILD
   if (g_funk_internal_function_tracing_enabled)
@@ -438,20 +435,20 @@ void funk_create_list(struct tpool * pool, struct tnode * n, struct tnode * list
     n->len = size;
 
   } else {
-    printf("->>>>> I- List is not consecutive in pool. Will create a copy\n");
+    //printf("->>>>> I- List is not consecutive in pool. Will create a copy\n");
     n->start  = pool->tail;
     n->len = size;
 
     funk_increment_pool_tail(pool, size);
-      printf("NNNNNNN\n");
+      //printf("NNNNNNN\n");
     for (int i = 0; i < size; i++){
 
-      printf("%d  ",get_node(&list[i],0)->data.i);
+      //printf("%d  ",get_node(&list[i],0)->data.i);
 
       *get_node(n,i) = *get_node(&list[i],0);
 
     }
-      printf("NNNNNNN\n");
+      //printf("NNNNNNN\n");
   }
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(n);
@@ -468,7 +465,7 @@ void funk_create_2d_matrix(struct tpool * pool, struct tnode * node, struct tnod
   node->dimension.count = 2;
   node->dimension.d[0] = n;
   node->dimension.d[1] = m;
-  printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
+  //printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
 
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(node);
@@ -560,7 +557,7 @@ void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node,
   node->dimension.count = 2;
   node->dimension.d[0] = n;
   node->dimension.d[1] = m;
-  printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
+  //printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
 
 }
 
@@ -1142,7 +1139,7 @@ void print_scalar(struct tnode * n){
 
 
   } else if (n->dimension.count == 2){
-    printf(">------------------<\n");
+    //printf(">------------------<\n");
     funk_print_node_info(n);
     printf("%d x %d \n",n->dimension.d[0], n->dimension.d[1]);
 
@@ -1165,7 +1162,7 @@ void print_2d_array_element_reg_reg(struct tnode * n, struct tnode * i, struct t
   }
   int i_idx = get_node(i,0)->data.i;
   int j_idx = get_node(j,0)->data.i;
-  printf("XXXXXXX %d, %d: dimension %d", i_idx, j_idx, n->dimension.d[1]);
+  //printf("XXXXXXX %d, %d: dimension %d", i_idx, j_idx, n->dimension.d[1]);
   funk_print_scalar_element(*get_node(n, n->dimension.d[0]*i_idx + j_idx));
 }
 
@@ -1247,7 +1244,7 @@ void reshape(struct tnode * dst, int * idx, int count){
 
   //printf("%d:[%d x %d]\n", dst->dimension.count, dst->dimension.d[0],dst->dimension.d[1]);
 
-  if (number_of_elements > dst->len){
+  if (dst->len > 0 && number_of_elements > dst->len){
     printf("-E- reshape operation not possible for variable with %d elements\n", dst->len);
   }
 }
