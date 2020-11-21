@@ -53,7 +53,7 @@ uint32_t g_funk_verbosity = 0;
 
 
 
-#define FUNK_MAX_POOL_SIZE (50*30*4)
+#define FUNK_MAX_POOL_SIZE (50*50*100)
 struct tnode;
 
 

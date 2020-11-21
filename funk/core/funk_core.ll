@@ -4,7 +4,7 @@ target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.16.0"
 
 %struct.tnode = type { i32, i32, %struct.tpool*, %struct.tdimensions }
-%struct.tpool = type { [6000 x %struct.tdata], i32 }
+%struct.tpool = type { [250000 x %struct.tdata], i32 }
 %struct.tdata = type { i8, %union.data_type }
 %union.data_type = type { double }
 %struct.tdimensions = type { i32, [2 x i32] }
@@ -150,7 +150,7 @@ define %struct.tdata* @get_node(%struct.tnode*, i32) #0 {
 
 13:                                               ; preds = %2
   %14 = load i32, i32* %5, align 4
-  %15 = urem i32 %14, 6000
+  %15 = urem i32 %14, 250000
   %16 = icmp eq i32 %15, 0
   br i1 %16, label %17, label %27
 
@@ -172,9 +172,9 @@ define %struct.tdata* @get_node(%struct.tnode*, i32) #0 {
   %30 = load %struct.tpool*, %struct.tpool** %29, align 8
   %31 = getelementptr inbounds %struct.tpool, %struct.tpool* %30, i32 0, i32 0
   %32 = load i32, i32* %5, align 4
-  %33 = urem i32 %32, 6000
+  %33 = urem i32 %32, 250000
   %34 = zext i32 %33 to i64
-  %35 = getelementptr inbounds [6000 x %struct.tdata], [6000 x %struct.tdata]* %31, i64 0, i64 %34
+  %35 = getelementptr inbounds [250000 x %struct.tdata], [250000 x %struct.tdata]* %31, i64 0, i64 %34
   ret %struct.tdata* %35
 }
 
@@ -299,7 +299,7 @@ define void @funk_debug_collision_checker() #0 {
 
 3:                                                ; preds = %184, %0
   %4 = load i32, i32* %1, align 4
-  %5 = icmp slt i32 %4, 6000
+  %5 = icmp slt i32 %4, 250000
   br i1 %5, label %6, label %187
 
 6:                                                ; preds = %3
@@ -308,7 +308,7 @@ define void @funk_debug_collision_checker() #0 {
 
 7:                                                ; preds = %180, %6
   %8 = load i32, i32* %2, align 4
-  %9 = icmp slt i32 %8, 6000
+  %9 = icmp slt i32 %8, 250000
   br i1 %9, label %10, label %183
 
 10:                                               ; preds = %7
@@ -567,7 +567,7 @@ define void @funk_increment_pool_tail(%struct.tpool*, i32) #0 {
   %10 = load i32, i32* %9, align 8
   %11 = load i32, i32* %4, align 4
   %12 = add i32 %10, %11
-  %13 = icmp uge i32 %12, 6000
+  %13 = icmp uge i32 %12, 250000
   br i1 %13, label %14, label %23
 
 14:                                               ; preds = %7
@@ -578,7 +578,7 @@ define void @funk_increment_pool_tail(%struct.tpool*, i32) #0 {
   %19 = load %struct.tpool*, %struct.tpool** %3, align 8
   %20 = getelementptr inbounds %struct.tpool, %struct.tpool* %19, i32 0, i32 1
   %21 = load i32, i32* %20, align 8
-  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([53 x i8], [53 x i8]* @.str.4, i64 0, i64 0), i8* getelementptr inbounds ([25 x i8], [25 x i8]* @__FUNCTION__.funk_increment_pool_tail, i64 0, i64 0), i8* %18, i32 %21, i32 6000)
+  %22 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([53 x i8], [53 x i8]* @.str.4, i64 0, i64 0), i8* getelementptr inbounds ([25 x i8], [25 x i8]* @__FUNCTION__.funk_increment_pool_tail, i64 0, i64 0), i8* %18, i32 %21, i32 250000)
   store i32 0, i32* @g_debug_continue, align 4
   br label %23
 
@@ -588,7 +588,7 @@ define void @funk_increment_pool_tail(%struct.tpool*, i32) #0 {
   %26 = load i32, i32* %25, align 8
   %27 = load i32, i32* %4, align 4
   %28 = add i32 %26, %27
-  %29 = urem i32 %28, 6000
+  %29 = urem i32 %28, 250000
   %30 = load %struct.tpool*, %struct.tpool** %3, align 8
   %31 = getelementptr inbounds %struct.tpool, %struct.tpool* %30, i32 0, i32 1
   store i32 %29, i32* %31, align 8
@@ -830,13 +830,13 @@ define void @funk_init() #0 {
 
 7:                                                ; preds = %16, %0
   %8 = load i32, i32* %2, align 4
-  %9 = icmp slt i32 %8, 6000
+  %9 = icmp slt i32 %8, 250000
   br i1 %9, label %10, label %19
 
 10:                                               ; preds = %7
   %11 = load i32, i32* %2, align 4
   %12 = sext i32 %11 to i64
-  %13 = getelementptr inbounds [6000 x %struct.tdata], [6000 x %struct.tdata]* getelementptr inbounds (%struct.tpool, %struct.tpool* @funk_global_memory_pool, i32 0, i32 0), i64 0, i64 %12
+  %13 = getelementptr inbounds [250000 x %struct.tdata], [250000 x %struct.tdata]* getelementptr inbounds (%struct.tpool, %struct.tpool* @funk_global_memory_pool, i32 0, i32 0), i64 0, i64 %12
   %14 = getelementptr inbounds %struct.tdata, %struct.tdata* %13, i32 0, i32 1
   %15 = bitcast %union.data_type* %14 to i32*
   store i32 0, i32* %15, align 8
@@ -850,7 +850,7 @@ define void @funk_init() #0 {
 
 19:                                               ; preds = %7
   %20 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([39 x i8], [39 x i8]* @.str.16, i64 0, i64 0))
-  %21 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str.17, i64 0, i64 0), i32 6000)
+  %21 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str.17, i64 0, i64 0), i32 250000)
   %22 = load i32, i32* %1, align 4
   %23 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([26 x i8], [26 x i8]* @.str.18, i64 0, i64 0), i32 %22)
   %24 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([24 x i8], [24 x i8]* @.str.19, i64 0, i64 0))
@@ -1110,7 +1110,7 @@ define void @funk_create_list_slide_2d_var(%struct.tnode*, %struct.tnode*, %stru
   %129 = add i32 %121, %128
   %130 = load i32, i32* %10, align 4
   %131 = add i32 %129, %130
-  %132 = urem i32 %131, 6000
+  %132 = urem i32 %131, 250000
   %133 = load %struct.tnode*, %struct.tnode** %6, align 8
   %134 = getelementptr inbounds %struct.tnode, %struct.tnode* %133, i32 0, i32 0
   store i32 %132, i32* %134, align 8
@@ -1211,7 +1211,7 @@ define void @funk_create_list_slide_1d_var(%struct.tnode*, %struct.tnode*, %stru
   %69 = load i32, i32* %68, align 8
   %70 = load i32, i32* %7, align 4
   %71 = add i32 %69, %70
-  %72 = urem i32 %71, 6000
+  %72 = urem i32 %71, 250000
   %73 = load %struct.tnode*, %struct.tnode** %5, align 8
   %74 = getelementptr inbounds %struct.tnode, %struct.tnode* %73, i32 0, i32 0
   store i32 %72, i32* %74, align 8
@@ -1326,7 +1326,7 @@ define void @funk_create_list_slide(%struct.tnode*, %struct.tnode*, i32*, i32) #
   %79 = getelementptr inbounds i32, i32* %78, i64 0
   %80 = load i32, i32* %79, align 4
   %81 = add i32 %77, %80
-  %82 = urem i32 %81, 6000
+  %82 = urem i32 %81, 250000
   %83 = load %struct.tnode*, %struct.tnode** %6, align 8
   %84 = getelementptr inbounds %struct.tnode, %struct.tnode* %83, i32 0, i32 0
   store i32 %82, i32* %84, align 8
@@ -1355,7 +1355,7 @@ define void @funk_create_list_slide(%struct.tnode*, %struct.tnode*, i32*, i32) #
   %103 = getelementptr inbounds i32, i32* %102, i64 1
   %104 = load i32, i32* %103, align 4
   %105 = add i32 %101, %104
-  %106 = urem i32 %105, 6000
+  %106 = urem i32 %105, 250000
   %107 = load %struct.tnode*, %struct.tnode** %6, align 8
   %108 = getelementptr inbounds %struct.tnode, %struct.tnode* %107, i32 0, i32 0
   store i32 %106, i32* %108, align 8
@@ -2167,7 +2167,7 @@ define void @funk_print_pool(%struct.tpool*, i32, i32) #0 {
   %21 = getelementptr inbounds %struct.tpool, %struct.tpool* %20, i32 0, i32 0
   %22 = load i32, i32* %7, align 4
   %23 = sext i32 %22 to i64
-  %24 = getelementptr inbounds [6000 x %struct.tdata], [6000 x %struct.tdata]* %21, i64 0, i64 %23
+  %24 = getelementptr inbounds [250000 x %struct.tdata], [250000 x %struct.tdata]* %21, i64 0, i64 %23
   %25 = bitcast %struct.tdata* %24 to { i8, i64 }*
   %26 = getelementptr inbounds { i8, i64 }, { i8, i64 }* %25, i32 0, i32 0
   %27 = load i8, i8* %26, align 8
@@ -2334,12 +2334,12 @@ define void @funk_debug_function_entry_hook(i8*) #0 {
   store i8* %0, i8** %2, align 8
   %6 = load i32, i32* getelementptr inbounds (%struct.tpool, %struct.tpool* @funk_global_memory_pool, i32 0, i32 1), align 8
   %7 = add i32 %6, 1
-  %8 = icmp eq i32 %7, 6000
+  %8 = icmp eq i32 %7, 250000
   br i1 %8, label %9, label %12
 
 9:                                                ; preds = %1
   %10 = load i32, i32* getelementptr inbounds (%struct.tpool, %struct.tpool* @funk_global_memory_pool, i32 0, i32 1), align 8
-  %11 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([67 x i8], [67 x i8]* @.str.43, i64 0, i64 0), i32 %10, i32 6000)
+  %11 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([67 x i8], [67 x i8]* @.str.43, i64 0, i64 0), i32 %10, i32 250000)
   br label %17
 
 12:                                               ; preds = %1
