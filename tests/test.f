@@ -38,6 +38,14 @@ main():
       assert(A[8], 2)  # wraps around
       assert(len(A), 7)
 
+      say('====== Test Matrix =====')
+      M <- [[1,0,0,0],
+            [0,1,0,0],
+            [0,0,1,0],
+            [0,0,0,1]]
+
+      #assert(sum(reshape(M,[1])), 4)
+
       say('==== Test triangular series === ')
       assert(triangular_series(7), sum(A))
       assert(triangular_series(len(A)), sum(A))

@@ -360,7 +360,6 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
 
 }
 
-
 void funk_create_list_slide_1d_lit(struct tnode * src, struct tnode * dst, int32_t idx){
   // negative indexes allow getting last elemets like in python
   idx = (idx < 0) ? src->len + idx : idx;
@@ -1264,4 +1263,40 @@ void funk_get_len(struct tnode * src, struct tnode * dst){
 
   funk_create_int_scalar(&funk_functions_memory_pool, dst, src->len );
 
+}
+
+void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
+  struct tnode * r1,struct tnode * r2,
+  struct tnode * c1, struct tnode *c2){
+  if (src->dimension.count != 2){
+    printf("%s Error shall have 2 dimensions and not %d\n", __FUNCTION__, src->dimension.count);
+  }
+
+  if (get_node(r1,0)->data.i > get_node(r2,0)->data.i){
+    printf("%s Error r1 (%d) > r2 (%d)\n", __FUNCTION__,get_node(r1,0)->data.i,get_node(r2,0)->data.i );
+  }
+
+  if (get_node(c1,0)->data.i > get_node(c2,0)->data.i){
+    printf("%s Error c1 (%d) > c2 (%d)\n", __FUNCTION__,get_node(c1,0)->data.i,get_node(c2,0)->data.i );
+  }
+
+  int32_t total = 0;
+  int32_t n = (get_node(r2,0)->data.i - get_node(r1,0)->data.i)+1;
+  int32_t m = (get_node(c2,0)->data.i - get_node(c1,0)->data.i)+1;
+
+  int * list = (int *)malloc(sizeof(int32_t)*n*m);
+  int k = 0;
+  for (int i = get_node(r1,0)->data.i; i <= get_node(r2,0)->data.i; i++){
+    for (int j = get_node(c1,0)->data.i; i <= get_node(c2,0)->data.i; i++){
+      i %= src->dimension.d[0];
+      j %= src->dimension.d[1];
+
+      list[k] = get_node(src, i*src->dimension.d[0] +j)->data.i;
+      k++;
+    }
+  }
+
+
+  funk_create_2d_matrix_int_literal(&funk_global_memory_pool,  dst, list, n, m );
+  free(list);
 }

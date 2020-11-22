@@ -221,6 +221,7 @@ target datalayout = ""
         preprocessed_text = preprocessed_text.replace('-\n', '-')
         preprocessed_text = preprocessed_text.replace('*\n', '*')
         preprocessed_text = preprocessed_text.replace('<-\n', '<-')
+        preprocessed_text = preprocessed_text.replace(',\n', ',')
 
         preprocessed_text = self.replace_macros(preprocessed_text)
 
