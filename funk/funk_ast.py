@@ -432,10 +432,11 @@ class BinaryOp(Expression):
 
     def get_compile_type(self):
         # if either operand is float, then auto promote to float at compile time
-        if isinstance(self.right, DoubleConstant) or isinstance(self.left, DoubleConstant):
-            return funk_types.double
-        else:
-            return funk_types.int
+        # if isinstance(self.right, DoubleConstant) or isinstance(self.left, DoubleConstant):
+        #     return funk_types.double
+        # else:
+        #     return funk_types.int
+        return funk_types.unknown
 
     def __deepcopy__(self, memo):
         # create a copy with self.linked_to *not copied*, just referenced.
@@ -651,6 +652,7 @@ class FunctionCall(Expression):
             'rand_int': RandInt,
             'rand_float': RandFloat,
             'say': Print,
+            'len': Len,
             'dim': Dim,
             's2d_window': S2DCreateWindow,
             's2d_line': S2DDrawLine,
@@ -688,7 +690,8 @@ class FunctionCall(Expression):
 
         # First check if this is globally defined function
         if name in self.funk.functions:
-            return self.funk.emitter.call_function(self.funk, name, [create_ast_anon_symbol(self.funk, a) for a in self.args], result=result)
+            arguments=[create_ast_anon_symbol(self.funk, a) for a in self.args]
+            return self.funk.emitter.call_function(self.funk, name, arguments, result=result)
 
         # Now check if this is an input argument containing a function pointer
         i = 0
@@ -901,7 +904,14 @@ class String:
 
     def eval(self, result=None):
         return self.fmt_str
+class Len:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
 
+    def eval(self, result=None):
+
+        return self.funk.emitter.get_node_length(self.funk, self.arg_list, result=result)
 class Dim:
     def __init__(self, funk, arg_list):
         self.funk = funk

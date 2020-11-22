@@ -335,9 +335,11 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
 
 
   // negative indexes allow getting last elemets like in python
-  idx_0 = (idx_0 < 0) ? src->dimension.d[0] - idx_0 : idx_0;
-  idx_1 = (idx_1 < 0) ? src->dimension.d[1] - idx_1 : idx_1;
+  idx_0 = (idx_0 < 0) ? src->dimension.d[0] + idx_0 : idx_0;
+  idx_1 = (idx_1 < 0) ? src->dimension.d[1] + idx_1 : idx_1;
 
+  idx_0 %= src->dimension.d[0];
+  idx_1 %= src->dimension.d[1];
 
   if (idx_1 >= src->dimension.d[0]){
     printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_1, src->dimension.d[0]);
@@ -358,6 +360,24 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
 
 }
 
+
+void funk_create_list_slide_1d_lit(struct tnode * src, struct tnode * dst, int32_t idx){
+  // negative indexes allow getting last elemets like in python
+  idx = (idx < 0) ? src->len + idx : idx;
+  idx %= src->len;
+
+  dst->pool = src->pool;
+  dst->dimension.count = 0;
+  dst->len = 1;
+  dst->start = (src->start + idx) % FUNK_MAX_POOL_SIZE;
+
+  #ifdef FUNK_DEBUG_BUILD
+  funk_debug_register_node(dst);
+  #endif
+
+
+}
+
 void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i){
   if (get_node(node_i,0)->type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
@@ -366,26 +386,12 @@ void funk_create_list_slide_1d_var(struct tnode * src, struct tnode * dst , stru
 
   int32_t idx_0 = get_node(node_i, 0)->data.i;
 
-  // negative indexes allow getting last elemets like in python
-  idx_0 = (idx_0 < 0) ? dst->dimension.d[0] - idx_0 : idx_0;
-
-
-  if (idx_0 >= src->dimension.d[0]){
-    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[0]);
-  }
-
-  dst->pool = src->pool;
-  dst->dimension.count = 0;
-  dst->len = 1;
-  dst->start = (src->start + idx_0) % FUNK_MAX_POOL_SIZE;
-
-  #ifdef FUNK_DEBUG_BUILD
-  funk_debug_register_node(dst);
-  #endif
+  funk_create_list_slide_1d_lit(src, dst, idx_0);
 
 }
 
-void funk_create_list_slide(struct tnode * src, struct tnode * dst , int32_t * idx, int32_t idx_cnt){
+
+void funk_create_list_slide_lit(struct tnode * src, struct tnode * dst , int32_t * idx, int32_t idx_cnt){
 
 
   if (idx_cnt != dst->dimension.count){
@@ -507,6 +513,7 @@ void funk_create_int_scalar(struct tpool * pool, struct tnode * n, int32_t val){
     printf("%s %s[%d] = %d\n", __FUNCTION__, ((pool == &funk_global_memory_pool)?"gpool":"fpool"),
     pool->tail, val);
   #endif
+
 
   funk_create_scalar(pool, n, (void*)&val, type_int);
 }
@@ -718,7 +725,10 @@ void funk_debug_function_entry_hook(const char * function_name){
         funk_print_node_info(&gRenderLoopState);
         printf("\n");
         print_scalar(&gRenderLoopState);
-      }
+
+      } else if (!strncmp(str,"ftrace",6)){
+        g_funk_internal_function_tracing_enabled = !g_funk_internal_function_tracing_enabled;
+    }
 
   } while (strncmp(str,"c",1) && strncmp(str,"r",1));
 
@@ -1247,4 +1257,11 @@ void reshape(struct tnode * dst, int * idx, int count){
   if (dst->len > 0 && number_of_elements > dst->len){
     printf("-E- reshape operation not possible for variable with %d elements\n", dst->len);
   }
+}
+
+
+void funk_get_len(struct tnode * src, struct tnode * dst){
+
+  funk_create_int_scalar(&funk_functions_memory_pool, dst, src->len );
+
 }

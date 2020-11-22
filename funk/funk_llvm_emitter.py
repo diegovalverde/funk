@@ -340,7 +340,10 @@ class Emitter:
         return '%{}'.format(p[0])
 
     def call_function(self, funk, fn, arguments, result=None):
-        self.add_comment('====== call function {} {}'.format(fn, arguments))
+        if None in arguments:
+            print('???')
+
+        self.add_comment('====== call function {} {} ====='.format(fn, arguments))
 
         extern_name = 'extern::{}'.format(fn)
         if fn in funk.function_debug_name_map:
@@ -682,43 +685,72 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[1])
 
+    def create_slice_lit_index(self, node, indexes, result=None):
+
+        if len(indexes) == 1:
+            i = indexes[0].eval()
+            self.code += """
+                        ;; create slice
+                        ;; allocate result
+                         call void @funk_create_list_slide_1d_lit(%struct.tnode* {node}, %struct.tnode * {result}, i32 {i})
+                    """.format(node=node, result=result, i=i)
+
+
+        return result
+
+    def get_node_length(self,funk, args,result=None):
+        node = args[0].eval()
+        if result is None:
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+            self.code += """
+                   ;; allocate result
+                   %{0} = alloca %struct.tnode, align 8
+                   """.format(p[0])
+            result = '%{}'.format(p[0])
+
+        self.code += """
+
+                call void @funk_get_len(%struct.tnode* {node}, %struct.tnode * {result})
+               """.format(node=node, result=result)
+        return result
+
     def create_slice(self, node, indexes, result=None):
 
+        if result is None:
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+            self.code += """
+            ;; allocate result
+            %{0} = alloca %struct.tnode, align 8
+            """.format(p[0])
+            result = '%{}'.format(p[0])
 
         all_indexes_are_int = True
         for i in indexes:
-            if i.get_compile_type != funk_types.int:
+            if i.get_compile_type() != funk_types.int:
                 all_indexes_are_int = False
                 break
         if all_indexes_are_int:
-            print('Unimplemented')
-            raise
+            if len(indexes) == 1:
+                self.create_slice_lit_index(node, indexes, result)
+                return result
+            else:
+                print(indexes, [  i.get_compile_type() for i in indexes])
+                raise Exception('Multi-dimensional lit index not implemented')
 
         if len(indexes) == 1:
-
             i = indexes[0].eval()
-
-            p = [x for x in range(self.index, self.index + 1)]
-            self.index = p[-1] + 1
 
             self.code += """
             ;; create slice
-            ;; allocate result
-            %{0} = alloca %struct.tnode, align 8
-             call void @funk_create_list_slide_1d_var(%struct.tnode* {node}, %struct.tnode * %{0}, %struct.tnode * {i})
-        """.format(p[0], node=node, i=i)
+             call void @funk_create_list_slide_1d_var(%struct.tnode* {node}, %struct.tnode * {result}, %struct.tnode * {i})
+        """.format( node=node, result=result, i=i)
         elif len(indexes) == 2:
             i = indexes[0].eval()
             j = indexes[1].eval()
 
-            if result is None:
-                p = [x for x in range(self.index, self.index + 1)]
-                self.index = p[-1] + 1
-                self.code += """
-                ;; allocate result
-                %{0} = alloca %struct.tnode, align 8
-                """.format(p[0])
-                result = '%{}'.format(p[0])
+
 
             self.code += """
             ;; create slice
