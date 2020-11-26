@@ -715,8 +715,34 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
                """.format(node=node, result=result)
         return result
 
-    def create_slice(self, node, indexes, result=None):
+    def create_submatrix(self, node, indexes, result=None):
+        if result is None:
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+            self.code += """
+            ;; allocate result
+            %{0} = alloca %struct.tnode, align 8
+            """.format(p[0])
+            result = '%{}'.format(p[0])
 
+
+        if len(indexes) == 2:
+            r1 = indexes[0].left.eval()
+            r2 = indexes[0].right.eval()
+
+            c1 = indexes[1].left.eval()
+            c2 = indexes[1].right.eval()
+
+            self.code += """
+                ;; create slice
+                 call void @funk_create_sub_matrix(%struct.tnode* {node}, %struct.tnode * {result}, %struct.tnode * {r1}, %struct.tnode * {r2}, %struct.tnode * {c1}, %struct.tnode *{c2})
+            """.format(node=node, result=result, r1=r1, r2=r2, c1=c1, c2=c2)
+        else:
+            raise Exception('Not supported')
+
+        return result
+
+    def create_slice(self, node, indexes, result=None):
         if result is None:
             p = [x for x in range(self.index, self.index + 1)]
             self.index = p[-1] + 1
@@ -731,6 +757,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             if i.get_compile_type() != funk_types.int:
                 all_indexes_are_int = False
                 break
+
         if all_indexes_are_int:
             if len(indexes) == 1:
                 self.create_slice_lit_index(node, indexes, result)

@@ -3,12 +3,16 @@ W <-> 50
 H <-> 50
 
 
+sum([]): 0.
+sum( x <~ [A]):
+     x + sum(A).
+
 update_cell(0,3): 1.
 update_cell(1, c | c = 2 \/ c = 3): 1.
 update_cell(_,_): 0.
 
 update_board(M, i, j):
-    #cnt <- sum(M[i-1: i+1, j-1: j+1]) - M[i,j])
+    #cnt <- sum(M[i-1 .. i+1, j-1 .. j+1]) - M[i,j]
     cnt <- M[i-1, j]  + M[i+1,  j] + M[i, j-1]  +
            M[i, j+1]  + M[i-1,j-1] + M[i-1,j+1] +
            M[i+1,j-1] + M[i+1,j+1]

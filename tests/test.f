@@ -39,12 +39,30 @@ main():
       assert(len(A), 7)
 
       say('====== Test Matrix =====')
-      M <- [[1,0,0,0],
+      M1 <- [[1,0,0,0],
             [0,1,0,0],
             [0,0,1,0],
             [0,0,0,1]]
 
+      #say(M1)
+      #assert(len(M1),16)
+
       #assert(sum(reshape(M,[1])), 4)
+      M2 <- [[j | 0<= j <= 3] | 0 <= i <= 3]
+      assert(len(M2),16)
+      x <- 0
+      assert(M2[x,x],0)
+      #[[assert(M2[i,j],j) | 0 <= j <= 3] | 0 <= i <= 3]
+
+      say(M2)
+
+      a <- 0
+      b <- 2
+      say(M2[a..b , a..b])
+      sub_matrix <- M2[a..b , a..b]
+      say(sub_matrix)
+      say(sum(M2[a..b , a..b]))
+
 
       say('==== Test triangular series === ')
       assert(triangular_series(7), sum(A))

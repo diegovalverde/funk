@@ -1269,7 +1269,9 @@ void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
   struct tnode * r1,struct tnode * r2,
   struct tnode * c1, struct tnode *c2){
   if (src->dimension.count != 2){
-    printf("%s Error shall have 2 dimensions and not %d\n", __FUNCTION__, src->dimension.count);
+    funk_print_node_info(src);
+    printf("Error: %s shall have 2 dimensions and not %d\n", __FUNCTION__, src->dimension.count);
+    exit(1);
   }
 
   if (get_node(r1,0)->data.i > get_node(r2,0)->data.i){
@@ -1287,12 +1289,14 @@ void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
   int * list = (int *)malloc(sizeof(int32_t)*n*m);
   int k = 0;
   for (int i = get_node(r1,0)->data.i; i <= get_node(r2,0)->data.i; i++){
-    for (int j = get_node(c1,0)->data.i; i <= get_node(c2,0)->data.i; i++){
+    for (int j = get_node(c1,0)->data.i; j <= get_node(c2,0)->data.i; j++){
       i %= src->dimension.d[0];
       j %= src->dimension.d[1];
 
       list[k] = get_node(src, i*src->dimension.d[0] +j)->data.i;
+      
       k++;
+
     }
   }
 

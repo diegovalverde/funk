@@ -153,6 +153,9 @@ class TreeToAst(Transformer):
 
         return funk_ast.FunctionCall(self.funk, '<un-named>', flatten(args))
 
+    def expr__(self, token):
+        return flatten(token)
+
     def expr_handler(self, token):
         children = remove_invalid(flatten(token))
 
@@ -500,7 +503,7 @@ class TreeToAst(Transformer):
     def action_list_comprehension_range(self, token):
         expr = token[0]
         range = token[1]
-        range.lhs = expr
+        range.left = expr
         return range
 
     def action_list_comprehension(self, token):
@@ -509,4 +512,7 @@ class TreeToAst(Transformer):
         """
         token[1].expr = token[0]
         return token[1].eval()
+
+    def action_range(self, token):
+        return self.bin_op(token, funk_ast.Range)
 

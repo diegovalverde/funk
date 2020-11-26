@@ -36,7 +36,6 @@ def list_concat_tail(funk, left, right, result=None):
 
     return funk.emitter.concat_list(ptr_left, ptr_right)
 
-
 def list_concat_head(funk, left, right, result=None):
     """
     This corresponds to:
@@ -49,7 +48,6 @@ def list_concat_head(funk, left, right, result=None):
 
     funk.emitter.add_comment('Concatenating head to array')
     ptr_left = left.eval(result=result)
-
 
 def create_ast_named_symbol(name, funk, right):
     symbol_name = '{}_{}_{}'.format(funk.function_scope.name, funk.function_scope.clause_idx, name)
@@ -68,13 +66,11 @@ def create_ast_named_symbol(name, funk, right):
     if isinstance(right, FunctionCall) or isinstance(right, List):
         funk.function_scope.lhs_symbols.append(funk.symbol_table[symbol_name])
 
-
 def create_ast_anon_symbol(funk, right):
     if isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
         return funk.alloc_literal_symbol(right, funk_types.global_pool, 'anon_list')
     else:
         return right.eval()
-
 
 class Expression:
     def __init__(self):
@@ -273,7 +269,10 @@ class Identifier:
 
     def eval_node_index(self,node,result=None):
         if self.indexes is not None:
-            return self.funk.emitter.create_slice(node, self.indexes, result=result)
+            if len(self.indexes) == 2 and isinstance(self.indexes[0], Range) and isinstance(self.indexes[1], Range):
+                return self.funk.emitter.create_submatrix(node, self.indexes, result=result)
+            else:
+                return self.funk.emitter.create_slice(node, self.indexes, result=result)
         else:
             return node
 
@@ -310,7 +309,7 @@ class Identifier:
             node = self.funk.symbol_table[local_symbol_name]
             if result is not None:
                 self.funk.emitter.copy_node(node, result)
-            return self.eval_node_index(node)
+            return self.eval_node_index(node, result)
 
         if global_symbol_name in self.funk.symbol_table:
             self.funk.emitter.add_comment('creating reference to global function {}'.format(global_symbol_name))
@@ -319,7 +318,7 @@ class Identifier:
             self.funk.emitter.load_global_function_to_data(data, global_symbol_name)
             if result is not None:
                 self.funk.emitter.copy_node(node, result)
-            return self.eval_node_index(node)
+            return self.eval_node_index(node, result)
 
         if len(self.funk.function_scope.args) == 1 and 'sd2_render_user_state' in self.funk.function_scope.args[0]:
             _,name = self.funk.function_scope.args[0].split('@')
@@ -328,7 +327,7 @@ class Identifier:
                 self.funk.emitter.get_s2d_user_global_state(node)
                 if result is not None:
                     self.funk.emitter.copy_node(node, result)
-                return self.eval_node_index(node)
+                return self.eval_node_index(node, result)
 
         return global_symbol_name
 
@@ -532,7 +531,6 @@ class NotEqualThan(BoolBinaryOp):
         l, r = BoolBinaryOp.eval(self, result)
         return self.funk.emitter.icmp_signed('ne', l, r)
 
-
 class LessThan(BoolBinaryOp):
     def __repr__(self):
         return 'LessThan({} , {})'.format(self.left, self.right)
@@ -584,27 +582,27 @@ class Assignment(BinaryOp):
         name = self.left.name
         create_ast_named_symbol(name, self.funk, self.right)
 
-class Range:
-    def __init__(self, funk, rhs=None, lhs=None, identifier=None, expr=None, rhs_type='<', lhs_type='<'):
+class Range(BinaryOp):
+    def __init__(self, funk,  lhs=None, rhs=None, identifier=None, expr=None, rhs_type='<', lhs_type='<'):
         self.funk = funk
         self.identifier = identifier
-        self.rhs = rhs
         self.lhs_type = lhs_type
         self.rhs_type = rhs_type
-        self.lhs = lhs
         self.expr = expr
+        self.right = rhs
+        self.left = lhs
 
     def __repr__(self):
-        return 'Range({} | {} {} {} {} {})'.format(self.expr, self.lhs, self.lhs_type, self.identifier, self.rhs_type, self.rhs)
+        return 'Range({} | {} {} {} {} {})'.format(self.expr, self.left, self.lhs_type, self.identifier, self.rhs_type, self.right)
 
     def eval(self):
         list_elements = []
-        range_start = self.lhs.eval()
+        range_start = self.left.eval()
 
         if self.lhs_type == '<':
             range_start += 1
 
-        range_end = self.rhs.eval()
+        range_end = self.right.eval()
 
         if self.rhs_type == '<=':
             range_end += 1

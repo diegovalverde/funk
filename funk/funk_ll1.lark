@@ -30,7 +30,7 @@
     statement: assignment
              | expr
 
-    expr: term [expr_]
+    expr: term [expr__]
 
     assignment: assignment_lhs assignment_rhs  -> action_assignment
 
@@ -46,10 +46,12 @@
     ///////////////////////////////////////////
     // Arithmetic Expressions
     ///////////////////////////////////////////
+    expr__: ".." expr -> action_range
+            | expr_
 
+    expr_:    "+" term [expr__]  -> action_arith_add
+            | "-" term [expr__]  -> action_arith_sub
 
-    expr_:    "+" term [expr_]  -> action_arith_add
-            | "-" term [expr_]  -> action_arith_sub
 
 
     term: factor [term_]
@@ -57,6 +59,7 @@
     term_:    "*" factor [term_] -> action_arith_mul
             | "/" factor [term_] -> action_arith_div
             | "%" factor [term_] -> action_arith_mod
+
 
     factor: "(" expr ")"  | list  | number | function_call | string | indexed_array
 
@@ -102,7 +105,7 @@
 
     list_comprehension_range_rhs:    "<" identifier range_rhs   -> action_exclusive_range_lhs
                                     |"<=" identifier range_rhs  -> action_inclusive_range_lhs
-                                    | ":" expr
+                                    | ":" expr  // [x*x | x : A]
 
     range_rhs: "<" expr    -> action_range_exclusive_rhs
              | "<=" expr   -> action_range_inclusive_rhs
@@ -111,12 +114,10 @@
 
     more_list_comprehension_conditions: "," boolean_expr
 
-    list_elements: list_element [more_list_elements]
+    list_elements: expr [more_list_elements]
 
 
-    more_list_elements:  "," list_element [more_list_elements]
-
-    list_element: expr -> action_list_element
+    more_list_elements:  "," expr [more_list_elements]
 
 
     ///////////////////////////////////////////
