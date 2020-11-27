@@ -61,6 +61,8 @@ main():
       say(M2[a..b , a..b])
       sub_matrix <- M2[a..b , a..b]
       assert(sum(M2[a..b , a..b]),9)
+      assert(sum(M2[a..b , a..b]),sum(sub_matrix))
+      assert(sum(M2[a..b , a..b]),sum([[j | 0<= j <= 2] | 0 <= i <= 2]))
       assert(sum(sub_matrix),9)
       assert(sum(sub_matrix), M2[a,a] + M2[a+1,a] + M2[a+2,a] +
                                M2[a,a+1] + M2[a+1,a+1] + M2[a+2,a+1] +
