@@ -217,6 +217,9 @@ class TreeToAst(Transformer):
         elif len(children) == 2:
             children[1].left = children[0]
             return ast_op(self.funk, None, children[1])
+        elif len(children) == 3:
+            children[2].left = children[1]
+            return [children[0],ast_op(self.funk, None, children[2])]
         else:
             return None
 
@@ -465,6 +468,10 @@ class TreeToAst(Transformer):
 
     def action_indexed_array(self, tokens):
         tokens = flatten(tokens)
+        if len(tokens) >= 3 and isinstance(tokens[2], funk_ast.Range):
+            tokens[2].left = tokens[1]
+            tokens.pop(1)
+
         tokens[0].indexes = tokens[1:]
         return tokens[0]
 
@@ -513,6 +520,21 @@ class TreeToAst(Transformer):
         token[1].expr = token[0]
         return token[1].eval()
 
-    def action_range(self, token):
-        return self.bin_op(token, funk_ast.Range)
+    def action_range(self, tokens):
+        tokens = flatten(tokens)
+        if len(tokens) == 0: return tokens
+
+        return [self.bin_op(tokens[0], funk_ast.Range)] + tokens[1:]
+
+    def action_foo(self, tokens):
+        tokens = flatten(tokens)
+        if len(tokens) < 2:
+            return tokens
+
+        if isinstance(tokens[1], funk_ast.Range):
+            tokens[1].left = tokens[0]
+            return tokens[1:]
+        else:
+            return tokens
+
 

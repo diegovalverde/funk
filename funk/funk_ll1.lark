@@ -30,7 +30,7 @@
     statement: assignment
              | expr
 
-    expr: term [expr__]
+    expr: term [expr_]
 
     assignment: assignment_lhs assignment_rhs  -> action_assignment
 
@@ -46,12 +46,8 @@
     ///////////////////////////////////////////
     // Arithmetic Expressions
     ///////////////////////////////////////////
-    expr__: ".." expr -> action_range
-            | expr_
-
-    expr_:    "+" term [expr__]  -> action_arith_add
-            | "-" term [expr__]  -> action_arith_sub
-
+    expr_:    "+" term [expr_]  -> action_arith_add
+            | "-" term [expr_]  -> action_arith_sub
 
 
     term: factor [term_]
@@ -117,8 +113,8 @@
     list_elements: expr [more_list_elements]
 
 
-    more_list_elements:  "," expr [more_list_elements]
-
+    more_list_elements:  "," expr [more_list_elements] -> action_foo
+                        | ".." expr [more_list_elements] -> action_range
 
     ///////////////////////////////////////////
     // Function calls

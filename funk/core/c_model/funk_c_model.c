@@ -1266,35 +1266,47 @@ void funk_get_len(struct tnode * src, struct tnode * dst){
 }
 
 void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
-  struct tnode * r1,struct tnode * r2,
-  struct tnode * c1, struct tnode *c2){
+  struct tnode * R1,struct tnode * R2,
+  struct tnode * C1, struct tnode *C2){
   if (src->dimension.count != 2){
     funk_print_node_info(src);
     printf("Error: %s shall have 2 dimensions and not %d\n", __FUNCTION__, src->dimension.count);
     exit(1);
   }
+  
+  int32_t r1 = get_node(R1,0)->data.i;
+  int32_t r2 = get_node(R2,0)->data.i;
+  int32_t c1 = get_node(C1,0)->data.i;
+  int32_t c2 = get_node(C2,0)->data.i;
 
-  if (get_node(r1,0)->data.i > get_node(r2,0)->data.i){
-    printf("%s Error r1 (%d) > r2 (%d)\n", __FUNCTION__,get_node(r1,0)->data.i,get_node(r2,0)->data.i );
+
+  if (r1 > r2){
+    printf("%s Error r1 (%d) > r2 (%d)\n", __FUNCTION__,r1,r2 );
+    exit(1);
   }
 
-  if (get_node(c1,0)->data.i > get_node(c2,0)->data.i){
-    printf("%s Error c1 (%d) > c2 (%d)\n", __FUNCTION__,get_node(c1,0)->data.i,get_node(c2,0)->data.i );
+  if (c1 > c2){
+    printf("%s Error c1 (%d) > c2 (%d)\n", __FUNCTION__,c1,c2 );
+    exit(1);
   }
 
   int32_t total = 0;
-  int32_t n = (get_node(r2,0)->data.i - get_node(r1,0)->data.i)+1;
-  int32_t m = (get_node(c2,0)->data.i - get_node(c1,0)->data.i)+1;
+  int32_t n = abs((r2 - r1)+1);
+  int32_t m = abs((c2 - c1)+1);
 
-  int * list = (int *)malloc(sizeof(int32_t)*n*m);
+  int32_t * list = (int32_t *)malloc(sizeof(int32_t)*n*m);
   int k = 0;
-  for (int i = get_node(r1,0)->data.i; i <= get_node(r2,0)->data.i; i++){
-    for (int j = get_node(c1,0)->data.i; j <= get_node(c2,0)->data.i; j++){
-      i %= src->dimension.d[0];
-      j %= src->dimension.d[1];
+  for (int i = r1; i <= r2; i++){
+    for (int j = c1; j <= c2; j++){
 
-      list[k] = get_node(src, i*src->dimension.d[0] +j)->data.i;
-      
+      int idx_i = (i < 0) ? i + src->dimension.d[0] : i;
+      int idx_j = (i < 0) ? j + src->dimension.d[1] : j;
+
+      idx_i %= src->dimension.d[0];
+      idx_j %= src->dimension.d[1];
+
+      list[k] = get_node(src, idx_i*src->dimension.d[0] +idx_j)->data.i;
+
       k++;
 
     }
