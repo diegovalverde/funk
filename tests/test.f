@@ -60,8 +60,11 @@ main():
       b <- 2
       say(M2[a..b , a..b])
       sub_matrix <- M2[a..b , a..b]
-      say(sub_matrix)
-      say(sum(M2[a..b , a..b]))
+      assert(sum(M2[a..b , a..b]),9)
+      assert(sum(sub_matrix),9)
+      assert(sum(sub_matrix), M2[a,a] + M2[a+1,a] + M2[a+2,a] +
+                               M2[a,a+1] + M2[a+1,a+1] + M2[a+2,a+1] +
+                               M2[a,a+2] + M2[a+1,a+2] + M2[a+2,a+2])
 
 
       say('==== Test triangular series === ')

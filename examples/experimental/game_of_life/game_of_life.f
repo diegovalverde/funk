@@ -13,15 +13,13 @@ update_cell(_,_): 0.
 
 update_board(M, i, j):
     cnt <- sum(M[i-1 .. i+1, j-1 .. j+1]) - M[i,j]
-    # cnt <- M[i-1, j]  + M[i+1,  j] + M[i, j-1]  +
-    #        M[i, j+1]  + M[i-1,j-1] + M[i-1,j+1] +
-    #        M[i+1,j-1] + M[i+1,j+1]
 
     update_cell(M[i,j], cnt).
 
 s2d_render(board):
     render_board(board, 150, 100, W, 10 )
     next_board <- [[update_board(board, i, j) | 0 <= j < W] | 0 <= i < H ]
+
     sleep(1)
     s2d_render(next_board).
 
