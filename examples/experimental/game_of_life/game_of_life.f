@@ -2,19 +2,17 @@ use s2d, render_board, sum
 W <-> 50
 H <-> 50
 
-
 update_cell(0,3): 1.
 update_cell(1, c | c = 2 \/ c = 3): 1.
 update_cell(_,_): 0.
 
-update_board(M, i, j):
-    cnt <- sum(M[i-1 .. i+1, j-1 .. j+1]) - M[i,j]
-
-    update_cell(M[i,j], cnt).
-
-s2d_render(board):
-    render_board(board, 150, 100, W, 10 )
-    next_board <- [[update_board(board, i, j) | 0 <= j < W] | 0 <= i < H ]
+s2d_render(M):
+    say(M)
+    render_board(M, 150, 100, W, 10 )
+    
+    next_board <- [[update_cell(M[i,j],
+                   sum(M[i-1 .. i+1, j-1 .. j+1]) - M[i,j]) |
+                   0 <= j < W] | 0 <= i < H ]
 
     sleep(1)
     s2d_render(next_board).

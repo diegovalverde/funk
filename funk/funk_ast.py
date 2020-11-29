@@ -268,8 +268,10 @@ class Identifier:
 
     def eval_node_index(self,node,result=None):
         if self.indexes is not None:
-            if len(self.indexes) == 2 and isinstance(self.indexes[0], Range) and isinstance(self.indexes[1], Range):
+            if len(self.indexes) == 2 and isinstance(self.indexes[0], Range)  and isinstance(self.indexes[1], Range):
                 return self.funk.emitter.create_submatrix(node, self.indexes, result=result)
+            elif  len(self.indexes) == 2 and isinstance(self.indexes[0], IntegerConstant) and isinstance(self.indexes[1], IntegerConstant):
+                return self.funk.emitter.create_slice_lit_2d(node, self.indexes, result=result)
             else:
                 return self.funk.emitter.create_slice(node, self.indexes, result=result)
         else:

@@ -14,7 +14,7 @@
 // using the interactive debugger
 #ifdef FUNK_DEBUG_BUILD
 uint32_t g_funk_debug_current_executed_line = 0;
-uint32_t g_funk_internal_function_tracing_enabled = 0;
+uint32_t g_funk_internal_function_tracing_enabled = 1;
 
 
 #endif
@@ -287,7 +287,7 @@ void funk_init(void){
     for (int i = 0; i < FUNK_MAX_POOL_SIZE; i++){
       funk_global_memory_pool.data[i].data.i = 0;
     }
-    printf("===== FUNK Interactive debugger =====\n");
+    printf("===== FUNK better-than-nothing debugger =====\n");
     printf("-I- Global pool size %d\n", FUNK_MAX_POOL_SIZE);
     printf("-I- init_random_seed: %d\n", seed);
     printf("Press any key to start\n");
@@ -319,7 +319,7 @@ int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
 }
 
 void funk_create_list_slide_2d_lit(struct tnode * src, struct tnode * dst , int32_t idx_0, int32_t idx_1){
-
+    printf(">>>>>>>>>>>>>>>>>>>>>>> funk_create_list_slide_2d_lit %d %d\n", idx_0, idx_1);
     // negative indexes allow getting last elemets like in python
     idx_0 = (idx_0 < 0) ? src->dimension.d[0] + idx_0 : idx_0;
     idx_1 = (idx_1 < 0) ? src->dimension.d[1] + idx_1 : idx_1;
@@ -343,10 +343,11 @@ void funk_create_list_slide_2d_lit(struct tnode * src, struct tnode * dst , int3
     #ifdef FUNK_DEBUG_BUILD
     funk_debug_register_node(dst);
     #endif
+    printf("END funk_create_list_slide_2d_lit \n");
 }
 
 void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i, struct tnode * node_j){
-
+  printf("funk_create_list_slide_2d_var \n");
   if (get_node(node_i, 0)->type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
       __FUNCTION__, get_node(node_i,0)->type );
@@ -561,6 +562,8 @@ void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node,
   if (g_funk_internal_function_tracing_enabled)
       printf("%s ", __FUNCTION__);
   #endif
+
+  printf("START funk_create_2d_matrix_int_literal %d x %d\n", n, m);
   // Internally matrices are representes as contiguos
   // arrays in memory
   funk_create_list_int_literal(pool, node, list, n*m );
@@ -568,7 +571,7 @@ void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node,
   node->dimension.d[0] = n;
   node->dimension.d[1] = m;
   //printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
-
+  printf("END funk_create_2d_matrix_int_literal\n");
 }
 
 void funk_copy_element_from_pool(struct tpool * pool, struct tnode * dst, struct tnode * src, int32_t i, int32_t j){

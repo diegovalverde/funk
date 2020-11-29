@@ -626,10 +626,9 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.index = p[-1] + 1
 
             self.code += """
-
-        %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* %{dst}, i64 0, i64 {i}
-        call void @funk_copy_node(%struct.tnode* %{0}, %struct.tnode* {src} )
-            """.format(p[0], n=n, i=i, dst=dst, src=expr, tnode_size=funk_constants.tnode_size_bytes)
+                %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* %{dst}, i64 0, i64 {i}
+                call void @funk_copy_node(%struct.tnode* %{0}, %struct.tnode* {src} )
+                    """.format(p[0], n=n, i=i, dst=dst, src=expr, tnode_size=funk_constants.tnode_size_bytes)
 
         p = [x for x in range(self.index, self.index + 2)]
         self.index = p[-1] + 1
@@ -710,6 +709,8 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
                 ;; allocate result
                  call void @funk_create_list_slide_2d_lit(%struct.tnode* {node}, %struct.tnode * {result}, i32 {i}, i32 {j})
             """.format(node=node, result=result, i=i, j=j)
+
+            return result
 
     def create_slice_lit_index(self, node, indexes, result=None):
 
