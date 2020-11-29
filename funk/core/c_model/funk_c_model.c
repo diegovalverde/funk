@@ -318,6 +318,33 @@ int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
   return 0;
 }
 
+void funk_create_list_slide_2d_lit(struct tnode * src, struct tnode * dst , int32_t idx_0, int32_t idx_1){
+
+    // negative indexes allow getting last elemets like in python
+    idx_0 = (idx_0 < 0) ? src->dimension.d[0] + idx_0 : idx_0;
+    idx_1 = (idx_1 < 0) ? src->dimension.d[1] + idx_1 : idx_1;
+
+    idx_0 %= src->dimension.d[0];
+    idx_1 %= src->dimension.d[1];
+
+    if (idx_1 >= src->dimension.d[0]){
+      printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_1, src->dimension.d[0]);
+    }
+
+    if (idx_0  >= src->dimension.d[1]){
+      printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[1]);
+    }
+
+    dst->pool = src->pool;
+    dst->dimension.count = 0;
+    dst->len = 1;
+    dst->start = (src->start + src->dimension.d[0]* idx_0 + idx_1) % FUNK_MAX_POOL_SIZE;
+
+    #ifdef FUNK_DEBUG_BUILD
+    funk_debug_register_node(dst);
+    #endif
+}
+
 void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i, struct tnode * node_j){
 
   if (get_node(node_i, 0)->type != type_int){
@@ -333,30 +360,7 @@ void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , stru
   int32_t idx_0 = get_node(node_i,0)->data.i;
   int32_t idx_1 = get_node(node_j,0)->data.i;
 
-
-  // negative indexes allow getting last elemets like in python
-  idx_0 = (idx_0 < 0) ? src->dimension.d[0] + idx_0 : idx_0;
-  idx_1 = (idx_1 < 0) ? src->dimension.d[1] + idx_1 : idx_1;
-
-  idx_0 %= src->dimension.d[0];
-  idx_1 %= src->dimension.d[1];
-
-  if (idx_1 >= src->dimension.d[0]){
-    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_1, src->dimension.d[0]);
-  }
-
-  if (idx_0  >= src->dimension.d[1]){
-    printf("-E- %s index %d out of array boundary %d\n",__FUNCTION__, idx_0, src->dimension.d[1]);
-  }
-
-  dst->pool = src->pool;
-  dst->dimension.count = 0;
-  dst->len = 1;
-  dst->start = (src->start + src->dimension.d[0]* idx_0 + idx_1) % FUNK_MAX_POOL_SIZE;
-
-  #ifdef FUNK_DEBUG_BUILD
-  funk_debug_register_node(dst);
-  #endif
+ funk_create_list_slide_2d_lit(src, dst, idx_0, idx_1);
 
 }
 
@@ -738,11 +742,13 @@ void funk_debug_function_entry_hook(const char * function_name){
 }
 
 void foo(void){
-  struct tnode node;
-  unsigned char type;
+   int end = 666;
+   struct tnode result;
+   for (int i =0; i < end; i++){
+     printf("%d\n", i);
+   }
 
-funk_get_node_type(&node, 0, &type);
-int t = (int32_t)type;
+//   funk_create_list(&funk_global_memory_pool, &result, struct tnode * list , end )
 
 }
 
@@ -1264,6 +1270,47 @@ void funk_get_len(struct tnode * src, struct tnode * dst){
   funk_create_int_scalar(&funk_functions_memory_pool, dst, src->len );
 
 }
+void funk_create_sub_matrix_lit_indexes(struct tnode * src, struct tnode * dst,
+  int32_t r1, int32_t r2,
+  int32_t c1, int32_t c2){
+
+    if (r1 > r2){
+      printf("%s Error r1 (%d) > r2 (%d)\n", __FUNCTION__,r1,r2 );
+      exit(1);
+    }
+
+    if (c1 > c2){
+      printf("%s Error c1 (%d) > c2 (%d)\n", __FUNCTION__,c1,c2 );
+      exit(1);
+    }
+
+    int32_t total = 0;
+    int32_t n = abs((r2 - r1)+1);
+    int32_t m = abs((c2 - c1)+1);
+
+    int32_t * list = (int32_t *)malloc(sizeof(int32_t)*n*m);
+    int k = 0;
+    for (int i = r1; i <= r2; i++){
+      for (int j = c1; j <= c2; j++){
+
+        int idx_i = (i < 0) ? i + src->dimension.d[0] : i;
+        int idx_j = (i < 0) ? j + src->dimension.d[1] : j;
+
+        idx_i %= src->dimension.d[0];
+        idx_j %= src->dimension.d[1];
+
+        list[k] = get_node(src, idx_i*src->dimension.d[0] +idx_j)->data.i;
+
+        k++;
+
+      }
+    }
+
+
+    funk_create_2d_matrix_int_literal(&funk_global_memory_pool,  dst, list, n, m );
+    free(list);
+
+  }
 
 void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
   struct tnode * R1,struct tnode * R2,
@@ -1273,46 +1320,14 @@ void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
     printf("Error: %s shall have 2 dimensions and not %d\n", __FUNCTION__, src->dimension.count);
     exit(1);
   }
-  
+
   int32_t r1 = get_node(R1,0)->data.i;
   int32_t r2 = get_node(R2,0)->data.i;
   int32_t c1 = get_node(C1,0)->data.i;
   int32_t c2 = get_node(C2,0)->data.i;
 
+  funk_create_sub_matrix_lit_indexes(src, dst,
+     r1,  r2,
+     c1,  c2);
 
-  if (r1 > r2){
-    printf("%s Error r1 (%d) > r2 (%d)\n", __FUNCTION__,r1,r2 );
-    exit(1);
-  }
-
-  if (c1 > c2){
-    printf("%s Error c1 (%d) > c2 (%d)\n", __FUNCTION__,c1,c2 );
-    exit(1);
-  }
-
-  int32_t total = 0;
-  int32_t n = abs((r2 - r1)+1);
-  int32_t m = abs((c2 - c1)+1);
-
-  int32_t * list = (int32_t *)malloc(sizeof(int32_t)*n*m);
-  int k = 0;
-  for (int i = r1; i <= r2; i++){
-    for (int j = c1; j <= c2; j++){
-
-      int idx_i = (i < 0) ? i + src->dimension.d[0] : i;
-      int idx_j = (i < 0) ? j + src->dimension.d[1] : j;
-
-      idx_i %= src->dimension.d[0];
-      idx_j %= src->dimension.d[1];
-
-      list[k] = get_node(src, idx_i*src->dimension.d[0] +idx_j)->data.i;
-
-      k++;
-
-    }
-  }
-
-
-  funk_create_2d_matrix_int_literal(&funk_global_memory_pool,  dst, list, n, m );
-  free(list);
 }

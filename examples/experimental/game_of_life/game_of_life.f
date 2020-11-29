@@ -1,11 +1,7 @@
-use s2d, render_board
+use s2d, render_board, sum
 W <-> 50
 H <-> 50
 
-
-sum([]): 0.
-sum( x <~ [A]):
-     x + sum(A).
 
 update_cell(0,3): 1.
 update_cell(1, c | c = 2 \/ c = 3): 1.

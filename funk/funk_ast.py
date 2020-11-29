@@ -168,13 +168,10 @@ class List(Expression):
         return 'List({})'.format(self.elements)
 
 class VariableList(List):
-    """
-    Essentially a NULL terminated linked list
-    """
 
-    def __init__(self, funk, name, start, end, start_inclusive, end_inclusive, expr):
+    def __init__(self, funk, iterator, start, end, start_inclusive, end_inclusive, expr):
         self.funk = funk
-        self.name = name
+        self.iterator = iterator
         self.start = start
         self.end = end
         self.start_inclusive = start_inclusive == '<='
@@ -194,9 +191,10 @@ class VariableList(List):
         if not self.end_inclusive:
             end = self.funk.emitter.sub(end, 1)
 
-        return self.funk.alloc_variable_list_symbol(start, end, self.expr)
+        return self.funk.emitter.create_variable_range_list(self.expr, self.identifier, start, end, resut=result)
 
 class FixedSizeExpressionList(List):
+
     def __init__(self, funk, name, elements):
         self.funk = funk
         self.name = name
@@ -210,6 +208,7 @@ class FixedSizeExpressionList(List):
         flattened_list = self.flatten(self.elements)
 
         expression_list = []
+
         for element in flattened_list:
             expression_list.append(element.eval(result=result))
 
@@ -459,6 +458,10 @@ class Mul(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.mul(self.left.eval(), self.right.eval(), result=result)
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return Mul(self.funk, left=copy.deepcopy(self.left, memo), right=copy.deepcopy(self.right, memo))
+
 class Sub(BinaryOp):
     def __repr__(self):
         return 'Sub({} , {})'.format(self.left, self.right)
@@ -467,6 +470,10 @@ class Sub(BinaryOp):
         i = self.funk.emitter.sub(self.left.eval(), self.right.eval(), result=result)
         return i
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return Sub(self.funk, left=copy.deepcopy(self.left, memo), right=copy.deepcopy(self.right, memo))
+
 class Div(BinaryOp):
     def __repr__(self):
         return 'Div({} , {})'.format(self.left, self.right)
@@ -474,12 +481,20 @@ class Div(BinaryOp):
     def eval(self, result=None):
         return self.funk.emitter.sdiv(self.left.eval(), self.right.eval(), result)
 
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return Div(self.funk, left=copy.deepcopy(self.left, memo), right=copy.deepcopy(self.right, memo))
+
 class Mod(BinaryOp):
     def __repr__(self):
         return 'Mod({} , {})'.format(self.left, self.right)
 
     def eval(self, result=None):
         return self.funk.emitter.srem(self.left.eval(), self.right.eval(), result)
+
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return Mod(self.funk, left=copy.deepcopy(self.left, memo), right=copy.deepcopy(self.right, memo))
 
 class And(BinaryOp):
     def __repr__(self):
@@ -624,6 +639,15 @@ class Range(BinaryOp):
                 list_elements[-1].replace_symbol(self.identifier, IntegerConstant(self.funk, i))
 
             return FixedSizeExpressionList(self.funk, 'var_list', list_elements)
+
+    def __deepcopy__(self, memo):
+        # create a copy with self.linked_to *not copied*, just referenced.
+        return Range(self.funk, lhs=copy.deepcopy(self.left, memo),
+                     rhs=copy.deepcopy(self.right, memo),
+                     identifier=copy.deepcopy(self.identifier, memo),
+                     expr=copy.deepcopy(self.expr, memo),
+                     rhs_type=self.rhs_type,
+                     lhs_type=self.lhs_type)
 
 class ExternalFunction:
     def __init__(self, funk, name):

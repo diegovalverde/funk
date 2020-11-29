@@ -256,8 +256,17 @@ class Emitter:
     def mul(self, a, b, result=None):
         return self.arith_helper(a, b, 'mul', result)
 
+    def arith_lit_helper(self,a,b,operation):
+        if operation == 'sub':
+            return a-b
+        elif operation == 'add':
+            return a+b
+
     def arith_helper(self, a, b, operation, result, idx_r=0, idx_a=0, idx_b=0):
         self.add_comment('{} {} {}'.format(a, operation, b))
+
+        if isinstance(a, int) and isinstance(b, int):
+            return self.arith_lit_helper(a,b,operation)
 
         if result is None:
             result = self.alloc_tnode('{} result'.format(operation), 0, funk_types.function_pool, funk_types.unknown)
@@ -685,6 +694,23 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[1])
 
+    def create_slice_lit_2d(self, node, indexes, result=None):
+        i,j = indexes[0].eval(), indexes[1].eval()
+        if result is None:
+            p = [x for x in range(self.index, self.index + 1)]
+            self.index = p[-1] + 1
+            self.code += """
+                   ;; allocate result
+                   %{0} = alloca %struct.tnode, align 8
+                   """.format(p[0])
+            result = '%{}'.format(p[0])
+
+            self.code += """
+                ;; create slice
+                ;; allocate result
+                 call void @funk_create_list_slide_2d_lit(%struct.tnode* {node}, %struct.tnode * {result}, i32 {i}, i32 {j})
+            """.format(node=node, result=result, i=i, j=j)
+
     def create_slice_lit_index(self, node, indexes, result=None):
 
         if len(indexes) == 1:
@@ -696,6 +722,16 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
                     """.format(node=node, result=result, i=i)
 
 
+        return result
+
+    def allocate_result(self):
+        p = [x for x in range(self.index, self.index + 1)]
+        self.index = p[-1] + 1
+        self.code += """
+       ;; allocate result
+       %{0} = alloca %struct.tnode, align 8
+       """.format(p[0])
+        result = '%{}'.format(p[0])
         return result
 
     def get_node_length(self,funk, args,result=None):
@@ -715,6 +751,46 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
                """.format(node=node, result=result)
         return result
 
+    def create_fixed_range_list(self, expr, iterator, range_start, range_end, result):
+        if result is None:
+            result = self.allocate_result()
+
+        p = [x for x in range(self.index, self.index + 6)]
+        self.index = p[-1] + 1
+        iterator_reg = p[0]
+
+        self.code += """
+        %{iterator_reg} = alloca i32, align 4
+          store i32 {range_start}, i32* %{iterator_reg}, align 4
+          br label %{1}
+
+        {1}:                                                ; preds = %8, %0
+          %{2} = load i32, i32* %{iterator_reg}, align 4
+          %{3} = icmp slt i32 %{2}, {range_end}
+          br i1 %{3}, label %{4}, label %{10}
+
+        {4}:                                                ; preds = %{1}
+          %{5} = load i32, i32* %{iterator_reg}, align 4
+        """.format(p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],
+        range_start=range_start, range_end=range_end, iterator_reg=iterator_reg)
+
+        expr.replace(iterator, iterator_reg).eval(result=result)
+
+        self.code +="""
+          %{6} = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.23, i64 0, i64 0), i32 %6)
+          br label %{7}
+
+        {7}:                                                ; preds = %5
+          %{8} = load i32, i32* %{0}, align 4
+          %{9} = add nsw i32 %{8}, 1
+          store i32 %{9}, i32* %{iterator_reg}, align 4
+          br label %{1}
+        {10}:
+        """.format(p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],
+        range_start=range_start, range_end=range_end, iterator_reg=iterator_reg)
+
+        return result
+
     def create_submatrix(self, node, indexes, result=None):
         if result is None:
             p = [x for x in range(self.index, self.index + 1)]
@@ -732,11 +808,16 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
             c1 = indexes[1].left.eval()
             c2 = indexes[1].right.eval()
-
-            self.code += """
+            if isinstance(r1,int) and isinstance(r1,int) and isinstance(c1,int) and isinstance(c2,int):
+                self.code += """
+                ;; create slice
+                 call void @funk_create_sub_matrix_lit_indexes(%struct.tnode* {node}, %struct.tnode * {result}, i32 {r1}, i32 {r2}, i32 {c1}, i32 {c2})
+                """.format(node=node, result=result, r1=r1, r2=r2, c1=c1, c2=c2)
+            else:
+                self.code += """
                 ;; create slice
                  call void @funk_create_sub_matrix(%struct.tnode* {node}, %struct.tnode * {result}, %struct.tnode * {r1}, %struct.tnode * {r2}, %struct.tnode * {c1}, %struct.tnode *{c2})
-            """.format(node=node, result=result, r1=r1, r2=r2, c1=c1, c2=c2)
+                """.format(node=node, result=result, r1=r1, r2=r2, c1=c1, c2=c2)
         else:
             raise Exception('Not supported')
 
@@ -761,6 +842,9 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         if all_indexes_are_int:
             if len(indexes) == 1:
                 self.create_slice_lit_index(node, indexes, result)
+                return result
+            elif len(indexes) == 2:
+                self.create_slice_lit_2d(node, indexes, result)
                 return result
             else:
                 print(indexes, [  i.get_compile_type() for i in indexes])

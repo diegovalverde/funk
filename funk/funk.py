@@ -213,15 +213,13 @@ target datalayout = ""
     def compile(self, text):
         if self.debug:
             print ('-I- debug mode on')
+        preprocessed_text = text
+
         # The grammar does not really allow you to put ',\n'
         # Let's just fix this in some pre-processing stage
-        preprocessed_text = text.replace(',\n', ',')
-        preprocessed_text = preprocessed_text.replace('\\/\n', '\\/')
-        preprocessed_text = preprocessed_text.replace('+\n', '+')
-        preprocessed_text = preprocessed_text.replace('-\n', '-')
-        preprocessed_text = preprocessed_text.replace('*\n', '*')
-        preprocessed_text = preprocessed_text.replace('<-\n', '<-')
-        preprocessed_text = preprocessed_text.replace(',\n', ',')
+        escapable_symbols = [',', '\\/', '-', '+', '*', '<-', '|']
+        for symbol in escapable_symbols:
+            preprocessed_text = preprocessed_text.replace('{}\n'.format(symbol), symbol)
 
         preprocessed_text = self.replace_macros(preprocessed_text)
 
