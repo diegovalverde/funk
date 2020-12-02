@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 
-//#define FUNK_DEBUG_BUILD 1
+#define FUNK_DEBUG_BUILD 1
 
 // when compiling an application using debug mode
 // the compiler updates the  g_funk_debug_current_executed_line for
@@ -14,7 +14,7 @@
 // using the interactive debugger
 #ifdef FUNK_DEBUG_BUILD
 uint32_t g_funk_debug_current_executed_line = 0;
-uint32_t g_funk_internal_function_tracing_enabled = 1;
+uint32_t g_funk_internal_function_tracing_enabled = 0;
 
 
 #endif
@@ -319,7 +319,7 @@ int is_list_consecutive_in_memory(struct tnode * list, int32_t size){
 }
 
 void funk_create_list_slide_2d_lit(struct tnode * src, struct tnode * dst , int32_t idx_0, int32_t idx_1){
-    printf(">>>>>>>>>>>>>>>>>>>>>>> funk_create_list_slide_2d_lit %d %d\n", idx_0, idx_1);
+
     // negative indexes allow getting last elemets like in python
     idx_0 = (idx_0 < 0) ? src->dimension.d[0] + idx_0 : idx_0;
     idx_1 = (idx_1 < 0) ? src->dimension.d[1] + idx_1 : idx_1;
@@ -343,11 +343,11 @@ void funk_create_list_slide_2d_lit(struct tnode * src, struct tnode * dst , int3
     #ifdef FUNK_DEBUG_BUILD
     funk_debug_register_node(dst);
     #endif
-    printf("END funk_create_list_slide_2d_lit \n");
+
 }
 
 void funk_create_list_slide_2d_var(struct tnode * src, struct tnode * dst , struct tnode * node_i, struct tnode * node_j){
-  printf("funk_create_list_slide_2d_var \n");
+
   if (get_node(node_i, 0)->type != type_int){
     printf("-E- %s node lhs data type is %d but shall be int\n",
       __FUNCTION__, get_node(node_i,0)->type );
@@ -563,7 +563,6 @@ void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node,
       printf("%s ", __FUNCTION__);
   #endif
 
-  printf("START funk_create_2d_matrix_int_literal %d x %d\n", n, m);
   // Internally matrices are representes as contiguos
   // arrays in memory
   funk_create_list_int_literal(pool, node, list, n*m );
@@ -571,7 +570,7 @@ void funk_create_2d_matrix_int_literal(struct tpool * pool, struct tnode * node,
   node->dimension.d[0] = n;
   node->dimension.d[1] = m;
   //printf(">>>>> %d %d pool_tail: %d\n", node->start, node->len, pool->tail );
-  printf("END funk_create_2d_matrix_int_literal\n");
+
 }
 
 void funk_copy_element_from_pool(struct tpool * pool, struct tnode * dst, struct tnode * src, int32_t i, int32_t j){
@@ -637,6 +636,15 @@ void funk_set_node_type(struct tnode  * node, uint32_t offset, unsigned char typ
     printf("-E- %s: offset %d out of bounds for len %d", __FUNCTION__, offset, node->len);
   }
   get_node(node, offset)->type =  type;
+}
+
+
+void funk_increment_node_data_int(struct tnode  * node){
+  get_node(node,0)->data.i++;
+}
+
+void foo(){
+
 }
 
 void funk_set_node_value_int(struct tnode  * node, uint32_t offset, uint32_t value){
@@ -744,16 +752,6 @@ void funk_debug_function_entry_hook(const char * function_name){
   #endif
 }
 
-void foo(void){
-   int end = 666;
-   struct tnode result;
-   for (int i =0; i < end; i++){
-     printf("%d\n", i);
-   }
-
-//   funk_create_list(&funk_global_memory_pool, &result, struct tnode * list , end )
-
-}
 
 void funk_memcp_arr(struct tnode * dst, struct tnode * src, int n, unsigned char dst_on_stack){
   #ifdef FUNK_DEBUG_BUILD
@@ -1273,6 +1271,7 @@ void funk_get_len(struct tnode * src, struct tnode * dst){
   funk_create_int_scalar(&funk_functions_memory_pool, dst, src->len );
 
 }
+
 void funk_create_sub_matrix_lit_indexes(struct tnode * src, struct tnode * dst,
   int32_t r1, int32_t r2,
   int32_t c1, int32_t c2){
@@ -1329,8 +1328,22 @@ void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
   int32_t c1 = get_node(C1,0)->data.i;
   int32_t c2 = get_node(C2,0)->data.i;
 
-  funk_create_sub_matrix_lit_indexes(src, dst,
-     r1,  r2,
-     c1,  c2);
+  funk_create_sub_matrix_lit_indexes(src, dst, r1,  r2, c1,  c2);
 
+}
+void funk_set_node_dimensions(struct tnode  * node, int * dimensions, int count)
+{
+  node->dimension.count = count;
+
+  if (dimensions == NULL)
+    return;
+
+  for (int i = 0; ((i < count) && (i < FUNK_MAX_DIMENSIONS)); i++){
+    node->dimension.d[i] = 5;//dimensions[i];
+  }
+
+  // funk_print_node_info(node);
+  // funk_print_dimension(node);
+  // printf("\nWTF\n");
+  // exit(1);
 }

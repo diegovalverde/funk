@@ -23,6 +23,7 @@ empty_array = 4
 scalar = 5
 function = 6
 unknown = 7
+string =8
 
 global_pool=0
 function_pool=1

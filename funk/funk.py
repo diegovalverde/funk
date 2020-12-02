@@ -46,6 +46,7 @@ class FunctionScope:
         self.ret_statement = 'ret i32 0'
         self.empty = empty
         self.pattern_matches = pattern_matches
+        self.label_count = 0
 
     def emit(self):
 
