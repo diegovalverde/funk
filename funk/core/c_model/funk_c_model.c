@@ -272,6 +272,33 @@ void funk_exit(){
   exit(0);
 }
 
+void funk_sum_list(struct tnode * src, struct tnode * dst){
+  #ifdef FUNK_DEBUG_BUILD
+  printf("%s ", __FUNCTION__);
+  print_scalar(src);
+
+  #endif
+
+  uint32_t total = 0;
+  uint32_t m = src->len;
+  printf("m = %d", m);
+
+  if (src->dimension.count == 2) {
+    m = src->dimension.d[0]*src->dimension.d[1];
+  }
+
+  for (int i = 0; i <= m; i++)
+  {
+    total += get_node(src,i)->data.i;
+  }
+
+  get_node(dst,0)->data.i = total;
+  dst->len = 1;
+  dst->dimension.count = 1;
+  printf("sum = %d\n", total);
+
+
+}
 void funk_init(void){
   #ifdef FUNK_DEBUG_BUILD
   printf("%s ", __FUNCTION__);

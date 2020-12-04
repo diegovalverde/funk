@@ -1,6 +1,6 @@
-use s2d, render_board, sum
-W <-> 5
-H <-> 5
+use s2d, render_board
+W <-> 50
+H <-> 50
 
 update_cell(0,3): 1.
 update_cell(1, c | c = 2 \/ c = 3): 1.
@@ -18,4 +18,4 @@ s2d_render(M):
 
 main():
     s2d_window('the game of life', 800, 600 )
-    s2d_render(reshape(fread_list('patterns/simple.txt'), [W,H])).
+    s2d_render(reshape(fread_list('patterns/pulsar.txt'), [W,H])).

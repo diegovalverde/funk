@@ -677,6 +677,7 @@ class FunctionCall(Expression):
             'rand_float': RandFloat,
             'say': Print,
             'len': Len,
+            'sum': FunkSum,
             'dim': Dim,
             's2d_window': S2DCreateWindow,
             's2d_line': S2DDrawLine,
@@ -928,6 +929,16 @@ class String:
 
     def eval(self, result=None):
         return self.fmt_str
+
+class FunkSum:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+
+    def eval(self, result=None):
+        return self.funk.emitter.funk_summation_function(self.funk, self.arg_list, result=result)
+
 class Len:
     def __init__(self, funk, arg_list):
         self.funk = funk

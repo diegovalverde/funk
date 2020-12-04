@@ -735,16 +735,20 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         result = '%{}'.format(p[0])
         return result
 
+    def funk_summation_function(self, funk, args,result=None):
+        node = args[0].eval()
+        if result is None:
+            result = self.alloc_tnode('sum result', 0, funk_types.function_pool, funk_types.int)
+
+        self.code += """
+                call void @funk_sum_list(%struct.tnode* {node}, %struct.tnode * {result})
+               """.format(node=node, result=result)
+        return result
+
     def get_node_length(self,funk, args,result=None):
         node = args[0].eval()
         if result is None:
-            p = [x for x in range(self.index, self.index + 1)]
-            self.index = p[-1] + 1
-            self.code += """
-                   ;; allocate result
-                   %{0} = alloca %struct.tnode, align 8
-                   """.format(p[0])
-            result = '%{}'.format(p[0])
+            result = self.allocate_result()
 
         self.code += """
 
