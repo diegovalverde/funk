@@ -19,6 +19,7 @@
 from . import funk_types
 import collections
 import copy
+from functools import reduce
 
 def list_concat_tail(funk, left, right, result=None):
     """
@@ -49,7 +50,7 @@ def list_concat_head(funk, left, right, result=None):
     funk.emitter.add_comment('Concatenating head to array')
     ptr_left = left.eval(result=result)
 
-def create_ast_named_symbol(name, funk, right):
+def create_ast_named_symbol(name, funk, right, pool):
     symbol_name = '{}_{}_{}'.format(funk.function_scope.name, funk.function_scope.clause_idx, name)
 
     if symbol_name in funk.symbol_table:
@@ -59,22 +60,23 @@ def create_ast_named_symbol(name, funk, right):
     if isinstance(right, List):
         funk.symbol_table[symbol_name] = right.eval()
     elif isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
-        funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, funk_types.global_pool, symbol_name)
+        funk.symbol_table[symbol_name] = funk.alloc_literal_symbol(right, pool, symbol_name)
     else:
         funk.symbol_table[symbol_name] = funk.create_variable_symbol(right, symbol_name)
 
     if isinstance(right, FunctionCall) or isinstance(right, List):
         funk.function_scope.lhs_symbols.append(funk.symbol_table[symbol_name])
 
-def create_ast_anon_symbol(funk, right):
+def create_ast_anon_symbol(funk, right, pool):
     if isinstance(right, IntegerConstant) or isinstance(right, DoubleConstant):
-        return funk.alloc_literal_symbol(right, funk_types.global_pool, 'anon_list')
+        return funk.alloc_literal_symbol(right, pool, 'anon_list')
     else:
         return right.eval()
 
 class Expression:
     def __init__(self):
         self.args = None
+        self.pool = funk_types.function_pool
 
     def replace_symbol(self, symbol, value):
         pass
@@ -129,6 +131,25 @@ class DoubleConstant:
             self.funk.emitter.set_node_data_type('result element', result, funk_types.double)
 
         return val
+
+class StringConstant:
+    def __init__(self, funk, value):
+        self.value = value
+        self.funk = funk
+        self.sign = 1
+
+    def replace_symbol(self, symbol, value):
+        if symbol == self.value:
+            self.value = value
+
+    def eval(self):
+        return self.value
+
+    def __repr__(self):
+        return 'StringConstant({})'.format(self.value)
+
+    def get_compile_type(self):
+        return funk_types.string
 
 class List(Expression):
     def __init__(self, funk, name, elements):
@@ -195,24 +216,71 @@ class VariableList(List):
 
 class FixedSizeExpressionList(List):
 
-    def __init__(self, funk, name, elements):
+    def __init__(self, funk, start, end, iterator_symbol, expr):
         self.funk = funk
-        self.name = name
-        self.elements = elements
+        self.start = start
+        self.end = end
+        self.iterator_symbol = iterator_symbol
+        self.expr = expr
+        self.elements = [expr]
+
+    def replace_symbol(self, symbol, value):
+        self.expr.replace_symbol(symbol, value)
 
     def __repr__(self):
-        return 'FixedSizeExpressionList({})'.format(self.elements)
+        return 'FixedSizeExpressionList({})'.format(self.expr)
+
+    def get_dimensions(self):
+        if len(self.elements) == 0:
+            return [1]
+
+        dimensions = [ self.end - self.start]
+        for e in self.elements:
+            if isinstance(e,List):
+                dimensions.append( e.get_dimensions() )
+
+        return self.flatten(dimensions)
 
     def eval(self, result=None):
-        dimensions = self.get_dimensions()
-        flattened_list = self.flatten(self.elements)
+        start, end = self.start, self.end
 
-        expression_list = []
+        list_length = reduce((lambda x, y: x * y), self.get_dimensions()) #abs(self.end - self.start)
 
-        for element in flattened_list:
-            expression_list.append(element.eval(result=result))
+        list_of_nodes = self.funk.emitter.alloc_tnode_helper_list(list_length)
 
-        return self.funk.emitter.alloc_expression_list(name=self.name, expr_list=expression_list, dimensions=dimensions)
+        iterator_reg = self.funk.emitter.alloc_tnode('loop iterator',start,funk_types.function_pool, funk_types.int)
+        # this has the current index up to which the array of nodes has been filled
+        list_index_reg = self.funk.emitter.alloc_tnode('array iterator', start, funk_types.function_pool, funk_types.int)
+
+        self.funk.emitter.debug_print_node_info(list_index_reg)
+
+        label_exit = '{}_clause_{}_loop_exit__{}'.format(self.funk.function_scope.name, self.funk.function_scope.clause_idx, self.funk.function_scope.label_count)
+        self.funk.function_scope.label_count += 1
+        label_loop = '{}_clause_{}_loop_label__{}'.format(self.funk.function_scope.name, self.funk.function_scope.clause_idx, self.funk.function_scope.label_count)
+        self.funk.function_scope.label_count += 1
+
+        self.funk.emitter.br(label_loop)
+        self.funk.emitter.add_label(label_loop)
+
+        self.expr.replace_symbol(self.iterator_symbol, StringConstant(self.funk, iterator_reg))
+
+        self.expr.pool = funk_types.global_pool
+        element_reg = self.expr.eval()
+
+        self.funk.emitter.add_node_to_nodelist(element_reg, list_of_nodes, list_index_reg, list_length)
+
+        self.funk.emitter.increment_node_value_int(iterator_reg)
+
+        self.funk.emitter.br_cond('eq', self.funk.emitter.get_node_data_value( iterator_reg,as_type=funk_types.int), end, label_exit, label_loop)
+
+        self.funk.emitter.add_label(label_exit)
+
+        head = self.funk.emitter.regroup_list(list_of_nodes, n=list_length, pool=funk_types.function_pool, result=result)
+
+        self.funk.emitter.set_node_dimensions(head, self.get_dimensions())
+
+        return head
+
 
     def __deepcopy__(self, memo):
         # create a copy with self.linked_to *not copied*, just referenced.
@@ -417,6 +485,7 @@ class BinaryOp(Expression):
         self.left = left
         self.right = right
         self.indexes = indexes
+        self.pool = funk_types.function_pool
 
     def replace_symbol(self, symbol, value):
 
@@ -597,7 +666,7 @@ class Assignment(BinaryOp):
 
     def eval(self, result=None):
         name = self.left.name
-        create_ast_named_symbol(name, self.funk, self.right)
+        create_ast_named_symbol(name, self.funk, self.right, self.pool)
 
 class Range(BinaryOp):
     def __init__(self, funk,  lhs=None, rhs=None, identifier=None, expr=None, rhs_type='<', lhs_type='<'):
@@ -611,6 +680,22 @@ class Range(BinaryOp):
 
     def __repr__(self):
         return 'Range({} | {} {} {} {} {})'.format(self.expr, self.left, self.lhs_type, self.identifier, self.rhs_type, self.right)
+
+    def compute_ranges(self):
+        range_start = self.left.eval()
+
+        if self.lhs_type == '<':
+            range_start += 1
+
+        range_end = self.right.eval()
+
+        if self.rhs_type == '<=':
+            range_end += 1
+
+        return range_start, range_end
+
+
+
 
     def eval(self):
         list_elements = []
@@ -636,11 +721,11 @@ class Range(BinaryOp):
                 #list_elements[-1].replace_symbol(self.identifier, IntegerConstant(self.funk, i))
             return FixedSizeLiteralList(self.funk, '', list_elements)
         else:
-            for i in range(range_start, range_end):
-                list_elements.append( copy.deepcopy(self.expr) )  # the funk pointer is preventing the deepcopy!
-                list_elements[-1].replace_symbol(self.identifier, IntegerConstant(self.funk, i))
+            # for i in range(range_start, range_end):
+            #     list_elements.append( copy.deepcopy(self.expr) )  # the funk pointer is preventing the deepcopy!
+            #     list_elements[-1].replace_symbol(self.identifier, IntegerConstant(self.funk, i))
 
-            return FixedSizeExpressionList(self.funk, 'var_list', list_elements)
+            return FixedSizeExpressionList(self.funk, range_start, range_end, self.identifier, self.expr)
 
     def __deepcopy__(self, memo):
         # create a copy with self.linked_to *not copied*, just referenced.
@@ -666,9 +751,11 @@ declare void {name}(%struct.tnode*, i32,  %struct.tnode*)
 
 class FunctionCall(Expression):
     def __init__(self, funk, name, args):
+        super().__init__()
         self.funk = funk
         self.name = name
         self.args = args
+
 
         self.system_functions = {
             'funk_set_config': SetConfigParam,
@@ -699,6 +786,8 @@ class FunctionCall(Expression):
         return 'FunctionCall({}({}))'.format(self.name, self.args)
 
     def replace_symbol(self, symbol, value):
+        if self.args is None:
+            return
         for i, arg in enumerate(self.args):
             if arg.__repr__() == symbol.__repr__():
                 self.args[i] = value
@@ -715,7 +804,10 @@ class FunctionCall(Expression):
 
         # First check if this is globally defined function
         if name in self.funk.functions:
-            arguments=[create_ast_anon_symbol(self.funk, a) for a in self.args]
+            arguments=[]
+            if self.args is not None:
+                arguments=[create_ast_anon_symbol(self.funk, a, self.pool) for a in self.args]
+
             return self.funk.emitter.call_function(self.funk, name, arguments, result=result)
 
         # Now check if this is an input argument containing a function pointer
@@ -919,8 +1011,9 @@ class FunctionMap:
         for stmt in self.body:
             stmt.eval()
 
-class String:
+class String(Expression):
     def __init__(self, funk, fmt_str):
+        super().__init__()
         self.funk = funk
         self.fmt_str = '{}'.format(fmt_str[1:-1])
 
@@ -930,25 +1023,29 @@ class String:
     def eval(self, result=None):
         return self.fmt_str
 
-class FunkSum:
+class FunkSum(Expression):
     def __init__(self, funk, arg_list):
+        super().__init__()
         self.funk = funk
         self.arg_list = arg_list
 
 
     def eval(self, result=None):
-        return self.funk.emitter.funk_summation_function(self.funk, self.arg_list, result=result)
+        return self.funk.emitter.funk_summation_function(self.funk, self.arg_list, result=result, pool=self.pool)
 
-class Len:
+class Len(Expression):
     def __init__(self, funk, arg_list):
+        super().__init__()
         self.funk = funk
         self.arg_list = arg_list
 
     def eval(self, result=None):
 
         return self.funk.emitter.get_node_length(self.funk, self.arg_list, result=result)
-class Dim:
+
+class Dim(Expression):
     def __init__(self, funk, arg_list):
+        super().__init__()
         self.funk = funk
         self.arg_list = arg_list
 

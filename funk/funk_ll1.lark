@@ -2,8 +2,6 @@
     ///////////////////////////////////////////
     // *** Funk! Grammar ***
     //
-    // A program is a series of functions.
-    // The first function matching is called first
     // Grammar is hopefully ll(1), suitable for a
     // Top-Down parser.
     //

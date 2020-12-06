@@ -2,8 +2,8 @@ use s2d, render_board
 W <-> 50
 H <-> 50
 
-update_cell(0,3): 1.
-update_cell(1, c | c = 2 \/ c = 3): 1.
+update_cell(0,3):1.
+update_cell(1, c | c = 2 \/ c = 3):1.
 update_cell(_,_): 0.
 
 s2d_render(M):
