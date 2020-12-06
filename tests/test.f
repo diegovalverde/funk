@@ -19,9 +19,9 @@ fib(n, result, next):
 fibo(n):
     fib(n,0,1).
 
-sum([]): 0.
-sum( x <~ [A]):
-     x + sum(A).
+_sum([]): 0.
+_sum( x <~ [A]):
+     x + _sum(A).
 
 triangular_series(n): (n*n + n)/2.
 
@@ -70,11 +70,11 @@ main():
 
 
       say('==== Test triangular series === ')
-      assert(triangular_series(7), sum(A))
-      assert(triangular_series(len(A)), sum(A))
-      assert(triangular_series(10), sum([1,2,3,4,5,6,7,8,9,10]))
-      assert(triangular_series(N), sum([i | 0 <= i <= N]))
-      assert(triangular_series(29), sum([i | 0 < i < 30]))
+      assert(triangular_series(7), _sum(A))  # Something fails if you do sum instead of _sum
+      assert(triangular_series(len(A)), _sum(A))
+      assert(triangular_series(10), _sum([1,2,3,4,5,6,7,8,9,10]))
+      assert(triangular_series(N), _sum([i | 0 <= i <= N]))
+      assert(triangular_series(29), _sum([i | 0 < i < 30]))
 
 
       #n <- rand_range(1,100)
@@ -99,4 +99,11 @@ main():
       #        M[i+1,j-1] + M[i+1,j+1]
       # assert(cnt1, 100)
       # assert(cnt2, 100)
+
+      say('====== test sum =======')
+      assert(sum([1,1,1]),_sum([1,1,1]))
+      assert(sum(A),_sum(A))
+      assert(triangular_series(7), sum(A))
+
+
       say('All tests passed ;)').

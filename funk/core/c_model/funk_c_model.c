@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 
-#define FUNK_DEBUG_BUILD 1
+//#define FUNK_DEBUG_BUILD 1
 
 // when compiling an application using debug mode
 // the compiler updates the  g_funk_debug_current_executed_line for
@@ -315,7 +315,7 @@ void funk_sum_list(struct tnode * src, struct tnode * dst){
 
 void funk_init(void){
 
-  printf("%s ", __FUNCTION__);
+
 
 
   unsigned int seed = (unsigned int)time(NULL);
@@ -325,7 +325,7 @@ void funk_init(void){
   funk_functions_memory_pool.tail = 0;
   funk_functions_memory_pool.wrap_count = 0;
 
-
+#ifdef FUNK_DEBUG_BUILD
     for (int i = 0; i < FUNK_MAX_POOL_SIZE; i++){
       funk_global_memory_pool.data[i].data.i = 0;
     }
@@ -334,7 +334,7 @@ void funk_init(void){
     printf("-I- init_random_seed: %d\n", seed);
     printf("Press any key to start\n");
     getchar();
-
+#endif
 
 
 
@@ -523,10 +523,10 @@ void funk_regroup_list(struct tpool * pool, struct tnode * n, struct tnode * lis
     funk_increment_pool_tail(pool, size);
 
     for (int i = 0; i < size; i++){
-      funk_print_node_info(&list[i]);
+      //funk_print_node_info(&list[i]);
 
       //printf("--> ");
-      funk_print_node_info(n);
+      //funk_print_node_info(n);
       //printf("\n val=%d \n ",get_node(&list[i],0)->data.i);
 
       *get_node(n,i) = *get_node(&list[i],0);

@@ -153,6 +153,7 @@ class StringConstant:
 
 class List(Expression):
     def __init__(self, funk, name, elements):
+        super().__init__()
         self.funk = funk
         self.name = name
         self.elements = elements
@@ -252,8 +253,6 @@ class FixedSizeExpressionList(List):
         # this has the current index up to which the array of nodes has been filled
         list_index_reg = self.funk.emitter.alloc_tnode('array iterator', start, funk_types.function_pool, funk_types.int)
 
-        self.funk.emitter.debug_print_node_info(list_index_reg)
-
         label_exit = '{}_clause_{}_loop_exit__{}'.format(self.funk.function_scope.name, self.funk.function_scope.clause_idx, self.funk.function_scope.label_count)
         self.funk.function_scope.label_count += 1
         label_loop = '{}_clause_{}_loop_label__{}'.format(self.funk.function_scope.name, self.funk.function_scope.clause_idx, self.funk.function_scope.label_count)
@@ -289,6 +288,7 @@ class FixedSizeExpressionList(List):
 class FixedSizeLiteralList(List):
 
     def __init__(self, funk, name, elements):
+        super().__init__(funk, name, elements)
         self.funk = funk
         self.name = name
         self.elements = elements
@@ -303,7 +303,7 @@ class FixedSizeLiteralList(List):
             literal_list.append(element.eval(result=result))
 
 
-        return self.funk.alloc_literal_list_symbol(literal_list, dimensions)
+        return self.funk.alloc_literal_list_symbol(literal_list, dimensions, self.pool)
 
     def __repr__(self):
         return 'FixedSizeLiteralList({})'.format(self.elements)
