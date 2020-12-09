@@ -1,3 +1,1 @@
-llvmlite
 lark
-pip install lark-parser
