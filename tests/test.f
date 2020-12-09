@@ -25,9 +25,12 @@ _sum( x <~ [A]):
 
 triangular_series(n): (n*n + n)/2.
 
-
+echo(x) x.
 
 main():
+      #say('Test strings')
+      #assert('hello',echo('hello'))
+
       say('==== Test Arrays === ')
       A <- [1,2,3,4,5,6,7]
       assert(A[0], 1)
@@ -68,6 +71,8 @@ main():
                                M2[a,a+1] + M2[a+1,a+1] + M2[a+2,a+1] +
                                M2[a,a+2] + M2[a+1,a+2] + M2[a+2,a+2])
 
+      assert(sum([0 | 1<= j <= 10]),0)
+      assert(sum([1 | 1<= j <= 10]),10)
 
       say('==== Test triangular series === ')
       assert(triangular_series(7), _sum(A))  # Something fails if you do sum instead of _sum
