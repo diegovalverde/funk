@@ -25,7 +25,6 @@ _sum( x <~ [A]):
 
 triangular_series(n): (n*n + n)/2.
 
-echo(x) x.
 
 main():
       #say('Test strings')
@@ -40,6 +39,13 @@ main():
       assert(A[7], 1)  # wraps around
       assert(A[8], 2)  # wraps around
       assert(len(A), 7)
+      assert(sum([0 | 1 <= i <= 10]),0)
+      assert(sum([1 | 1 <= i <= 10]),10)
+      assert(sum([1 | 10 <= i <= 20]),11)
+      assert(sum([1 | 100 <= i < 200]),100)
+      assert(sum([1 | 100 <= i <= 200]),101)
+      assert(sum([1 | 1000 <= i < 2000]),1000)
+      #assert(sum([0 | 100 <= i <= 200]),100)
 
       say('====== Test Matrix =====')
       M1 <- [[1,0,0,0],

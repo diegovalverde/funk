@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 
-//#define FUNK_DEBUG_BUILD 1
+//#define FUNK_DEBUG_BUILD 0
 
 // when compiling an application using debug mode
 // the compiler updates the  g_funk_debug_current_executed_line for
@@ -93,13 +93,27 @@ struct tnode
 
 };
 
+
 struct tdata * get_node(struct tnode * n, uint32_t i){
+  if (n == NULL){
+    printf("INTERNAL ERROR: %s NULL node pointer\n",__FUNCTION__);
+    exit(1);
+  }
+  if (n->pool != &funk_global_memory_pool && n->pool != &funk_functions_memory_pool){
+    printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+    printf("INTERNAL ERROR: %s n[%d:%d] pointer %p to memory pool is not valid\n",__FUNCTION__,
+    n->start, n->start + n->len,
+    n->pool);
+    printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+    exit(1);
+  }
 
   if (n->wrap_creation < n->pool->wrap_count && n->start <= n->pool->tail){
     printf("-E- attemping to access overwritten position in ring\n");
     exit(1);
   }
   uint32_t idx = (n->start + i);
+
   #ifdef FUNK_DEBUG_BUILD
   if (idx !=0 && (idx % FUNK_MAX_POOL_SIZE == 0)){
     printf("%s wrapping around %d + %d = %d:%d\n", __FUNCTION__, n->start, i, idx, n->len);
@@ -139,27 +153,7 @@ void print_scalar(struct tnode * n);
    }
  }
 
- void funk_debug_collision_checker(void){
-   for (int i = 0; i < FUNK_MAX_POOL_SIZE; i++){
-     for (int j = 0; j < FUNK_MAX_POOL_SIZE; j++){
-       if (i == j)
-        continue;
 
-
-       if (g_debug_nodes[i].pool == g_debug_nodes[j].pool &&
-       (INSIDE(g_debug_nodes[i].start, g_debug_nodes[j].start, g_debug_nodes[j].start + g_debug_nodes[j].len) ||
-       INSIDE(g_debug_nodes[j].start, g_debug_nodes[i].start, g_debug_nodes[i].start + g_debug_nodes[i].len) ||
-       INSIDE(g_debug_nodes[i].start + g_debug_nodes[i].len, g_debug_nodes[j].start, g_debug_nodes[j].start + g_debug_nodes[j].len) ||
-       INSIDE(g_debug_nodes[j].start + g_debug_nodes[j].len, g_debug_nodes[i].start, g_debug_nodes[i].start + g_debug_nodes[i].len)))
-       {
-         printf("collision ");
-         funk_print_node_info(&g_debug_nodes[i]);
-         funk_print_node_info(&g_debug_nodes[j]);
-       }
-
-     }
-   }
- }
 
 #endif
 
@@ -479,8 +473,6 @@ void add_node_to_nodelist(struct tnode * list, struct tnode * node,
 
   int32_t idx = get_node(idx_node,0)->data.i;
   //printf("START %s ========= Will copy node[0:%d] into list[%d] >>>>>>>>>>>>>>>>>> N[%d]\n", __FUNCTION__,
-    //  node->len-1, idx, idx + node->len);
-  //funk_print_node_info(idx_node);
 
   int32_t k = 0;
   for (int i = idx; (k < node->len) && (i < list_len); i++){
@@ -503,8 +495,13 @@ void funk_regroup_list(struct tpool * pool, struct tnode * n, struct tnode * lis
   if (g_funk_internal_function_tracing_enabled)
     printf("%s ", __FUNCTION__);
   #endif
-    //printf("%s n=%d\n", __FUNCTION__,size);
 
+    if (pool != &funk_global_memory_pool && pool != &funk_functions_memory_pool){
+      printf("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+      printf("INTERNAL ERROR: %s invalid pointer %p to memory pool\n",__FUNCTION__,pool);
+      printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+      exit(1);
+    }
   n->pool = pool;
   n->wrap_creation = pool->wrap_count;
   n->dimension.count = 1;
@@ -523,17 +520,14 @@ void funk_regroup_list(struct tpool * pool, struct tnode * n, struct tnode * lis
     funk_increment_pool_tail(pool, size);
 
     for (int i = 0; i < size; i++){
-      //funk_print_node_info(&list[i]);
-
-      //printf("--> ");
-      //funk_print_node_info(n);
-      //printf("\n val=%d \n ",get_node(&list[i],0)->data.i);
 
       *get_node(n,i) = *get_node(&list[i],0);
 
     }
-    //printf("END %s ======================\n",__FUNCTION__);
+
   }
+
+
   #ifdef FUNK_DEBUG_BUILD
   funk_debug_register_node(n);
   #endif
@@ -715,16 +709,14 @@ void funk_set_node_type(struct tnode  * node, uint32_t offset, unsigned char typ
 }
 
 void funk_increment_node_data_int(struct tnode  * node){
+
   get_node(node,0)->data.i++;
+
 }
 
 void funk_copy_node_into_node_list(struct tnode  * dst_list, struct tnode * src, struct tnode * idx_node ){
   int32_t idx = get_node(idx_node,0)->data.i;
-  printf(">>>>> Copying node ");
-  funk_print_node_info(src);
-   funk_copy_node(&dst_list[idx], src);
-   printf("  ");
-   funk_print_node_info(&dst_list[idx]);
+  funk_copy_node(&dst_list[idx], src);
 
 }
 
@@ -1397,7 +1389,7 @@ void funk_create_sub_matrix(struct tnode * src, struct tnode * dst,
   struct tnode * R1,struct tnode * R2,
   struct tnode * C1, struct tnode *C2){
   if (src->dimension.count != 2){
-    funk_print_node_info(src);
+    //funk_print_node_info(src);
     printf("Error: %s shall have 2 dimensions and not %d\n", __FUNCTION__, src->dimension.count);
     exit(1);
   }
@@ -1421,10 +1413,6 @@ void funk_set_node_dimensions(struct tnode  * node, int * dimensions, int count)
     node->dimension.d[i] = dimensions[i];
   }
 
-  // funk_print_node_info(node);
-  // funk_print_dimension(node);
-  // printf("\nWTF\n");
-  // exit(1);
 }
 
 void foo(){
