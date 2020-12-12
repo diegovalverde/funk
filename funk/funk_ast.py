@@ -250,8 +250,9 @@ class FixedSizeExpressionList(List):
 
         list_of_nodes = self.funk.emitter.alloc_tnode_helper_list(list_length)
 
-        iterator_reg = self.funk.emitter.alloc_tnode('loop iterator',start,funk_types.function_pool, funk_types.int)
+        iterator_reg = self.funk.emitter.alloc_tnode('loop iterator',0,funk_types.function_pool, funk_types.int)
         # this has the current index up to which the array of nodes has been filled
+        print('start ', start, '<=>', 0)
         list_index_reg = self.funk.emitter.alloc_tnode('array iterator', 0, funk_types.function_pool, funk_types.int)
 
         label_exit = '{}_clause_{}_loop_exit__{}'.format(self.funk.function_scope.name, self.funk.function_scope.clause_idx, self.funk.function_scope.label_count)
@@ -268,18 +269,16 @@ class FixedSizeExpressionList(List):
         element_reg = self.expr.eval()
 
         if isinstance(element_reg, int):
-            element_reg = self.funk.emitter.alloc_tnode('',element_reg,funk_types.function_pool, funk_types.int)
+            element_reg = self.funk.emitter.alloc_tnode(self.expr.__repr__(),element_reg,funk_types.function_pool, funk_types.int)
 
         self.funk.emitter.add_node_to_nodelist(element_reg, list_of_nodes, list_index_reg, list_length)
 
         self.funk.emitter.increment_node_value_int(iterator_reg)
 
-        it_reg_int = self.funk.emitter.get_node_data_value(iterator_reg, as_type=funk_types.int)
-        #self.funk.emitter.print_trace()
-        self.funk.emitter.br_cond('eq', it_reg_int, end-start+1, label_exit, label_loop)
+        #print('len ', end, '<=>', (end-start)+1)
+        self.funk.emitter.br_cond('eq', self.funk.emitter.get_node_data_value( iterator_reg,as_type=funk_types.int), end-start+1, label_exit, label_loop)
 
         self.funk.emitter.add_label(label_exit)
-
         #self.funk.emitter.print_trace()
         head = self.funk.emitter.regroup_list(list_of_nodes, n=list_length, pool=funk_types.function_pool, result=result)
 

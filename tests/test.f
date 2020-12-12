@@ -45,7 +45,10 @@ main():
       assert(sum([1 | 100 <= i < 200]),100)
       assert(sum([1 | 100 <= i <= 200]),101)
       assert(sum([1 | 1000 <= i < 2000]),1000)
-      #assert(sum([0 | 100 <= i <= 200]),100)
+      assert(len([1 | 100 <= i < 200]),100)
+      assert(len([1 | 57 <= i <= 59]),3)
+      assert(len(A),7)
+
 
       say('====== Test Matrix =====')
       M1 <- [[1,0,0,0],
