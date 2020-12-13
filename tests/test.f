@@ -47,7 +47,9 @@ main():
       assert(sum([1 | 1000 <= i < 2000]),1000)
       assert(len([1 | 100 <= i < 200]),100)
       assert(len([1 | 57 <= i <= 59]),3)
+      assert(len([1 | 1997 <= i < 2000]),3)
       assert(len(A),7)
+      assert(len(A),len(A))
 
 
       say('====== Test Matrix =====')

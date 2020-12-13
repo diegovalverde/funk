@@ -1,12 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdint.h>
+
+#include "funk_c_model.h"
 
 
-//#define FUNK_DEBUG_BUILD 0
 
 // when compiling an application using debug mode
 // the compiler updates the  g_funk_debug_current_executed_line for
@@ -18,80 +13,11 @@ uint32_t g_funk_internal_function_tracing_enabled = 0;
 
 
 #endif
-enum funk_types{
-type_invalid = 0,
-type_int = 1,
-type_double = 2,
-type_array = 3,
-type_empty_array = 4,
-type_scalar = 5,
-type_function = 6,
-max_types = 7
-};
 
-char funk_types_str[][100]=
-{
-  "type_invalid",
-  "type_int",
-  "type_double",
-  "type_array",
-  "type_empty_array",
-  "type_scalar",
-  "type_function"
-};
+// S2D specific globals
+// https://github.com/simple2d/simple2d
+struct tnode gRenderLoopState;
 
-enum FUNK_CONFIG_PARAMS{
-  FUNK_PARAM_DEBUG_VERBOSITY,
-  FUNK_PARAM_PRINT_ARRAY_MAX_ELEMENTS
-
-};
-
-uint32_t g_funk_print_array_max_elements = 30;
-uint32_t g_funk_print_array_element_per_row = 50;
-uint32_t g_debug_continue = 0;
-uint32_t g_funk_verbosity = 0;
-
-
-
-#define FUNK_MAX_POOL_SIZE (50*50*100)
-struct tnode;
-
-
-
-struct tdata
-{
-
-  unsigned char type;
-  union data_type{
-    double f;
-    int32_t i;
-  } data;
-
-};
-
-struct tpool
-{
-  struct tdata data[FUNK_MAX_POOL_SIZE];
-  uint32_t tail;
-  uint32_t wrap_count;
-} funk_global_memory_pool, funk_functions_memory_pool;
-
-#define FUNK_MAX_DIMENSIONS 2 //may optimize when creating the runtime
-struct tdimensions
-{
-  uint32_t count;  //stores 3,4,5...
-  uint32_t d[FUNK_MAX_DIMENSIONS];
-};
-
-struct tnode
-{
-  uint32_t start, len;
-  uint32_t wrap_creation;
-  struct tpool * pool;
-  struct tdimensions  dimension; //stride shall be an array of MAX_DIMENSIONS?
-
-
-};
 
 
 #define VALIDATE_NODE(n) validate_node(n, __FUNCTION__)
@@ -146,7 +72,6 @@ struct tdata * get_node(struct tnode * n, uint32_t i, const char * caller, int l
   return &(n->pool->data[idx % FUNK_MAX_POOL_SIZE]);
 }
 
-struct tnode gRenderLoopState;
 
 
 #ifdef FUNK_DEBUG_BUILD
@@ -235,6 +160,7 @@ void funk_copy_node(struct tnode * dst, struct tnode * src){
 
 }
 
+
 void set_s2d_user_global_state(struct tnode * n){
 
   #ifdef FUNK_DEBUG_BUILD
@@ -259,7 +185,6 @@ struct tnode get_s2d_user_global_state(){
       printf("START %s \n", __FUNCTION__);
   #endif
 
-  //(&gRenderLoopState);
 
   #ifdef FUNK_DEBUG_BUILD
   if (g_funk_internal_function_tracing_enabled)
@@ -328,9 +253,6 @@ void funk_sum_list(struct tnode * src, struct tnode * dst){
 }
 
 void funk_init(void){
-
-
-
 
   unsigned int seed = (unsigned int)time(NULL);
   srand(seed);
@@ -1444,15 +1366,5 @@ void funk_set_node_dimensions(struct tnode  * node, int * dimensions, int count)
   for (int i = 0; ((i < count) && (i < FUNK_MAX_DIMENSIONS)); i++){
     node->dimension.d[i] = dimensions[i];
   }
-
-}
-
-void foo(){
-  struct tnode nodes[6];
-  struct tnode other, idx;
-
-
-  funk_copy_node_into_node_list(&other, nodes, &idx );
-
 
 }

@@ -252,7 +252,7 @@ class FixedSizeExpressionList(List):
 
         iterator_reg = self.funk.emitter.alloc_tnode('loop iterator',0,funk_types.function_pool, funk_types.int)
         # this has the current index up to which the array of nodes has been filled
-        print('start ', start, '<=>', 0)
+
         list_index_reg = self.funk.emitter.alloc_tnode('array iterator', 0, funk_types.function_pool, funk_types.int)
 
         label_exit = '{}_clause_{}_loop_exit__{}'.format(self.funk.function_scope.name, self.funk.function_scope.clause_idx, self.funk.function_scope.label_count)
@@ -275,7 +275,7 @@ class FixedSizeExpressionList(List):
 
         self.funk.emitter.increment_node_value_int(iterator_reg)
 
-        #print('len ', end, '<=>', (end-start)+1)
+
         self.funk.emitter.br_cond('eq', self.funk.emitter.get_node_data_value( iterator_reg,as_type=funk_types.int), end-start+1, label_exit, label_loop)
 
         self.funk.emitter.add_label(label_exit)
@@ -400,6 +400,14 @@ class Identifier:
             if name == self.name:
                 node = self.funk.emitter.alloc_tnode('tmp_sd2_render_user_state', value=0,pool=funk_types.global_pool, data_type=funk_types.int)
                 self.funk.emitter.get_s2d_user_global_state(node)
+                if result is not None:
+                    self.funk.emitter.copy_node(node, result)
+                return self.eval_node_index(node, result)
+        elif len(self.funk.function_scope.args) == 1 and 'sd2_last_key_pressed' in self.funk.function_scope.args[0]:
+            _,name = self.funk.function_scope.args[0].split('@')
+            if name == self.name:
+                node = self.funk.emitter.alloc_tnode('tmp_sd2_last_key_pressed', value=0,pool=funk_types.global_pool, data_type=funk_types.int)
+                node = self.funk.emitter.get_s2d_current_last_pressed_key(node)
                 if result is not None:
                     self.funk.emitter.copy_node(node, result)
                 return self.eval_node_index(node, result)
@@ -777,6 +785,7 @@ class FunctionCall(Expression):
             's2d_point': S2DDrawPoint,
             's2d_quad': S2DDrawQuad,
             's2d_render': S2DRenderFunction,  # void s2d_render(void)
+            's2d_onkey': SD2Onkey,
             'exit': Exit,
             'fread_list': FReadList,
             'reshape': ReShape,
@@ -1164,6 +1173,14 @@ class S2DCreateWindow:
 
     def eval(self, result=None):
         self.funk.window = self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
+
+class SD2Onkey:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.s2d_on_key(self.funk, self.arg_list)
 
 class S2DRenderFunction:
     """

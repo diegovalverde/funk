@@ -1225,6 +1225,14 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             call void @S2D_DrawCircle(float %{0}, float %{1}, float 1.0, i32 4, float {r}, float {g}, float {b}, float {alpha})
             """.format(p[0], p[1], x1=x1, y1=y1, r=float(r), g=g, b=b, alpha=alpha)
 
+    def s2d_on_key(self, funk, args):
+        if len(args) > 1:
+            raise Exception('=== s2d_on_key takes 0 or 1 parameters')
+
+
+        return
+
+
     def s2d_render_callback(self, funk, args):
         if len(args) > 1:
             raise Exception('=== s2d_render_callback takes 0 or 1 parameters')

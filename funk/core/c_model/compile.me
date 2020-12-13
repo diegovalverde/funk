@@ -3,10 +3,18 @@ if [[ -z "${LLVM_BIN_PATH}" ]]; then
   echo "Error LLVM_PATH is not set."
 fi
 
+if [[ -z "${C_INCLUDE_PATH}" ]]; then
+  echo "Error LLVM_PATH is not set."
+fi
+
 echo "C_INCLUDE_PATH=$C_INCLUDE_PATH"
 
 echo $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
 $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
+
+echo $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/s2d_input.c -I$C_INCLUDE_PATH -o funk/core/s2d_input.ll
+$LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/s2d_input.c -I$C_INCLUDE_PATH -o funk/core/s2d_input.ll
+
 
 echo ";;; ==== Data types ==== " > funk/core/data_types.txt
 echo ";;;" >> funk/core/data_types.txt
