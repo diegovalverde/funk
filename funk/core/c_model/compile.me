@@ -18,7 +18,7 @@ $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_sdl.c -I$C_INCLUDE
 
 echo ";;; ==== Data types ==== " > funk/core/data_types.txt
 echo ";;;" >> funk/core/data_types.txt
-egrep '^%struct|^%union|common global' funk/core/funk_core.ll >> funk/core/data_types.txt
+egrep '^%struct|^%union' funk/core/funk_core.ll >> funk/core/data_types.txt
 echo ";;;" >> funk/core/data_types.txt
 
 echo ";;; ==== Declarations ==== " > funk/core/functions.txt
