@@ -2,13 +2,13 @@
 #if FUNK_BUILD_FOR_WEB
 #include <emscripten.h>
 #endif
-//#include <cstdlib>
+
 #include "funk_sdl.h"
 #include "funk_c_model.h"
 
 struct sdl_context
 {
-  //  SDL_Renderer *renderer;
+
     struct tnode user_data;
 
 };
@@ -20,7 +20,7 @@ struct tnode g_sdl_user_global_state;
 
 void sdl_render(struct tnode *, int32_t, struct tnode *);
 void funk_create_int_scalar(enum pool_types , struct tnode * , int32_t );
-//void funk_print_scalar_element(struct tdata n);
+
 
 void set_sdl_user_global_state(struct tnode * state)
 {
@@ -48,21 +48,10 @@ void sdl_rect(struct tnode * x, struct tnode * y, struct tnode * w,struct tnode 
 void sdl_render_loop(void *arg)
 {
 
-
-
-    //struct sdl_context ctx;// = (struct sdl_context * )arg;
-    //funk_copy_node(&ctx.user_data, &g_sdl_user_global_state);
-    //SDL_Renderer *renderer = ctx->renderer;
-
-    // example: draw a moving rectangle
-
-    // red background
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    // black background
+    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
     SDL_RenderClear(renderer);
-/*
-    // moving blue rectangle
 
-*/
     struct tnode result;
     funk_create_int_scalar(function_pool, &result, 0);
 
@@ -103,11 +92,13 @@ void funk_sdl_create_window(int32_t w, int32_t h, struct tnode * user_data)
     // This is the path to run on your laptop
     SDL_Event event;
     while (1){
+      sdl_render_loop((void*)&ctx);
+      
       SDL_PollEvent(&event);
       if (event.type == SDL_QUIT) {
             break;
       }
-      sdl_render_loop((void*)&ctx);
+
     }
   #endif
   SDL_DestroyRenderer(renderer);

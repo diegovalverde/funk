@@ -12,9 +12,6 @@ echo "C_INCLUDE_PATH=$C_INCLUDE_PATH"
 echo $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
 $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_c_model.c -I$C_INCLUDE_PATH -o funk/core/funk_core.ll
 
-#echo $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/s2d_input.c -I$C_INCLUDE_PATH -o funk/core/s2d_input.ll
-#$LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/s2d_input.c -I$C_INCLUDE_PATH -o funk/core/s2d_input.ll
-
 echo $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_sdl.c -I$C_INCLUDE_PATH -o funk/core/funk_sdl.ll
 $LLVM_BIN_PATH/clang -O0 -S -emit-llvm funk/core/c_model/funk_sdl.c -I$C_INCLUDE_PATH -o funk/core/funk_sdl.ll
 

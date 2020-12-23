@@ -272,7 +272,7 @@ void funk_create_list_slide_2d_lit(struct tnode * src, struct tnode * dst , int3
 
     idx_0 %= src->dimension.d[0];
     idx_1 %= src->dimension.d[1];
-
+/*
     if (idx_1 >= src->dimension.d[0]){
       printf("-E- %s index %d out of array boundary %u\n",__FUNCTION__, idx_1, src->dimension.d[0]);
     }
@@ -280,7 +280,7 @@ void funk_create_list_slide_2d_lit(struct tnode * src, struct tnode * dst , int3
     if (idx_0  >= src->dimension.d[1]){
       printf("-E- %s index %d out of array boundary %u\n",__FUNCTION__, idx_0, src->dimension.d[1]);
     }
-
+*/
     dst->pool = src->pool;
     dst->wrap_creation = src->pool->wrap_count;
     dst->dimension.count = 0;
