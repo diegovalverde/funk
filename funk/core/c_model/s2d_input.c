@@ -9,9 +9,9 @@ void funk_s2d_on_key_callback(S2D_Event e){
     return;
 
     struct tnode s2d_key_pressed_code;
-    funk_create_int_scalar(&funk_functions_memory_pool, &s2d_key_pressed_code, (int)e.key );
+    funk_create_int_scalar(function_pool, &s2d_key_pressed_code, (int)e.key );
     struct tnode result;
-    funk_create_int_scalar(&funk_functions_memory_pool, &result, -1 );
+    funk_create_int_scalar(function_pool, &result, -1 );
     s2d_onkey(&result,1,&s2d_key_pressed_code);
 
 }

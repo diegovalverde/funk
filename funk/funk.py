@@ -76,14 +76,18 @@ define {ret_val} @{name}({args}) #0 {{
 
 
 class Funk:
-    def __init__(self, debug=False):
+    def __init__(self, ll1_path=None, declarations_path=None, debug=False):
 
         self.debug = debug
+
+        if self.debug: print('-I- Initializing compiler')
+
         function_declarations = None
         self.function_debug_name_map = {}
 
         try:
-            ll1_path = '{}/funk_ll1.lark'.format(os.path.dirname(os.path.abspath(__file__)))
+            if ll1_path is None:
+                ll1_path = '{}/funk_ll1.lark'.format(os.path.dirname(os.path.abspath(__file__)))
             with open(ll1_path, 'r') as myfile:
                 funk_grammar = myfile.read()
         except IOError:
@@ -91,7 +95,8 @@ class Funk:
             exit()
 
         try:
-            declarations_path = '{}/core/declarations.txt'.format(os.path.dirname(os.path.abspath(__file__)))
+            if declarations_path is None:
+                declarations_path = '{}/core/declarations.txt'.format(os.path.dirname(os.path.abspath(__file__)))
             with open(declarations_path, 'r') as file:
                 function_declarations = file.read()
         except IOError:
@@ -235,6 +240,8 @@ target datalayout = ""
                 print('-I- Emitting Function {}/{} '.format(fn, ast_generator.function_map[fn].arity))
 
             ast_generator.function_map[fn].eval()
+
+        print('-I- Success')
 
     def alloc_literal_symbol(self, symbol, pool, symbol_name):
         return self.emitter.alloc_tnode(symbol_name, symbol.eval(), pool, symbol.get_compile_type())

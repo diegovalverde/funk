@@ -403,14 +403,6 @@ class Identifier:
                 if result is not None:
                     self.funk.emitter.copy_node(node, result)
                 return self.eval_node_index(node, result)
-        elif len(self.funk.function_scope.args) == 1 and 'sd2_last_key_pressed' in self.funk.function_scope.args[0]:
-            _,name = self.funk.function_scope.args[0].split('@')
-            if name == self.name:
-                node = self.funk.emitter.alloc_tnode('tmp_sd2_last_key_pressed', value=0,pool=funk_types.global_pool, data_type=funk_types.int)
-                node = self.funk.emitter.get_s2d_current_last_pressed_key(node)
-                if result is not None:
-                    self.funk.emitter.copy_node(node, result)
-                return self.eval_node_index(node, result)
 
         return global_symbol_name
 
@@ -785,7 +777,6 @@ class FunctionCall(Expression):
             's2d_point': S2DDrawPoint,
             's2d_quad': S2DDrawQuad,
             's2d_render': S2DRenderFunction,  # void s2d_render(void)
-            's2d_onkey': SD2Onkey,
             'exit': Exit,
             'fread_list': FReadList,
             'reshape': ReShape,
@@ -1172,15 +1163,7 @@ class S2DCreateWindow:
         self.arg_list = arg_list
 
     def eval(self, result=None):
-        self.funk.window = self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
-
-class SD2Onkey:
-    def __init__(self, funk, arg_list):
-        self.funk = funk
-        self.arg_list = arg_list
-
-    def eval(self, result=None):
-        self.funk.emitter.s2d_on_key(self.funk, self.arg_list)
+        self.funk.s2d_window = self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
 
 class S2DRenderFunction:
     """

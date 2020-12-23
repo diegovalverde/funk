@@ -344,8 +344,8 @@ class Emitter:
         self.code += """
         ;; allocate the function result node
         %{0} = alloca %struct.tnode, align 8
-        call void @funk_create_int_scalar(%struct.tpool* @funk_functions_memory_pool, %struct.tnode* %{0},  i32 {val})
-        """.format(p[0], val=0)
+        call void @funk_create_int_scalar(i32 {pool}, %struct.tnode* %{0},  i32 {val})
+        """.format(p[0], val=0, pool=funk_types.function_pool)
 
         return '%{}'.format(p[0])
 
@@ -670,7 +670,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         self.code += """
              %{0} = getelementptr inbounds [{n} x %struct.tnode], [{n} x %struct.tnode]* {list}, i64 0, i64 0
-             call void @funk_regroup_list(%struct.tpool* {pool}, %struct.tnode* {result}, %struct.tnode* %{0}, i32 {n})
+             call void @funk_regroup_list(i32 {pool}, %struct.tnode* {result}, %struct.tnode* %{0}, i32 {n})
             """.format(p[0], result=result,  list=node_list, n=n, pool=pool)
 
         return result
@@ -705,14 +705,14 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.code += """
             %{0} = getelementptr inbounds [{n} x i32], [{n} x i32]* %{A}, i32 0, i32 0
             %{1} = alloca %struct.tnode, align 8
-            call void @funk_create_2d_matrix_int_literal(%struct.tpool* {pool}, %struct.tnode* %{1}, i32* %{0}, i32 {N}, i32 {M})
+            call void @funk_create_2d_matrix_int_literal(i32 {pool}, %struct.tnode* %{1}, i32* %{0}, i32 {N}, i32 {M})
 
             """.format(p[0], p[1], A=A, name=name, lit_list=lit_list, n=n, pool=pool, N=dimensions[0], M=dimensions[1])
         else:
             self.code += """
             %{0} = getelementptr inbounds [{n} x i32], [{n} x i32]* %{A}, i32 0, i32 0
             %{1} = alloca %struct.tnode, align 8
-            call void @funk_create_list_int_literal(%struct.tpool* {pool}, %struct.tnode* %{1}, i32* %{0}, i32 {n})
+            call void @funk_create_list_int_literal(i32 {pool}, %struct.tnode* %{1}, i32* %{0}, i32 {n})
 
             """.format(p[0], p[1], A=A, name=name, lit_list=lit_list, pool=pool, n=dimensions[0])
 
@@ -961,7 +961,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.code += """
         ;; create tnode '{name}' of type Integer
         %{0} = alloca %struct.tnode, align 8
-        call void @funk_create_int_scalar(%struct.tpool* {pool}, %struct.tnode* %{0},  i32 {val})
+        call void @funk_create_int_scalar(i32 {pool}, %struct.tnode* %{0},  i32 {val})
         """.format(p[0], val=value, name=name, pool=pool)
         else:
             print('Data type not implemented')
@@ -1225,12 +1225,12 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             call void @S2D_DrawCircle(float %{0}, float %{1}, float 1.0, i32 4, float {r}, float {g}, float {b}, float {alpha})
             """.format(p[0], p[1], x1=x1, y1=y1, r=float(r), g=g, b=b, alpha=alpha)
 
-    def s2d_on_key(self, funk, args):
-        if len(args) > 1:
-            raise Exception('=== s2d_on_key takes 0 or 1 parameters')
+    def s2d_register_input_callback(self, funk):
 
+        self.code +="""
+            call void @funk_s2d_register_input_callback(%struct.S2D_Window* %{window})
+        """.format(window=funk.s2d_window)
 
-        return
 
 
     def s2d_render_callback(self, funk, args):
@@ -1252,7 +1252,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
             self.code += """
             %{0} = call i32 @S2D_Show( %struct.S2D_Window * %{s2d_window})
-            """.format(p[0], s2d_window=funk.window)
+            """.format(p[0], s2d_window=funk.s2d_window)
 
     def s2d_quad(self, funk, args):
         if len(args) != 12:
@@ -1326,7 +1326,7 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return node
 
-    def fread_list(self, funk, args, result, pool=' @funk_global_memory_pool'):
+    def fread_list(self, funk, args, result, pool=funk_types.global_pool):
         if len(args) != 1:
             raise Exception('=== fread_list takes 1 parameter')
 
@@ -1341,13 +1341,13 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         if result is not None:
             self.code += """
 
-                call void @funk_read_list_from_file(%struct.tpool* {pool}, %struct.tnode* {result}, i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
+                call void @funk_read_list_from_file(i32 {pool}, %struct.tnode* {result}, i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
                 result=result, format_len=format_len, cnt=funk.strings_count, pool=pool)
         else:
             p = [i for i in range(self.index, self.index + 1)]
             self.code += """
                     %{0} = alloca %struct.tnode, align 8
-                    call void @funk_read_list_from_file(%struct.tpool* {pool}, %struct.tnode* %{0}, i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
+                    call void @funk_read_list_from_file(i32 {pool}, %struct.tnode* %{0}, i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt} , i32 0, i32 0))""".format(
                 p[0], format_len=format_len, cnt=funk.strings_count, pool=pool)
 
             self.index = p[-1] + 1

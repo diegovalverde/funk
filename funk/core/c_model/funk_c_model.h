@@ -11,6 +11,12 @@
 #include <unistd.h>
 #include <stdint.h>
 
+
+enum pool_types{
+  global_pool=0,
+  function_pool=1
+};
+
 enum funk_types{
 type_invalid = 0,
 type_int = 1,
@@ -88,6 +94,6 @@ struct tnode
 
 
 
-void funk_create_int_scalar(struct tpool * , struct tnode * , int32_t );
+void funk_create_int_scalar(enum pool_types  , struct tnode * , int32_t );
 
 #endif

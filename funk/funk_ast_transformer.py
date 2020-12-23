@@ -86,7 +86,7 @@ class TreeToAst(Transformer):
 
         fn_name = tree[0].name
 
-        special_fns = ['main', 's2d_render']
+        special_fns = ['main', 's2d_render', 's2d_onkey']
         firm = remove_invalid(flatten(tree[1]))
         fn_arguments, pattern_matches, tail_pairs, preconditions = self.parse_function_firm(firm)
         fn_body = flatten(tree[2])
@@ -101,10 +101,16 @@ class TreeToAst(Transformer):
             #
             # self.funk.symbol_table[local_symbol_name] = self.funk.emitter.get_s2d_user_global_state()
 
-            if fn_name == 's2d_render':
+            if fn_name == 's2d_onkey':
                 if len(fn_arguments) != 1:
-                    print('-E- s2d_render requires a single argument')
-                    raise
+                    raise Exception('-E- s2d_onkey requires a single argument')
+
+                self.funk.emitter.s2d_register_input_callback(self.funk)
+
+            elif fn_name == 's2d_render':
+                if len(fn_arguments) != 1:
+                    raise Exception('-E- s2d_render requires a single argument')
+
 
                 fn_arguments = ['sd2_render_user_state@{}'.format(fn_arguments[0])]
 
