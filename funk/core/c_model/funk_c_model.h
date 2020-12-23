@@ -60,7 +60,7 @@ struct tpool
   struct tdata data[FUNK_MAX_POOL_SIZE];
   uint32_t tail;
   uint32_t wrap_count;
-} funk_global_memory_pool, funk_functions_memory_pool;
+} ;
 
 #define FUNK_MAX_DIMENSIONS 2 //may optimize when creating the runtime
 struct tdimensions

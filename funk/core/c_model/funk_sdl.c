@@ -4,6 +4,15 @@
 #endif
 //#include <cstdlib>
 #include "funk_sdl.h"
+#include "funk_c_model.h"
+
+struct sdl_context
+{
+  //  SDL_Renderer *renderer;
+    struct tnode user_data;
+
+};
+
 SDL_Renderer *renderer = NULL;
 
 
