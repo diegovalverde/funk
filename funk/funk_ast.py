@@ -399,7 +399,6 @@ class Identifier:
             _,name = self.funk.function_scope.args[0].split('@')
             if name == self.name:
                 node = self.funk.emitter.alloc_tnode('tmp_sd2_render_user_state', value=0,pool=funk_types.global_pool, data_type=funk_types.int)
-                self.funk.emitter.get_s2d_user_global_state(node)
                 if result is not None:
                     self.funk.emitter.copy_node(node, result)
                 return self.eval_node_index(node, result)
@@ -772,14 +771,9 @@ class FunctionCall(Expression):
             'len': Len,
             'sum': FunkSum,
             'dim': Dim,
-            's2d_window': S2DCreateWindow,
             'sdl_window': SDLCreateWindow,
-            's2d_line': S2DDrawLine,
-            's2d_point': S2DDrawPoint,
-            's2d_quad': S2DDrawQuad,
             'sdl_rect':SDLRect,
             'sdl_set_color':SDLColor,
-            's2d_render': S2DRenderFunction,  # void s2d_render(void)
             'sdl_render': SDLRenderFunction,
             'exit': Exit,
             'fread_list': FReadList,
@@ -854,7 +848,7 @@ class FunctionClause:
 
     def emit(self, clause_idx, arity):
         # TODO: refactor
-        if self.name in ['main', 's2d_render','sdl_render']:
+        if self.name in ['main','sdl_render']:
 
             for stmt in self.body:
                 stmt.eval()
@@ -1162,36 +1156,6 @@ class SDLCreateWindow:
     def eval(self, result=None):
         self.funk.emitter.sdl_create_window(self.funk, self.arg_list)
 
-
-class S2DCreateWindow:
-    """
-    Requires Simple2D to be installed.
-    https://github.com/simple2d/simple2d
-
-    """
-
-    def __init__(self, funk, arg_list):
-        self.funk = funk
-        self.arg_list = arg_list
-
-    def eval(self, result=None):
-        self.funk.s2d_window = self.funk.emitter.s2d_create_window(self.funk, self.arg_list)
-
-class S2DRenderFunction:
-    """
-        Requires Simple2D to be installed.
-        https://github.com/simple2d/simple2d
-
-        """
-
-    def __init__(self, funk, arg_list):
-        self.funk = funk
-        self.arg_list = arg_list
-
-    def eval(self, result=None):
-        self.funk.emitter.s2d_render_callback(self.funk, self.arg_list)
-
-
 class SDLRenderFunction:
     """
         Requires Simple2D to be installed.
@@ -1221,56 +1185,3 @@ class SDLColor:
 
     def eval(self, result=None):
         self.funk.emitter.sdl_set_color(self.funk, self.arg_list)
-
-class S2DDrawQuad:
-    """
-            Requires Simple2D to be installed.
-            https://github.com/simple2d/simple2d
-
-            """
-
-    def __init__(self, funk, arg_list):
-        self.funk = funk
-        self.arg_list = arg_list
-
-    def eval(self, result=None):
-        self.funk.emitter.s2d_quad(self.funk, self.arg_list)
-
-class S2DDrawLine:
-    """
-        Requires Simple2D to be installed.
-        https://github.com/simple2d/simple2d
-
-        """
-
-    def __init__(self, funk, arg_list):
-        self.funk = funk
-        self.arg_list = arg_list
-
-    def eval(self, result=None):
-        self.funk.emitter.s2d_draw_line(self.funk, self.arg_list)
-
-class S2DDrawPoint:
-    """
-            Requires Simple2D to be installed.
-            https://github.com/simple2d/simple2d
-
-            """
-
-    def __init__(self, funk, arg_list):
-        self.funk = funk
-        self.arg_list = arg_list
-
-    def eval(self, result=None):
-        """
-        This function must be provided the raw float/int
-        registers
-        """
-        uwrapped_args = []
-        for arg in self.arg_list:
-            if isinstance(arg, DoubleConstant) or isinstance(arg, IntegerConstant):
-                uwrapped_args.append(arg.eval())
-            else:
-                uwrapped_args.append(self.funk.emitter.get_node_data_value(arg.eval(), as_type=funk_types.double))
-
-        self.funk.emitter.s2d_draw_point(self.funk, uwrapped_args)

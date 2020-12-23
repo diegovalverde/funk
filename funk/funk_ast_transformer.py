@@ -86,33 +86,13 @@ class TreeToAst(Transformer):
 
         fn_name = tree[0].name
 
-        special_fns = ['main', 's2d_render', 's2d_onkey', 'sdl_render']
+        special_fns = ['main', 'sdl_render']
         firm = remove_invalid(flatten(tree[1]))
         fn_arguments, pattern_matches, tail_pairs, preconditions = self.parse_function_firm(firm)
         fn_body = flatten(tree[2])
 
         if fn_name in special_fns:
             function_key = fn_name
-            # local_symbol_name = '{}_{}_{}'.format(fn_name,
-            #                                       0,
-            #                                       fn_arguments[0])
-            #
-            # # Now check to see if it is a local (function scope) variable
-            #
-            # self.funk.symbol_table[local_symbol_name] = self.funk.emitter.get_s2d_user_global_state()
-
-            if fn_name == 's2d_onkey':
-                if len(fn_arguments) != 1:
-                    raise Exception('-E- s2d_onkey requires a single argument')
-
-                self.funk.emitter.s2d_register_input_callback(self.funk)
-
-            elif fn_name == 's2d_render':
-                if len(fn_arguments) != 1:
-                    raise Exception('-E- s2d_render requires a single argument')
-
-
-                fn_arguments = ['sd2_render_user_state@{}'.format(fn_arguments[0])]
 
             clause = funk_ast.FunctionClause(self.funk, function_key, fn_body, preconditions, pattern_matches,
                                              arguments=fn_arguments, tail_pairs=tail_pairs)
@@ -342,27 +322,6 @@ class TreeToAst(Transformer):
         functions = remove_invalid(flatten(token))
 
         for fn in functions:
-
-            if fn.name == 's2d':
-                self.funk.preamble += \
-                    """
-    declare %struct.S2D_Window* @S2D_CreateWindow(i8*, i32, i32, void (...)*, void (...)*, i32) #1
-    declare i32 @S2D_Show(%struct.S2D_Window*) #1
-    declare void @S2D_DrawTriangle(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
-    declare void @S2D_DrawLine(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) #1
-    declare void @S2D_DrawCircle(float, float , float, i32, float, float , float, float)
-    declare void @S2D_DrawQuad( float, float, float, float, float, float, float , float ,float , float , float , float ,float , float ,float , float , float , float ,float , float ,float , float , float , float ) #1
-
-    %struct.S2D_Window = type { %struct.SDL_Window*, i8*, i8*, i8*, i8*, i32, i32, i8*, i8*, i32, i32, i32, i32, %struct.S2D_Viewport, void (...)*, void (...)*, i32, %struct.S2D_Mouse, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, void (%struct.S2D_Event*)*, i8, i32, %struct.S2D_Color, i8*, i32, i32, i32, i32, double, i8 }
-    %struct.SDL_Window = type opaque
-    %struct.S2D_Viewport = type { i32, i32, i32 }
-    %struct.S2D_Mouse = type { i32, i32, i32 }
-    %struct.S2D_Event = type { i32, i32, i32, i8, i8*, i32, i32, i32, i32, i32, i32, i32 }
-    %struct.S2D_Color = type { float, float, float, float }
-
-                    """
-
-                continue
             fn_symbol = '@{}'.format(fn.name)
             self.funk.functions.append(fn_symbol)
             self.funk.symbol_table[fn_symbol] = funk_ast.ExternalFunction(self.funk, fn_symbol)

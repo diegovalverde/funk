@@ -2,7 +2,7 @@ import re
 from .funk import Funk
 import os
 
-link_with_s2d = False
+link_with_sdl = False
 dependency_satisfied = set()
 link_targets = set()
 
@@ -16,14 +16,14 @@ def get_dependencies(src, include_paths=['.',os.getcwd()]):
     """
     dependencies = []
     for line in src.splitlines():
-        global link_with_s2d
+        global link_with_sdl
         match = re.findall('^ *\t*use +(.*)', line)
         if len(match) == 0:
             continue
         for dep in match[0].split(','):
             dep = dep.strip()
-            if dep == 's2d':
-                link_with_s2d = True
+            if dep == 'sdl':
+                link_with_sdl = True
                 continue
 
             found = False
@@ -91,8 +91,8 @@ def is_in_path_env(program):
     return False
 
 
-def build(src_path, include_paths, build_path, debug, with_sdl=True):
-    global link_with_s2d
+def build(src_path, include_paths, build_path, debug):
+    global link_with_sdl
 
     if os.environ.get('LLVM_BIN_PATH') is None:
         print('-E- LLVM_BIN_PATH environment variable is undefined')
@@ -111,7 +111,7 @@ def build(src_path, include_paths, build_path, debug, with_sdl=True):
     if not os.path.isfile(os.path.join(build_path,'funk_core.o')):
         link_targets.add('{}/core/funk_core.ll'.format(os.path.dirname(os.path.abspath(__file__))))
 
-    if with_sdl and not os.path.isfile(os.path.join(build_path,'funk_sdl.o')):
+    if link_with_sdl and not os.path.isfile(os.path.join(build_path,'funk_sdl.o')):
         link_targets.add('{}/core/funk_sdl.ll'.format(os.path.dirname(os.path.abspath(__file__))))
 
     _, file_name = os.path.split(src_path)
@@ -135,10 +135,8 @@ def build(src_path, include_paths, build_path, debug, with_sdl=True):
         obj_list += ' {} '.format(obj_name)
 
     libs = ''
-    if link_with_s2d:
-        libs += '`simple2d --libs`'
-
-    if with_sdl:
+    
+    if link_with_sdl:
         # TODO: allow user to specify the path to libs
         libs += '-L/usr/local/lib -lSDL2 '
 

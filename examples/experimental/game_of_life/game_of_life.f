@@ -1,4 +1,4 @@
-use render_board
+use sdl, render_board
 W <-> 50
 H <-> 50
 

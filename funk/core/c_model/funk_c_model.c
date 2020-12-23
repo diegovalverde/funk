@@ -36,9 +36,6 @@ uint32_t g_funk_internal_function_tracing_enabled = 0;
 
 #endif
 
-// S2D specific globals
-// https://github.com/simple2d/simple2d
-struct tnode gRenderLoopState;
 
 
 
@@ -178,41 +175,6 @@ void funk_copy_node(struct tnode * dst, struct tnode * src){
   if (g_funk_internal_function_tracing_enabled)
       printf("END %s \n", __FUNCTION__);
   #endif
-
-}
-
-
-void set_s2d_user_global_state(struct tnode * n){
-
-  #ifdef FUNK_DEBUG_BUILD
-  if (g_funk_internal_function_tracing_enabled)
-      printf("START %s \n", __FUNCTION__);
-  #endif
-
-
-  funk_copy_node( &gRenderLoopState, n);
-
-
-  #ifdef FUNK_DEBUG_BUILD
-  if (g_funk_internal_function_tracing_enabled)
-      printf("END %s \n", __FUNCTION__);
-  #endif
-
-}
-
-struct tnode get_s2d_user_global_state(){
-  #ifdef FUNK_DEBUG_BUILD
-  if (g_funk_internal_function_tracing_enabled)
-      printf("START %s \n", __FUNCTION__);
-  #endif
-
-
-  #ifdef FUNK_DEBUG_BUILD
-  if (g_funk_internal_function_tracing_enabled)
-      printf("END %s \n", __FUNCTION__);
-  #endif
-
-  return gRenderLoopState;
 
 }
 

@@ -452,12 +452,6 @@ define i32 @main() #0 {
 
             """
             self.index = 1
-        elif name == 's2d_render':
-            self.index = 1
-            self.code += """
-define void @s2d_render() #0 {
-            """
-
         else:
 
             self.index = 4  # number of arguments + result + the first label
@@ -1129,12 +1123,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return '%{}'.format(p[0])
 
-    def get_s2d_user_global_state(self, dst):
-
-        self.code += """
-         ;;
-         call void @get_s2d_user_global_state(%struct.tnode* noalias sret {})
-         """.format(dst)
 
     def rand_double(self, funk, args, result=None):
         if len(args) != 2:
@@ -1169,82 +1157,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         call void @funk_sdl_create_window(i32 {w}, i32 {h}, %struct.tnode* {node})
         """.format(w=w, h=h, node=node)
 
-
-    def s2d_create_window(self, funk, args):
-
-        window_name = args[0].eval()
-        width = args[1].eval()
-        height = args[2].eval()
-
-        format_len = len(window_name) + 1
-
-        funk.preamble += \
-            """
-@.str_{cnt} = private unnamed_addr constant [{format_len} x i8] c"{format_string}\00", align 1
-            """.format(cnt=funk.strings_count, format_len=format_len, format_string=window_name)
-        p = [x for x in range(self.index, self.index + 4)]
-        self.code += """
-        ;;Call simple2D create window
-        %{0} = alloca i32, align 4
-        %{1} = alloca %struct.S2D_Window*, align 8
-        store i32 0, i32* %{0}, align 4
-        %{2} = call %struct.S2D_Window* @S2D_CreateWindow(i8* getelementptr inbounds ([{format_len} x i8], [{format_len} x i8]* @.str_{cnt}, i32 0, i32 0), i32 {width}, i32 {height}, void (...)* null, void (...)* bitcast (void ()* {callback_fn} to void (...)*), i32 0)
-        store %struct.S2D_Window* %{2}, %struct.S2D_Window** %{1}, align 8
-        %{3} = load %struct.S2D_Window*, %struct.S2D_Window** %{1}, align 8
-
-        """.format(
-            p[0], p[1], p[2], p[3], format_len=format_len, cnt=funk.strings_count, height=height, width=width,
-            callback_fn='@s2d_render')
-
-        funk.strings_count += 1
-        self.index = p[-1] + 1
-        return p[3]
-
-    def s2d_draw_line(self, funk, args):
-        if len(args) != 9:
-            raise Exception('=== s2d_draw_line takes 9 parameters')
-
-        x1, y1, x2, y2, r, g, b, alpha, width = args
-
-        x1 = self.get_node_data_value(x1.eval(), as_type=funk_types.double)
-        x2 = self.get_node_data_value(x2.eval(), as_type=funk_types.double)
-        y1 = self.get_node_data_value(y1.eval(), as_type=funk_types.double)
-        y2 = self.get_node_data_value(y2.eval(), as_type=funk_types.double)
-
-        p = [x for x in range(self.index, self.index + 4)]
-        self.index = p[-1] + 1
-
-        self.code += """
-            %{0} = fptrunc double {x1} to float
-            %{1} = fptrunc double {y1} to float
-            %{2} = fptrunc double {x2} to float
-            %{3} = fptrunc double {y2} to float
-            call void @S2D_DrawLine(float %{0}, float %{1}, float %{2}, float %{3}, float {width}, float {r}, float {g},float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha}, float {r}, float {g}, float {b}, float {alpha})
-            """.format(p[0], p[1], p[2], p[3], x1=x1, x2=x2, y1=y1, y2=y2,
-                       r=float(r.eval()), g=float(g.eval()), b=float(b.eval()), alpha=float(alpha.eval()),
-                       width=float(width.eval()))
-
-    def s2d_draw_point(self, funk, args):
-        if len(args) != 6:
-            raise Exception('=== s2d_draw_point takes 6 parameters')
-
-        x1, y1, r, g, b, alpha = args
-        p = [x for x in range(self.index, self.index + 2)]
-        self.index = p[-1] + 1
-
-        self.code += """
-            %{0} = fptrunc double {x1} to float
-            %{1} = fptrunc double {y1} to float
-            call void @S2D_DrawCircle(float %{0}, float %{1}, float 1.0, i32 4, float {r}, float {g}, float {b}, float {alpha})
-            """.format(p[0], p[1], x1=x1, y1=y1, r=float(r), g=g, b=b, alpha=alpha)
-
-    def s2d_register_input_callback(self, funk):
-
-        self.code +="""
-            call void @funk_s2d_register_input_callback(%struct.S2D_Window* %{window})
-        """.format(window=funk.s2d_window)
-
-
     def sdl_render_callback(self,funk,args):
         if len(args) != 1:
             raise Exception('=== sdl_render_callback takes 1 parameter')
@@ -1255,35 +1167,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         call void @set_sdl_user_global_state(%struct.tnode* {global_state})
 
         """.format(global_state=global_state)
-
-
-    def s2d_render_callback(self, funk, args):
-        if len(args) > 1:
-            raise Exception('=== s2d_render_callback takes 0 or 1 parameters')
-
-        global_state = args[0].eval()
-        self.code += """
-        ;; sdl_render_callback
-        call void @set_sdl_user_global_state(%struct.tnode* {global_state})
-
-        """.format(global_state=global_state)
-
-        if len(args) > 0:
-            global_state = args[0].eval()
-            self.code += """
-            ;; s2d_render_callback
-            call void @set_s2d_user_global_state(%struct.tnode* {global_state})
-
-            """.format(global_state=global_state)
-
-        if funk.function_scope.name == 'main':
-            self.add_comment('DUMMY CALL @s2d_render')
-            p = [x for x in range(self.index, self.index + 1)]
-            self.index = p[-1] + 1
-
-            self.code += """
-            %{0} = call i32 @S2D_Show( %struct.S2D_Window * %{s2d_window})
-            """.format(p[0], s2d_window=funk.s2d_window)
 
     def sdl_rect(self, funk, args):
         if len(args) != 4:
@@ -1308,39 +1191,6 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         self.code += """
                 call void @sdl_set_color(%struct.tnode* {r}, %struct.tnode* {g}, %struct.tnode* {b})
                 """.format(r=r, g=g, b=b)
-
-
-    def s2d_quad(self, funk, args):
-        if len(args) != 12:
-            raise Exception('=== s2d_quad takes 12 parameters')
-
-        v = []
-        for arg in args:
-            if isinstance(arg, funk_ast.DoubleConstant):
-                x = arg.eval()
-            elif isinstance(arg, funk_ast.IntegerConstant):
-                x = float(arg.eval())
-            else:
-
-                x = arg.eval()
-                p = [i for i in range(self.index, self.index + 1)]
-                self.code += """
-                %{0} = call float @funk_ToFloat(%struct.tnode* {x})
-                """.format(p[0], x=x)
-                x = '%{}'.format(p[-1])
-                self.index = p[-1] + 1
-
-
-            v.append(x)
-
-        self.code += """
-        ;; s2d_quad
-        call void @S2D_DrawQuad( float {x1}, float {y1},float {r}, float {g}, float {b}, float {alpha},float {x2}, \
-        float {y2},float {r}, float {g}, float {b}, float {alpha},float {x3}, float {y3},float {r}, float {g}, \
-        float {b}, float {alpha},float {x4}, float {y4},float {r}, float {g}, float {b}, float {alpha})
-        """.format(
-                x1=v[0], y1=v[1], x2=v[2], y2=v[3], x3=v[4], y3=v[5], x4=v[6],
-                y4=v[7], r=v[8], g=v[9], b=v[10], alpha=v[11])
 
     def reshape(self, funk, args, result):
         if isinstance(args[0],str):
