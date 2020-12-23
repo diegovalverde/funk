@@ -773,6 +773,7 @@ class FunctionCall(Expression):
             'sum': FunkSum,
             'dim': Dim,
             's2d_window': S2DCreateWindow,
+            'sdl_window': SDLCreateWindow,
             's2d_line': S2DDrawLine,
             's2d_point': S2DDrawPoint,
             's2d_quad': S2DDrawQuad,
@@ -1150,6 +1151,14 @@ class Sleep:
 
     def eval(self, result=None):
         return self.funk.emitter.sleep(self.funk, self.arg_list)
+class SDLCreateWindow:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.sdl_create_window(self.funk, self.arg_list)
+
 
 class S2DCreateWindow:
     """

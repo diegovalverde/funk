@@ -2,7 +2,18 @@
 #include "funk_c_model.h"
 
 struct tpool funk_global_memory_pool, funk_functions_memory_pool;
+static uint32_t g_debug_continue = 0;
 
+static char funk_types_str[][100]=
+{
+  "type_invalid",
+  "type_int",
+  "type_double",
+  "type_array",
+  "type_empty_array",
+  "type_scalar",
+  "type_function"
+};
 /*
   Exporting globals does not work very well with web-assembly
   this is why we use these enums instead
@@ -206,20 +217,6 @@ struct tnode get_s2d_user_global_state(){
 
 }
 
-void funk_set_config_param(int id, int value){
-  printf("-I- Setting conf parameter %d to value %d\n", id, value);
-  switch (id){
-    case FUNK_PARAM_DEBUG_VERBOSITY:
-      g_funk_verbosity = value;
-      break;
-
-    case FUNK_PARAM_PRINT_ARRAY_MAX_ELEMENTS:
-      g_funk_print_array_max_elements = value;
-      break;
-
-  };
-
-}
 
 void funk_print_type(unsigned char type){
   if (type >= 0 && type < max_types){
@@ -1245,9 +1242,6 @@ void funk_read_list_from_file(enum pool_types  pool_type, struct tnode * dst, ch
     exit(1);
   }
 
-  if (g_funk_verbosity > 0){
-    printf("-D- Opened file '%s'",path);
-  }
 
   int value = 0;
   int count = 0;

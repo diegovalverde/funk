@@ -28,16 +28,7 @@ type_function = 6,
 max_types = 7
 };
 
-char funk_types_str[][100]=
-{
-  "type_invalid",
-  "type_int",
-  "type_double",
-  "type_array",
-  "type_empty_array",
-  "type_scalar",
-  "type_function"
-};
+
 
 enum FUNK_CONFIG_PARAMS{
   FUNK_PARAM_DEBUG_VERBOSITY,
@@ -45,10 +36,6 @@ enum FUNK_CONFIG_PARAMS{
 
 };
 
-uint32_t g_funk_print_array_max_elements = 30;
-uint32_t g_funk_print_array_element_per_row = 50;
-uint32_t g_debug_continue = 0;
-uint32_t g_funk_verbosity = 0;
 
 
 
@@ -95,5 +82,6 @@ struct tnode
 
 
 void funk_create_int_scalar(enum pool_types  , struct tnode * , int32_t );
+void funk_copy_node(struct tnode * , struct tnode * );
 
 #endif

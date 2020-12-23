@@ -1157,6 +1157,12 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
 
         return result
 
+    def sdl_create_window(self, funk, args):
+        self.code += """
+        call void @funk_sdl_create_window(%struct.tnode* {node})
+        """.format(node=args[0].eval())
+
+
     def s2d_create_window(self, funk, args):
 
         window_name = args[0].eval()
