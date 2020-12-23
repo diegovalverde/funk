@@ -91,7 +91,7 @@ def is_in_path_env(program):
     return False
 
 
-def build(src_path, include_paths, build_path, debug):
+def build(src_path, include_paths, build_path, debug, with_sdl=True):
     global link_with_s2d
 
     if os.environ.get('LLVM_BIN_PATH') is None:
@@ -111,7 +111,7 @@ def build(src_path, include_paths, build_path, debug):
     if not os.path.isfile(os.path.join(build_path,'funk_core.o')):
         link_targets.add('{}/core/funk_core.ll'.format(os.path.dirname(os.path.abspath(__file__))))
 
-    if not os.path.isfile(os.path.join(build_path,'funk_sdl.o')):
+    if with_sdl and not os.path.isfile(os.path.join(build_path,'funk_sdl.o')):
         link_targets.add('{}/core/funk_sdl.ll'.format(os.path.dirname(os.path.abspath(__file__))))
 
     _, file_name = os.path.split(src_path)
@@ -138,7 +138,10 @@ def build(src_path, include_paths, build_path, debug):
     if link_with_s2d:
         libs += '`simple2d --libs`'
 
-    libs += '-L/usr/local/lib -lSDL2 '
+    if with_sdl:
+        # TODO: allow user to specify the path to libs
+        libs += '-L/usr/local/lib -lSDL2 '
+
     cmd = '{}/clang {obj_list} {libs} -o {output}'.format(llvm_bin_prefix, obj_list=obj_list, libs=libs, output=output)
 
     print(cmd)

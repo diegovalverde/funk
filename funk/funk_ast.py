@@ -1188,6 +1188,21 @@ class S2DRenderFunction:
     def eval(self, result=None):
         self.funk.emitter.s2d_render_callback(self.funk, self.arg_list)
 
+
+class SDLRenderFunction:
+    """
+        Requires Simple2D to be installed.
+        https://github.com/simple2d/simple2d
+
+        """
+
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.sdl_render_callback(self.funk, self.arg_list)
+
 class S2DDrawQuad:
     """
             Requires Simple2D to be installed.

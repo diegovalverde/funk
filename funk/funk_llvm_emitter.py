@@ -1158,9 +1158,12 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         return result
 
     def sdl_create_window(self, funk, args):
+        if len(args) != 3:
+            raise Exception('sdl_create_window takes 3 arguments')
+
         self.code += """
-        call void @funk_sdl_create_window(%struct.tnode* {node})
-        """.format(node=args[0].eval())
+        call void @funk_sdl_create_window(i32 {w}, i32 {h}, %struct.tnode* {node})
+        """.format(w=args[0].eval(), h=args[1].eval(), node=args[2].eval())
 
 
     def s2d_create_window(self, funk, args):
@@ -1238,10 +1241,28 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
         """.format(window=funk.s2d_window)
 
 
+    def sdl_render_callback(self,funk,args):
+        if len(args) != 1:
+            raise Exception('=== sdl_render_callback takes 1 parameter')
+
+        global_state = args[0].eval()
+        self.code += """
+        ;; sdl_render_callback
+        call void @set_sdl_user_global_state(%struct.tnode* {global_state})
+
+        """.format(global_state=global_state)
+
 
     def s2d_render_callback(self, funk, args):
         if len(args) > 1:
             raise Exception('=== s2d_render_callback takes 0 or 1 parameters')
+
+        global_state = args[0].eval()
+        self.code += """
+        ;; sdl_render_callback
+        call void @set_sdl_user_global_state(%struct.tnode* {global_state})
+
+        """.format(global_state=global_state)
 
         if len(args) > 0:
             global_state = args[0].eval()

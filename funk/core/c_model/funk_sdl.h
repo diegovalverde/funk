@@ -4,9 +4,9 @@
 
 struct sdl_context
 {
-    SDL_Renderer *renderer;
+  //  SDL_Renderer *renderer;
     struct tnode user_data;
-    
+
 };
 
 #endif
