@@ -64,7 +64,6 @@ struct tnode * validate_node(struct tnode * n, const char * function){
   return n;
 }
 
-#define GET_NODE(n,i) get_node(n,i,__FUNCTION__, __LINE__)
 
 struct tdata * get_node(struct tnode * n, uint32_t i, const char * caller, int line ){
   if (n == NULL){
@@ -1093,6 +1092,18 @@ void funk_div_ri(struct tnode * node_r, int32_t r_offset,
                   funk_arith_op_rr(node_r, r_offset,
                                    node_a, a_offset,
                                    &node_b, 0, funk_div);
+                }
+
+void funk_mul_ri(struct tnode * node_r, int32_t r_offset,
+                struct tnode * node_a, int32_t a_offset,
+                int value){
+
+                  struct tnode node_b;
+
+                  funk_create_int_scalar(function_pool, &node_b, value);
+                  funk_arith_op_rr(node_r, r_offset,
+                                   node_a, a_offset,
+                                   &node_b, 0, funk_mul);
                 }
 
 void funk_sub_rf(struct tnode * node_r, int32_t r_offset,

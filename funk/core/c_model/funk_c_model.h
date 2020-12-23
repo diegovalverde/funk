@@ -80,6 +80,8 @@ struct tnode
 };
 
 
+#define GET_NODE(n,i) get_node(n,i,__FUNCTION__, __LINE__)
+struct tdata * get_node(struct tnode * , uint32_t , const char * , int  );
 
 void funk_create_int_scalar(enum pool_types  , struct tnode * , int32_t );
 void funk_copy_node(struct tnode * , struct tnode * );

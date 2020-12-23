@@ -1,4 +1,4 @@
-use s2d, render_board
+use render_board
 W <-> 50
 H <-> 50
 
@@ -6,7 +6,7 @@ update_cell(0,3):1.
 update_cell(1, c | c = 2 \/ c = 3):1.
 update_cell(_,_): 0.
 
-s2d_render(M):
+sdl_render(M):
     render_board(M, 150, 100, W, 10 )
 
     next_board <- [[update_cell(M[i,j],
@@ -14,8 +14,8 @@ s2d_render(M):
                    0 <= j < W] | 0 <= i < H ]
 
     sleep(1)
-    s2d_render(next_board).
+    sdl_render(next_board).
 
 main():
-    s2d_window('the game of life', 800, 600 )
-    s2d_render(reshape(fread_list('patterns/pulsar.txt'), [W,H])).
+    x <- 1
+    sdl_window(800, 600,reshape(fread_list('patterns/pulsar.txt'), [W,H]) ).

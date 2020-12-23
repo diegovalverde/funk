@@ -86,7 +86,7 @@ class TreeToAst(Transformer):
 
         fn_name = tree[0].name
 
-        special_fns = ['main', 's2d_render', 's2d_onkey']
+        special_fns = ['main', 's2d_render', 's2d_onkey', 'sdl_render']
         firm = remove_invalid(flatten(tree[1]))
         fn_arguments, pattern_matches, tail_pairs, preconditions = self.parse_function_firm(firm)
         fn_body = flatten(tree[2])

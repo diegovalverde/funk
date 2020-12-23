@@ -777,7 +777,10 @@ class FunctionCall(Expression):
             's2d_line': S2DDrawLine,
             's2d_point': S2DDrawPoint,
             's2d_quad': S2DDrawQuad,
+            'sdl_rect':SDLRect,
+            'sdl_set_color':SDLColor,
             's2d_render': S2DRenderFunction,  # void s2d_render(void)
+            'sdl_render': SDLRenderFunction,
             'exit': Exit,
             'fread_list': FReadList,
             'reshape': ReShape,
@@ -851,7 +854,7 @@ class FunctionClause:
 
     def emit(self, clause_idx, arity):
         # TODO: refactor
-        if self.name in ['main', 's2d_render']:
+        if self.name in ['main', 's2d_render','sdl_render']:
 
             for stmt in self.body:
                 stmt.eval()
@@ -1202,6 +1205,22 @@ class SDLRenderFunction:
 
     def eval(self, result=None):
         self.funk.emitter.sdl_render_callback(self.funk, self.arg_list)
+
+class SDLRect:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.sdl_rect(self.funk, self.arg_list)
+
+class SDLColor:
+    def __init__(self, funk, arg_list):
+        self.funk = funk
+        self.arg_list = arg_list
+
+    def eval(self, result=None):
+        self.funk.emitter.sdl_set_color(self.funk, self.arg_list)
 
 class S2DDrawQuad:
     """

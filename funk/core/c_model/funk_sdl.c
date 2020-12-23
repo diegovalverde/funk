@@ -19,7 +19,22 @@ void set_sdl_user_global_state(struct tnode * state)
   funk_copy_node( &g_sdl_user_global_state, state);
 
 }
+void sdl_set_color(struct tnode * r, struct tnode * g, struct tnode * b){
+  SDL_SetRenderDrawColor(renderer,
+    GET_NODE(r,0)->data.i,
+    GET_NODE(g,0)->data.i,
+    GET_NODE(b,0)->data.i, 255 );
+}
 
+void sdl_rect(struct tnode * x, struct tnode * y, struct tnode * w,struct tnode * h){
+  SDL_Rect r;
+  r.x = GET_NODE(x,0)->data.i;
+  r.y = GET_NODE(y,0)->data.i;
+  r.w = GET_NODE(w,0)->data.i;
+  r.h = GET_NODE(h,0)->data.i;
+
+  SDL_RenderFillRect(renderer, &r );
+}
 
 void sdl_render_loop(void *arg)
 {
@@ -37,13 +52,7 @@ void sdl_render_loop(void *arg)
     SDL_RenderClear(renderer);
 /*
     // moving blue rectangle
-    SDL_Rect r;
-    r.x = 50;
-    r.y = 50;
-    r.w = 50;
-    r.h = 50;
-    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255 );
-    SDL_RenderFillRect(renderer, &r );
+
 */
     struct tnode result;
     funk_create_int_scalar(function_pool, &result, 0);

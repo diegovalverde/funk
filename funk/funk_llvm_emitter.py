@@ -458,10 +458,11 @@ define i32 @main() #0 {
 define void @s2d_render() #0 {
             """
 
-
         else:
 
             self.index = 4  # number of arguments + result + the first label
+
+            if name == 'sdl_render': name = '@sdl_render'
 
             self.code += """
 ;; ======== {fn_name} Function implementation =========
@@ -1160,10 +1161,13 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
     def sdl_create_window(self, funk, args):
         if len(args) != 3:
             raise Exception('sdl_create_window takes 3 arguments')
+        w = args[0].eval()
+        h = args[1].eval()
+        node = args[2].eval()
 
         self.code += """
         call void @funk_sdl_create_window(i32 {w}, i32 {h}, %struct.tnode* {node})
-        """.format(w=args[0].eval(), h=args[1].eval(), node=args[2].eval())
+        """.format(w=w, h=h, node=node)
 
 
     def s2d_create_window(self, funk, args):
@@ -1280,6 +1284,31 @@ define {ret_type} {fn_name}(%struct.tnode*, i32, %struct.tnode*) #0 {{
             self.code += """
             %{0} = call i32 @S2D_Show( %struct.S2D_Window * %{s2d_window})
             """.format(p[0], s2d_window=funk.s2d_window)
+
+    def sdl_rect(self, funk, args):
+        if len(args) != 4:
+            raise Exception('=== sdl_rect takes 4 parameters')
+        x = args[0].eval()
+        y = args[1].eval()
+        w = args[2].eval()
+        h = args[3].eval()
+
+        self.code += """
+                call void @sdl_rect(%struct.tnode* {x}, %struct.tnode* {y}, %struct.tnode* {w}, %struct.tnode* {h})
+                """.format(x=x,y=y,w=w,h=h)
+
+    def sdl_set_color(self, funk, args):
+        if len(args) != 3:
+            raise Exception('=== sdl_set_color takes 3 parameters')
+
+        r = args[0].eval()
+        g = args[1].eval()
+        b = args[2].eval()
+
+        self.code += """
+                call void @sdl_set_color(%struct.tnode* {r}, %struct.tnode* {g}, %struct.tnode* {b})
+                """.format(r=r, g=g, b=b)
+
 
     def s2d_quad(self, funk, args):
         if len(args) != 12:
