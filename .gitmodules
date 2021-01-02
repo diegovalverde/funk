@@ -1,0 +1,4 @@
+[submodule "funk"]
+	path = funk
+	url = https://github.com/diegovalverde/lib_funky.git
+	branch = main

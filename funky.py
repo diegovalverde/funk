@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--include', help='Path to the .f includes', default='.')
 
     args = parser.parse_args()
-
+    set_cwd(os.path.dirname(os.path.abspath(__file__)))
     build(args.input_path,
           include_paths=[args.include],
           build_path=os.path.join(os.getcwd(),  'build'),
