@@ -25,10 +25,41 @@ _sum( x <~ [A]):
 
 triangular_series(n): (n*n + n)/2.
 
+coeffs(r | r < 1.):[0., 0., 0., 0.16, 0.].
+coeffs(r | r < 86.): [0.85, 0.04, 0.85, -0.04, 1.6].
+coeffs(r | r < 93.): [0.2, -0.26, 0.23, 0.22, 1.6].
+coeffs(_): [0.28, -0.15, 0.26, 0.24, 0.44].
+
+lt(x , y | x < y): 1.
+lt(x , y ): 0.
+
+float_test(prev_x, prev_y,r, e_x, e_y):
+    c <- coeffs(r)
+    x <- c[0] * prev_x + c[1] * prev_y
+    y <- c[2] * prev_x + c[3] * prev_y + c[4]
+    epsilon <- 0.001
+    assert( lt(x - e_x, epsilon), 1)
+    assert( lt(y - e_y, epsilon), 1)
+    1.
 
 main():
       #say('Test strings')
       #assert('hello',echo('hello'))
+      say('==== floating point ===')
+      epsilon <- 0.001
+      float_test(0.23408, 6.28606, 85.0, 0.45041, 1.5475 )
+
+      #assert(coeffs(0.5),[0., 0., 0., 0.16, 0.]
+      # assert((91.017126 < 1.000000),  0)
+      # assert(91.017126 < 86.000000, 0)
+      # assert(91.017126 < 93.000000, 1)
+      # assert(71.836580 < 1.00000, 0)
+
+      # prev_x 0.13734 prev_y 4.89916 r 95.48303
+      # prev_x <- 0.13734
+      # prev_y <- 4.89916
+      # # assert(0.28* prev_y - 0.15 * prev_x,  1.35116)
+      # assert((0.26 * prev_x + 0.24 * prev_y) + 0.44,  1.65151)
 
       say('==== Test Arrays === ')
       A <- [1,2,3,4,5,6,7]
