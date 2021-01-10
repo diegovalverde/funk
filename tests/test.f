@@ -1,4 +1,5 @@
-#use map
+
+use sort
 N <-> 20
 
 assert(actual, expected | actual != expected ):
@@ -9,19 +10,17 @@ assert(a,b):
     1.
 
 fib(0, _, _): 0.
-fib(1, _, result):
-    result + 0. # TODO: Bug returning 'result' not working...
+fib(1, _, result): result.
 
 fib(n, result, next):
     x <- result+next # TODO: bug doing the addition as argument not working
     fib(n-1, next, x).
 
-fibo(n):
-    fib(n,0,1).
+fibo(n): fib(n,0,1).
 
 _sum([]): 0.
 _sum( x <~ [A]):
-     x + _sum(A).
+     x +_sum(A).
 
 triangular_series(n): (n*n + n)/2.
 
@@ -42,7 +41,15 @@ float_test(prev_x, prev_y,r, e_x, e_y):
     assert( lt(y - e_y, epsilon), 1)
     1.
 
+arr_eq([],[]): 1.
+arr_eq(A,B | len(A) != len(B)): 0.
+arr_eq(a <~ [A] , b <~ [B] | a != b): 0.
+arr_eq(a <~ [A] , b <~ [B]): arr_eq(A,B).
+
+
 main():
+
+
       #say('Test strings')
       #assert('hello',echo('hello'))
       say('==== floating point ===')
@@ -62,7 +69,10 @@ main():
       # assert((0.26 * prev_x + 0.24 * prev_y) + 0.44,  1.65151)
 
       say('==== Test Arrays === ')
+      assert(len( [0] ), 1)
+      assert(len( [0] ), len( [1] ))
       A <- [1,2,3,4,5,6,7]
+
       assert(A[0], 1)
       assert(A[1], 2)
       assert(A[-1], 7) # last element
@@ -81,6 +91,18 @@ main():
       assert(len([1 | 1997 <= i < 2000]),3)
       assert(len(A),7)
       assert(len(A),len(A))
+
+      # test the array slicing
+      assert(len(A[0 .. len(A)/2]),4)
+      assert(sum(A[0 .. len(A)/2]),10)
+      assert(len(A[len(A)/2 + 1 .. -1]),3)
+      assert(sum(A[len(A)/2 + 1 .. -1]),18)
+      assert(len(A[2 .. 3]),2)
+      assert(sum(A[2 .. 3]),7)
+      assert(len(A[0 .. -1]),len(A))
+      #assert(sum(A[0 .. -1]),sum(A))
+
+
 
 
       say('====== Test Matrix =====')
@@ -150,7 +172,40 @@ main():
       say('====== test sum =======')
       assert(sum([1,1,1]),_sum([1,1,1]))
       assert(sum(A),_sum(A))
+      assert(sum([0,1]),1)
+      assert(sum([0,0]),0)
+      assert(sum([1,0]),1)
+      assert(sum([5,5,5]),15)
+      assert(sum([5,5,5]),_sum([5,5,5]))
+      assert(sum([0]),0)
       assert(triangular_series(7), sum(A))
 
+      one <- 1
+      two <- 2
+      three <- 3
+      numbers <- [one, two, three]
+      say(numbers)
+
+      assert(len(numbers),3)
+      assert(numbers[0],1)
+      assert(numbers[1],2)
+      assert(numbers[2],3)
+
+      assert(numbers[0],one)
+      assert(numbers[1],two)
+      assert(numbers[2],three)
+      assert(sum(numbers),6)
+
+      assert(sum([one+1, two+1, three+1]),9)
+      assert(sum([one+1, two+1, three+1]), sum(numbers)+3)
+
+      #test sort
+      assert(arr_eq([1,2,3], [1,2,3]), 1)
+      assert(arr_eq([1,2,3], [1,2,3,4]), 0)
+      assert(arr_eq([1,2,3], [5,2,3]), 0)
+      assert(arr_eq(sort([3,2,1]), [1,2,3]), 1)
+      assert(arr_eq(sort([2, 5, 4, 3, 1]), [1,2,3,4,5]), 1)
+
+      assert(arr_eq(sort([12,8,2,9,15,4,13,0,6,11,7,1,14,5,3,10]), [i | 0 <= i <= 15]), 1)
 
       say('All tests passed ;)').
