@@ -9,6 +9,4 @@ bfs(S, N, explore | S(explore[0]) = 1):
 
 # add children to search in BFS fashion
 bfs(S, N,  n <~ [explore]):
-    say('bfs exploring', n, len(n))
-
     bfs( S, N, [explore] <~ N(n) ).
