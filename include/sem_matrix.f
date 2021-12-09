@@ -6,4 +6,7 @@ sem_element(i, j, ei, ej | ei = i /\ ej = j ): 1.
 
 sem_element(_,_,_,_):0.
 sem_matrix(n, m, ei,ej):
-    [[ sem_element(i,j, ei, ej) | 0 <= j < m] |  0 <= i < n ].
+    
+    x <- [[ sem_element(i,j, ei, ej) | 0 <= j < m] |  0 <= i < n ]
+
+    x.

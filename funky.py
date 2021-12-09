@@ -25,11 +25,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Compile a program to LLVM IR.')
     parser.add_argument('input_path', help='Path to input file')
     parser.add_argument('--debug', action='store_true', default=False, help='For tool debugging purposes only')
-    parser.add_argument('--include', help='Path to the .f includes', default='.')
+    parser.add_argument('--include', nargs='+', help='Path to the .f includes', default='.')
 
     args = parser.parse_args()
     set_cwd(os.path.dirname(os.path.abspath(__file__)))
     build(args.input_path,
-          include_paths=[args.include],
+          include_paths=args.include,
           build_path=os.path.join(os.getcwd(),  'build'),
           debug=args.debug )

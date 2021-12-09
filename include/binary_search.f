@@ -10,4 +10,4 @@ binary_search(A, value, low, high | A[(low + high)/2] < value):
 
 binary_search(A, value, low, high): [(low + high) / 2].
 
-
+bst(A,value): binary_search(A, value, 0, len(A)).
