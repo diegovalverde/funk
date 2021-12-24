@@ -12,10 +12,8 @@ merge(L, r <~ [R], F): r ~> [merge(L,R, F)].
 _sort(A ,_ | len(A) < 2):A.
 _sort(A, F):
   m <- len(A)/2
-  say( 'L', A[0 .. m-1])
-  say( 'R', A[m .. -1])
-  say('..')
   merge(_sort( A[0 .. m-1] , F),_sort( A[m .. -1] , F), F).
+  
 
 # public interface entry point
 sort(A, custom_comparator):
