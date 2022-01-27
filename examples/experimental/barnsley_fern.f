@@ -1,4 +1,4 @@
-use sdl
+use sdl_simple
 
 barnsley(n , prev_x, prev_y, r  | n = 0): 1.
 
@@ -31,11 +31,11 @@ barnsley(n , prev_x, prev_y, r ):
     barnsley(n - 1, x, y, rand_float(0., 100.) ).
 
 
-sdl_render():
+sdl_render(ctx):
     barnsley(10000, 0.0, 0.0, rand_float(0.0, 100.0) )
-    sleep(1)
-    sdl_render().
+    #sleep(1)
+    sdl_render(ctx).
 
 main():
 
-    sdl_window(510, 510,[0]).
+    sdl_simple(510, 510,[]).

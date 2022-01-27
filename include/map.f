@@ -3,10 +3,6 @@
 # to each individual element
 
 
-map(_, []):
-    say('mmmmm')
-    [].
-
-map(F, h <~ [t] ):
-       say('map: ', h, ' ', F(h))
-       F(h) ~> [map(F, t)].
+map(F, A | len(A) > 1): [map(F, A[i]) | 0 <= i < len(A)]. #a : A].
+map(F, a ): F(a).
+       

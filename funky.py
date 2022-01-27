@@ -18,7 +18,7 @@
 
 import argparse
 
-from funk.linker import *
+from funk.funky_builder import *
 
 
 if __name__ == '__main__':
@@ -32,4 +32,4 @@ if __name__ == '__main__':
     build(args.input_path,
           include_paths=args.include,
           build_path=os.path.join(os.getcwd(),  'build'),
-          debug=args.debug )
+          debug=args.debug)

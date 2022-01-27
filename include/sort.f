@@ -6,8 +6,11 @@ comp_lt(l,r ): 0.
 
 merge([], R, _): R.
 merge(L , [], _): L.
-merge(l <~ [L], R, F | F(l, R[0]) = 1): l ~> [merge(L,R, F)].
-merge(L, r <~ [R], F): r ~> [merge(L,R, F)].
+merge(l <~ [L], R, F | F(l, R[0]) = 1): 
+    l ~> [merge(L,R, F)].
+    
+merge(L, r <~ [R], F): 
+    r ~> [merge(L,R, F)].
 
 _sort(A ,_ | len(A) < 2):A.
 _sort(A, F):
