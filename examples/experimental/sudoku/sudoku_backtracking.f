@@ -1,14 +1,11 @@
 use find, unique, fread_list
 
 
-do_until_success(_,1): 1.
-do_until_success([],_): 0.
-do_until_success( f <~ [functions], 0) : 
-    #say('++++++++++++++', len(functions), 'left to explore')
-    #say(functions)
+do_until_success(_,[1,B]): [1,B].
+do_until_success([],_): [0,[]].
+do_until_success( f <~ [functions], [0,_]) : 
      func <- f[0]
      done <- func(f[1])
-     #say('>>>>>>> done = ', done, ' >>> ', len(functions), 'left to explore')
      do_until_success(functions, done).
 
 replace(M, p, q, v | p = q ): v.
@@ -26,23 +23,18 @@ get_next_empty_position(B):
     p <- find(0,flatten(B))
     [p / 9, p % 9].
 
-solve_sudoku(B | find(0,flatten(B)) = -1): 
-    say('solution')
-    say(B)
-    1. 
+solve_sudoku(B | find(0,flatten(B)) = -1): [1,B]. 
 solve_sudoku(B):
     pos <- get_next_empty_position(B)
-    do_until_success([ [s1, [B,v,pos]  ] | 1 <= v <=  9],0).
+    do_until_success([ [s1, [B,v,pos]  ] | 1 <= v <=  9],[0,[]]).
 
-s1([B, v, pos] | is_valid(B,v,pos) != 1): 0.
+s1([B, v, pos] | is_valid(B,v,pos) != 1): [0,[]].
 s1([B, v, pos]): 
     M <- m_replace_element(B, v, pos)
-    say(M)
     solve_sudoku(M).
     
 main():
     B <- reshape(fread_list('/Users/diego/workspace/projects/funky_programming_language/examples/experimental/sudoku/puzzle1.txt'),9,9)
-    # say('solving sudoku')
-    # say(B)
-    solve_sudoku(B)
+    solution <- solve_sudoku(B) 
+    say('solution\n',solution)
     1.
