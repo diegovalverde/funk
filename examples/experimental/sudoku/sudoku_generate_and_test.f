@@ -30,5 +30,5 @@ solve(B, i,j):
     [[[ solve( m_replace_element(B,c,pos), l, k ) | c : get_candidates(B,pos) ]| 0 <= k <= 8] | 0 <= l <= 8].
 
 main():
-    B <- reshape(fread_list('examples/experimental/zudoku/board.txt'),9,9)
+    B <- reshape(fread_list('examples/experimental/sudoku/board.txt'),9,9)
     [[solve(B, i,j) | 0 <= j <= 8] | 0 <= i <= 8].
