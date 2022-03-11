@@ -1,5 +1,11 @@
-use sort
-min( A | len(A) = 2 /\ A[0] > A[1]): [A[1], A[0]].
-min(A): 
-    S <- sort(A)
-    S[0].
+# compute the min in O(n)
+
+min_default_cmp(a,b | a < b): a.
+min_default_cmp(a,b): b.
+
+_min([], v, _): v.
+_min(v <~ [A], min_val, F ): _min(A, F(v, min_val), F).
+
+
+min(A): _min(A, A[0], min_default_cmp ).
+min(A, F): _min(A, A[0], F ).
