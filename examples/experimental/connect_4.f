@@ -1,15 +1,20 @@
-use any, all, arg_neq, min, max, find, replace_matrix_element, not
+use any, all, arg_neq, min, max, find, replace_matrix_element, neg, argmax, argmin
+use get_first_not_of, sort
 H <-> 6
 W <-> 7
 minimizingPlayer <-> -1
 maximizingPlayer <-> 1
 # Allis (1988)
-HEURISTIC <-> [[3,4,5,7,5,4,3], [4,6,8,9,8,6,4],[5,8,11,13,11,8,5],[5,8,11,13,11,8,5],[4,6,8,9,8,6,4],[3,4,5,7,5,4,3]]
+VALUES <-> [[3,4,5,7,5,4,3], [4,6,8,9,8,6,4],[5,8,11,13,11,8,5],[5,8,11,13,11,8,5],[4,6,8,9,8,6,4],[3,4,5,7,5,4,3]]
 
 
     
 
-heuristic(M,player): sum(HEURISTIC * player * M).
+heuristic(M,player): 
+    
+    h <- player * sum(VALUES * M)
+    say('heuristic ',player,  h)
+    h.
 
 check_4x4([], player): 0.
 check_4x4(M, player):
@@ -31,21 +36,33 @@ check_4x4(M, player):
 
 # Slinding Window
 is_win(M, player): 
-    say(player, '>>> \n', [[ check_4x4(M[i .. i+3 , j..j+3], player)  |  0 <= j < H ] | 0 <= i <= W])
+    #say(player, '>>> \n', [[ check_4x4(M[i .. i+3 , j..j+3], player)  |  0 <= j < H ] | 0 <= i <= W])
     any(flatten([[ check_4x4(M[i .. i+3 , j..j+3], player)  |  0 <= j < H ] | 0 <= i <= W]),1).
     
 # return index of columns with available places to move
 get_legal_moves(M): 
-    say('get_legal_moves: ', [find(0, M[0 .. H, j]) | 0 <= j < W ])
     arg_neq([find(0, M[0 .. H-1, j]) | 0 <= j < W ], -1).
 
 
+custom_function(l,r | l[0] >= r[0]): 1.
+custom_function(l,r ): 0.
+
 # assign a value to each of the legal moves
-choose_next_move(M):
-    M1 <- not(M) * HEURISTIC 
-    say('pppppp ', M1)
-    say([ find_ne(0,reverse(M1[0 .. H-1, j]))| j : get_legal_moves(M)])
-    argmax([ find_ne(0,reverse(M1[0 .. H-1, j]))| j : get_legal_moves(M)]).
+choose_next_moves(M):
+    M1 <- neg(M) * VALUES 
+
+    
+    #say('pppppp ', M1)
+    #say('get_legal_moves(M)',get_legal_moves(M))
+    #say('[ reverse(M1[0 .. H-1, j])| j : get_legal_moves(M)]', [ reverse(M1[0 .. H-1, j])| j : get_legal_moves(M)])
+    #say('[ get_first_not_of(0,reverse(M1[0 .. H-1, j]))| j : get_legal_moves(M)]', [ get_first_not_of(0,reverse(M1[0 .. H-1, j]))| j : get_legal_moves(M)])
+    
+    #say([ find_ne(0,reverse(M1[0 .. H-1, j]))| j : get_legal_moves(M)])
+    L <- [ get_first_not_of(0,reverse(M1[0 .. H-1, j]))| j : get_legal_moves(M)]
+    l1 <- [ [L[i],i] | 0 <= i < len(L) ]
+    k <- [ v[1] | v : sort(l1, custom_function)]
+    say('k = ',k)
+    k.
 
 move(M, col, player): 
     row <- (H - 1) - find(0, reverse(flatten( M[0..H-1, col])))
@@ -60,24 +77,24 @@ minimax(M,_,maximizingPlayer | is_win(M, maximizingPlayer) = 1):
 minimax(M,_,minimizingPlayer | is_win(M, minimizingPlayer) = 1): 
     say('is loose')
     -1000.
-minimax(M, 0, player): heuristic(M,player).
+minimax(M, 0, player): 
+    say('heuristic')
+    heuristic(M,player).
 
 minimax(M, depth, player  | player = maximizingPlayer):
-        cols <- get_legal_moves(M)
-        say('maximizingPlayer cols ', cols)
-        max([ minimax( move(M, col, player), depth-1, minimizingPlayer) |
-            col : get_legal_moves(M)]).
+       
+        max([ minimax( move(M, col, minimizingPlayer), depth-1, minimizingPlayer) | col : choose_next_moves(M) ]).
 
 minimax(M, depth, player  | player = minimizingPlayer):
-        cols <- get_legal_moves(M)
-        say('minimizingPlayer cols ', cols)
-        min([ minimax( move(M, col, player), depth-1, maximizingPlayer) |
-            col : get_legal_moves(M)]).
+        
+        min([ minimax( move(M, col, maximizingPlayer), depth-1, maximizingPlayer) |
+            col : choose_next_moves(M)]).
 
 
 main():
     M <- [[0 | 0 <= j < 7 ] | 0 <= j < 6]
     say(M)
-    next_board <- minimax(M,10,maximizingPlayer)
-    say('Next Board ',next_board )
+    next_move <- minimax(M,1,maximizingPlayer)
+    say('Next move ',next_move )
+    say(move(M, next_move, maximizingPlayer))
     1.

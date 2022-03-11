@@ -40,7 +40,7 @@ check_4x4(M, player):
          
   
 
-# Slinding Window
+
 is_win(M, player): 
     check_4x4(M, player).
     #any(flatten([[ check_4x4(M[i .. i+3 , j..j+3], player)  |  0 <= j < H ] | 0 <= i <= W]),1).
@@ -56,8 +56,7 @@ utility_function(M, player):
                   [5, 8, 11, 13, 11, 8, 5],
                   [4, 6, 8,  9,  8,  6, 4],
                   [3, 4, 5,  7,  5,  4, 3]]
-    #say('UTIL')
-    #say(heuristic * M)
+    
     player * sum(heuristic * M).
     
 # return index of columns with available places to move
@@ -95,22 +94,6 @@ game_loop(previous_board, depth):
 
 
 main():
-# board <- [[0 ,0 ,0 ,0 ,0 ,0 ,0 ],
-#  [0 ,0 ,0 ,0 ,0 ,0 ,0 ],
-#  [0 ,0 ,0 ,0 ,0 ,0 ,0 ],
-#  [-1 ,0 ,0 ,0 ,0 ,0 ,0 ],
-#  [-1 ,0 ,0 ,0 ,0 ,0 ,1 ],
-#  [1 ,-1 ,0 ,-1 ,0 ,0 ,1 ]]
-
-# caca <- [[-1 ,0 ,0 ,0 ,0 ,0 ,0 ],
-#  [1 ,1 ,0 ,0 ,0 ,0 ,0 ],
-#  [-1 ,-1 ,0 ,0 ,0 ,0 ,-1 ],
-#  [1 ,1 ,0 ,0 ,0 ,0 ,-1 ],
-#  [1 ,1 ,0 ,0 ,0 ,0 ,-1 ],
-#  [1 ,1 ,0 ,0 ,0 ,-1 ,-1 ]]
-#     say(is_win(caca,-1))
-#     exit()
      board <- [[0 | 0 <= j < W ] | 0 <= j < H]
-   
      say(board)
      game_loop( board, 2 ).
