@@ -1,5 +1,4 @@
-use minimax, replace_matrix_element, find, arg_neq, any, all, transpose, diagonals, antidiagonals
-MAX_DEPTH <-> 4
+use minimax,min, max, replace_matrix_element, find, arg_neq, any, all, transpose, diagonals, antidiagonals
 H <-> 6
 W <-> 7
 
@@ -40,14 +39,22 @@ make_move(M, col, player):
     replace_matrix_element(M,player,[row,col]).
 
 
-game_loop(previous_board,... | is_win(previous_board,1)=1): 
+check_win(board | is_win(board,1)=1): 
     say('human wins')
-    1.
+    exit().
 
-game_loop(previous_board, ... | is_win(previous_board,-1)=1): 
+check_win(board| is_win(board,-1)=1): 
     say('AI wins')
-    1.
+    exit().
 
+check_win(_): 1.
+
+_pretty_print(1): ' X '.
+_pretty_print(-1): ' O '.
+_pretty_print(0): '   '.
+board_pretty_print(B):
+    say([[_pretty_print(B[i,j]) | 0 <= j < len(B[0])] | 0 <= i < len(B) ])
+    1.
 
 game_loop(previous_board, depth):
     
@@ -55,16 +62,21 @@ game_loop(previous_board, depth):
     human_move <- toi32(in())
     say('you selected ', human_move)
     board <- make_move(previous_board, human_move, 1)
-    say(board)
+    board_pretty_print(board)
+    check_win(board)
 
     say('AI is thinking...')
-    ai_move <- minimax(board,  depth, -1, utility_function, get_legal_moves, make_move ) #minimax([board, utility_function, make_move, get_legal_moves], MAX_DEPTH )
+    ai_move <- minimax(board,  depth, -1, utility_function, get_legal_moves, make_move ) 
     new_board <- make_move(board, ai_move, -1 )
-    say(new_board)
+    board_pretty_print(new_board)
+    check_win(new_board)
     game_loop(new_board, depth).
 
 
 main():
      board <- [[0 | 0 <= j < W ] | 0 <= j < H]
-     say(board)
-     game_loop( board, 2 ).
+     
+     say('select difficulty:\n1 normal \n2 hard \n3 very hard')
+     depth <- max([min([1+toi32(in()), 4]),2])
+     board_pretty_print(board)
+     game_loop( board, depth).#2 ).
