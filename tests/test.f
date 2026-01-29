@@ -211,4 +211,33 @@ main():
       assert(arr_eq(sort([12,8,2,9,15,4,13,0,6,11,7,1,14,5,3,10]), [i | 0 <= i <= 15]), 1)
       assert(arr_eq(sort([98,95,92,90,93,96,91,99,94,97]), [i | 90 <= i <= 99]), 1)
 
+      # test len behavior on empty and nested lists (flattened length expectations)
+      assert(len([]), 0)
+      assert(len([[]]), 0)
+      assert(len([[1],[2,3]]), 3)
+
+      # test list concatenation operators with empty lists
+      E <- []
+      L1 <- [1,2]
+      L2 <- [3,4]
+      L3 <- [1,2,3]
+      L4 <- [2]
+      E1 <- [E] <~ 1
+      E2 <- 1 ~> [E]
+      assert(arr_eq(E1, [1]), 1)
+      assert(arr_eq(E2, [1]), 1)
+      assert(arr_eq([L1] ++ [L2], [1,2,3,4]), 1)
+      assert(arr_eq([L3] -- [L4], [1,3]), 1)
+
+      # test list comprehension expression (evens from 0..10 via 2*i)
+      assert(arr_eq([2 * i | 0 <= i <= 5], [0,2,4,6,8,10]), 1)
+
+      # test list comprehension to build matrix and verify flattened length
+      M3 <- [[j | 0 <= j <= 2] | 0 <= i <= 2]
+      assert(len(M3), 9)
+
+      # test reverse and sum on nested list (flatten then sum)
+      assert(arr_eq(reverse([1,2,3,4]), [4,3,2,1]), 1)
+      assert(sum([[1,2],[3]]), 6)
+
       say('All tests passed ;)').
