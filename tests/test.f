@@ -240,4 +240,16 @@ main():
       assert(arr_eq(reverse([1,2,3,4]), [4,3,2,1]), 1)
       assert(sum([[1,2],[3]]), 6)
 
+      # test sort with duplicates (expects stable multiset ordering)
+      assert(arr_eq(sort([3,1,2,1]), [1,1,2,3]), 1)
+
+      # test reverse on empty list (expects empty)
+      assert(arr_eq(reverse([]), []), 1)
+
+      # test abs on negative integer (expects positive)
+      assert(abs(0-5), 5)
+
+      # test flatten on nested list (expects single-level list)
+      assert(arr_eq(flatten([[1,2],[3]]), [1,2,3]), 1)
+
       say('All tests passed ;)').
