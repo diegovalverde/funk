@@ -32,6 +32,18 @@ brew install --with-toolchain llvm
 ```
 You may also need to install latest command-line tools from https://developer.apple.com/download/more/
 
+# Submodules
+
+This repo uses a git submodule for the Funk core library. After cloning, initialize and update it:
+```
+git submodule update --init --recursive
+```
+
+To pull the latest changes for all submodules later:
+```
+git submodule update --remote --recursive
+```
+
 # Quick Language walk-through
 
 ## Functions
@@ -246,4 +258,3 @@ main():
 Lastly, there is special function called the ```main``` function.
 
 This function shall take no arguments, and marks the entry point to your program.
-
