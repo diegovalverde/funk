@@ -1,4 +1,4 @@
-use assert, rroll, hroll
+use assert, rroll, hroll, croll
 
 test_roll():
       say('=== test roll ===')
@@ -6,3 +6,6 @@ test_roll():
       assert( rroll(A,0), A )
       assert( croll(A,0), A )
       1.
+
+main():
+      test_roll().

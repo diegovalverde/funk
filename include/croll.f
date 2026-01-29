@@ -1,4 +1,6 @@
 use rroll
 
-croll(M,k): [ rroll(M[i],k) | 0 <= i < len(M)] .
-
+croll([], _): [].
+croll(M,k):
+      n <- len(M) / len(M[0])
+      [ rroll(M[i],k) | 0 <= i < n ].
