@@ -1,9 +1,9 @@
 # return all elements in A that are not in B
 
-in(_,[]): 0..
-in(a,b <~ [B] | a != b): in(a, B).
-in(a,_ ): 1.
+in_list(_,[]): 0.
+in_list(a,b <~ [B] | a != b): in_list(a, B).
+in_list(a,_ ): 1.
 
-set_diff(a <~ A, B | in(a, B) = 1): [a] <~ set_diff(a, B).
-set_diff(a <~ A, B)
-    
+set_diff([], _): [].
+set_diff(a <~ [A], B | in_list(a, B) = 1): set_diff(A, B).
+set_diff(a <~ [A], B): a ~> [set_diff(A, B)].

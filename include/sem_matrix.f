@@ -2,8 +2,11 @@
 
 # returns a matrix of all zeros except at position ei, ej
 # sem: single element matrix
-sem_element(i, j, ei, ej | ei = i /\ ej = j ): 1.
+sem_element(i, j, ei, ej | ei = i ): sem_element_col(j, ej).
 sem_element(_,_,_,_):0.
+
+sem_element_col(j, ej | ej = j): 1.
+sem_element_col(_, _): 0.
 
 sem_matrix(n, m, ei,ej):
     
