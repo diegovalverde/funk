@@ -32,6 +32,20 @@ brew install --with-toolchain llvm
 ```
 You may also need to install latest command-line tools from https://developer.apple.com/download/more/
 
+# SDL (optional, for graphics examples)
+
+Some examples (e.g. `examples/experimental/barnsly_fern.f`) use SDL via `sdl_simple`. Install SDL2 development headers:
+
+Linux (Debian/Ubuntu):
+```
+sudo apt install libsdl2-dev
+```
+
+macOS (Homebrew):
+```
+brew install sdl2
+```
+
 # Submodules
 
 This repo uses a git submodule for the Funk core library. After cloning, initialize and update it:

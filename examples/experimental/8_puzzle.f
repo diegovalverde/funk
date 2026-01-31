@@ -1,4 +1,4 @@
-use bfs, sem_matrix, shift_matrix, sort, count, all, find
+use bfs, sem_matrix, shift_matrix, sort, count, all, find, roll
 
 #FINAL <-> [[1, 2, 3],[5, 8, 6],[0, 7, 4]]
 #INITIAL <-> [[1, 2, 3],[5, 6, 0],[7, 8, 4]]
@@ -6,12 +6,30 @@ use bfs, sem_matrix, shift_matrix, sort, count, all, find
 FINAL <-> [[1, 2, 3],[4, 5, 6],[7, 8, 0]]
 INITIAL <-> [[0, 1, 3],[6, 5, 2],[4, 7, 8]]
 
-inside([x1,y1],[x2,y2], [x, y] | x >= x1 /\ x < x2 /\ y >= y1 /\ y < y2):
+inside([x1,y1],[x2,y2], [x, y] | x >= x1 ):
+    inside_y(x1, y1, x2, y2, x, y).
+inside(_,_,p):
+    say('out',p)
+    [].
+
+inside_y(x1, y1, x2, y2, x, y | x < x2 ):
+    inside_y2(x1, y1, x2, y2, x, y).
+inside_y(_, _, _, _, _, y):
+    say('out',[y])
+    [].
+
+inside_y2(x1, y1, x2, y2, x, y | y >= y1 ):
+    inside_y3(x1, y1, x2, y2, x, y).
+inside_y2(_, _, _, _, _, y):
+    say('out',[y])
+    [].
+
+inside_y3(_, _, _, y2, x, y | y < y2):
     point <- [x,y]
     say('inside', point)
     point.
-inside(_,_,p):
-    say('out',p)
+inside_y3(_, _, _, _, x, y):
+    say('out',[x,y])
     [].
 
 points_in_rec([], _, _ ): [].
@@ -55,7 +73,7 @@ unexplored(next_boards, explored_list, i ):
 
 next_board(A, [zi,zj], [di, dj] ):
     E <- sem_matrix(3,3, zi + di, zj + dj )
-    (roll(A * E, -1*di, -1*dj) + A) * not(E).
+    (roll(A * E, -1*di, -1*dj) + A) * (1 - E).
 get_children([]): [].
 
 
@@ -138,8 +156,4 @@ main():
 
     board <- INITIAL
     empty <- []
-    caca <- [[empty]]
-    info(caca)
-    say('caca', caca)
-    exit()
     bfs(is_goal, get_children, [[board,[empty],0,[0,0]]] ).

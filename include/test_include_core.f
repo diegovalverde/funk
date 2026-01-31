@@ -1,4 +1,4 @@
-use tchk, t_arr_eq
+use tchk, t_arr_eq, and_guard
 use accum, all, any, arg_eq, arg_neq, argmax, argmin, count, do_until_success
 use find, find_all, max, min, neg, abs, nth, unique, set_diff, inverse
 use transpose, diagonals, antidiagonals, shift_matrix, replace_matrix_element, sem_matrix
@@ -60,5 +60,9 @@ test_include_core():
     # roll/hroll
     tchk(t_arr_eq(roll(M,1,1), [[9,7,8],[3,1,2],[6,4,5]]), 1)
     tchk(t_arr_eq(hroll(M,1), [[3,1,2],[6,4,5],[9,7,8]]), 1)
+
+    # boolean AND (/\) guard chaining
+    tchk(and_guard(2,2), 1)
+    tchk(and_guard(2,3), 0)
 
     1.
