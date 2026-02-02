@@ -1,19 +1,19 @@
 # Funk Language Overview
 
-Funk is an experimental functional programming language inspired by Erlang and Python. It favors clear, expression‑oriented code, immutable variables, and recursion/pattern matching over imperative control flow.
+Funk is an experimental functional programming language inspired by Erlang and Python. It favors clear, expression-oriented code, immutable variables, and recursion/pattern matching over imperative control flow.
 
-This document summarizes the core syntax and features and points to existing examples in the repo.
+This document summarizes the core syntax and features and points to existing examples in the repo. It is derived from the grammar in `funk/funky_ll1.lark` and the preprocessor in `funk/preprocessor.py`.
 
 ---
 
 ## Core Ideas
 
 - **Immutable variables**: once a name is bound, it cannot be reassigned.
-- **Expression‑oriented**: the last statement in a function is the return value.
+- **Expression-oriented**: the last statement in a function is the return value.
 - **No `if` statements**: use **function preconditions** (guards) and pattern matching.
 - **Function overloading**: multiple clauses with different patterns/guards can define the same function.
 - **Lists as linked lists**: list decomposition is fundamental to recursion.
-- **Pattern matching**: supports matching empty lists, head/tail, and fixed‑length list patterns.
+- **Pattern matching**: supports matching empty lists, head/tail, and fixed-length list patterns.
 
 ---
 
@@ -39,6 +39,17 @@ double(x):
 ```
 
 Attempting to reassign `y` later is a runtime error.
+
+### Literals
+
+- **Numbers**: integers, hex (`0xFF`), and floats.
+- **Strings**: single- or double-quoted; optional Python-like prefixes (`r`, `u`, `b`, `f`) are accepted by the lexer.
+
+### Operators
+
+- **Arithmetic**: `+`, `-`, `*`, `/`, `%`
+- **Comparison**: `=`, `!=`, `<`, `<=`, `>`, `>=`
+- **Boolean**: `/\\` (and), `\\/` (or)
 
 ### Comments
 
@@ -66,7 +77,18 @@ sign(x | x < 0): -1.
 sign(_): 1.
 ```
 
-Guards can be arbitrary boolean expressions (not restricted to “pure” guards like Erlang).
+Guards can be arbitrary boolean expressions (not restricted to "pure" guards like Erlang).
+
+### Variadic/Ignore Arguments
+
+You can ignore arguments with `_` and accept trailing arguments with `...` or `etc`:
+
+```
+keep_second(_, y): y.
+
+sum([], acc, ...): acc.
+sum([], acc, etc): acc.
+```
 
 ---
 
@@ -76,6 +98,12 @@ Guards can be arbitrary boolean expressions (not restricted to “pure” guards
 
 ```
 A <- [1,2,3,4].
+```
+
+Lists can be **heterogeneous** (any expression can be an element):
+
+```
+mix <- [1, "two", [3], f(4)].
 ```
 
 ### Head/Tail Pattern Matching
@@ -92,10 +120,14 @@ sum(h <~ [t]):
 
 - **Head prepend**: `x ~> [L]`
 - **Tail append**: `[L] <~ x`
+- **List concatenation**: `[A] ++ [B]`
+- **List difference**: `[A] -- [B]`
 
 ```
 prepend_example(x, L): x ~> [L].
 append_example(L, x): [L] <~ x.
+concat_example(A, B): [A] ++ [B].
+diff_example(A, B): [A] -- [B].
 ```
 
 ### Ranges and List Comprehensions
@@ -103,6 +135,26 @@ append_example(L, x): [L] <~ x.
 ```
 [i | 1 <= i <= 10]          # 1..10
 [2 * i | 0 <= i <= 5]       # [0,2,4,6,8,10]
+```
+
+Ranges can be exclusive or inclusive in comprehensions:
+
+```
+[i | 1 < i < 10]
+[i | 1 <= i <= 10]
+```
+
+You can also iterate over an existing list:
+
+```
+[x * x | x : xs]
+```
+
+Inline list ranges in literals use `..`:
+
+```
+[0 .. 5]
+[A[0] .. A[-1]]
 ```
 
 ---
@@ -123,7 +175,12 @@ Slicing supports ranges:
 B <- A[0 .. -1]   # full copy
 ```
 
-For matrices, indexing is `M[i,j]`. See examples below.
+For matrices, indexing is `M[i,j]` and slices can use multiple ranges:
+
+```
+cell <- M[i,j]
+sub  <- M[i0 .. i1, j0 .. j1]
+```
 
 ---
 
@@ -139,7 +196,7 @@ If `n % 2 = 0` is true, `x` becomes `1`, otherwise `-1`.
 
 ## Functional Features
 
-### Higher‑Order Functions
+### Higher-Order Functions
 
 Functions are values and can be passed around:
 
@@ -154,7 +211,30 @@ Recursion is idiomatic (loops are modeled via recursion or comprehensions).
 
 ### Pure Functions (Mostly)
 
-Most code is side‑effect‑free. I/O uses built‑in functions like `say`, `file`, `in`, etc.
+Most code is side-effect-free. I/O uses built-in functions like `say`, `file`, `in`, etc.
+
+---
+
+## Includes
+
+Use `use` to include externally defined functions:
+
+```
+use foreach, map
+```
+
+---
+
+## Preprocessor Macros
+
+The preprocessor supports simple macro replacement using `<->` on its own line:
+
+```
+W <-> 50
+H <-> 50
+```
+
+Each `NAME <-> value` line is removed and later occurrences of `NAME` are replaced with `value` (simple textual substitution).
 
 ---
 
@@ -172,10 +252,10 @@ Most code is side‑effect‑free. I/O uses built‑in functions like `say`, `fi
 ### Sudoku (backtracking)
 `examples/experimental/sudoku/sudoku_backtracking.f`
 
-### Connect‑4
+### Connect-4
 `examples/experimental/connect_4.f` and `examples/experimental/connect4_new.f`
 
-### 8‑Puzzle
+### 8-Puzzle
 `examples/experimental/8_puzzle.f`
 
 ---
@@ -186,7 +266,7 @@ Check the `include/` folder for reusable utilities:
 
 - List ops: `unique.f`, `set_diff.f`, `count.f`, `find.f`
 - Matrix ops: `transpose.f`, `diagonals.f`, `antidiagonals.f`
-- Higher‑order: `map.f`, `foreach.f`, `do_until_success.f`
+- Higher-order: `map.f`, `foreach.f`, `do_until_success.f`
 
 ---
 
@@ -194,7 +274,7 @@ Check the `include/` folder for reusable utilities:
 
 - Some operators behave differently from other languages:
   - `=` is equality, not assignment.
-  - Variables are immutable after `<-`.
+- Variables are immutable after `<-`.
 - `if` is not a keyword; use function guards and pattern matching instead.
 
 ---
@@ -217,6 +297,10 @@ y <- x * 2
 h <~ [t]     # head/tail
 x ~> [L]     # prepend
 [L] <~ x     # append
+[A] ++ [B]   # concat
+[A] -- [B]   # difference
+[0 .. 5]     # range literal
+[x | x : xs] # comprehension over list
 
 # Comprehension
 [expr | 0 <= i <= 10]
