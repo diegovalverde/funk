@@ -26,14 +26,14 @@ if __name__ == '__main__':
     parser.add_argument('input_path', help='Path to input file')
     parser.add_argument('--debug', action='store_true', default=False, help='For tool debugging purposes only')
     parser.add_argument('--include', nargs='+', help='Path to the .f includes', default='.')
-    parser.add_argument('--backend', choices=['default', 'optimized_cpp'], default='default',
+    parser.add_argument('--backend', choices=['optimized_cpp'], default='optimized_cpp',
                         help='Select codegen backend')
     parser.add_argument('--build-dir', default=None, help='Build output directory')
 
     args = parser.parse_args()
     set_cwd(os.path.dirname(os.path.abspath(__file__)))
     if args.build_dir is None:
-        build_dir = 'build_opt' if args.backend == 'optimized_cpp' else 'build'
+        build_dir = 'build_opt'
     else:
         build_dir = args.build_dir
 
