@@ -24,7 +24,7 @@ examples:
 	./build_opt/test_bfs
 	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/examples/hanoi.f" --backend optimized_cpp --include "$(FUNK_INCLUDE_PATH)"
 	./build_opt/hanoi
-	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/examples/games/puzzle_8_main.f" --backend optimized_cpp --include "$(FUNK_INCLUDE_PATH)"
+	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/examples/games/puzzle_8_main.f" --backend optimized_cpp --include "$(FUNK_INCLUDE_PATH)" "$(FUNK_EXAMPLES_PATH)/examples/games"
 	./build_opt/puzzle_8_main
 	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/examples/games/sudoku.f" --backend optimized_cpp --include "$(FUNK_INCLUDE_PATH)"
 	./build_opt/sudoku
