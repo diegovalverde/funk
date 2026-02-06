@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="${PYTHON:-$ROOT_DIR/venv_3.11/bin/python}"
 BUILD_DIR_DEFAULT="${BUILD_DIR_DEFAULT:-$ROOT_DIR/build}"
-BUILD_DIR_OPT="${BUILD_DIR_OPT:-$ROOT_DIR/build_opt}"
+BUILD_DIR_OPT="${BUILD_DIR_OPT:-$ROOT_DIR/build}"
 REPEAT="${REPEAT:-3}"
 OUT_CSV="${OUT_CSV:-$ROOT_DIR/bench_results.csv}"
 
@@ -44,4 +44,4 @@ if [ ! -f "$OUT_CSV" ]; then
 fi
 
 run_one "default" "$BUILD_DIR_DEFAULT"
-run_one "optimized_cpp" "$BUILD_DIR_OPT"
+run_one "cpp20" "$BUILD_DIR_OPT"
