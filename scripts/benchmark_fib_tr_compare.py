@@ -38,12 +38,14 @@ def main():
     args = parser.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-
     funk_src = os.path.join(root, "examples", "bench", "fib_tr_compare.f")
     py_src = os.path.join(root, "examples", "bench", "fib_tr_compare.py")
     c_src = os.path.join(root, "examples", "bench", "fib_tr_compare.c")
+    benchmark_name = os.path.splitext(os.path.basename(funk_src))[0]
+    variant_tag = f"{args.backend}_{'fast' if args.fastpath else 'base'}"
+    build_subdir = f"build_{benchmark_name}_{variant_tag}"
+    build_dir = os.path.join(root, build_subdir)
+    os.makedirs(build_dir, exist_ok=True)
     c_bin = os.path.join(build_dir, "fib_tr_compare_c")
 
     env = os.environ.copy()
@@ -60,6 +62,8 @@ def main():
         funk_src,
         "--backend",
         args.backend,
+        "--build-dir",
+        build_subdir,
         "--include",
         ".",
     ], cwd=root, env=env)

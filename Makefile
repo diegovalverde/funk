@@ -1,10 +1,10 @@
-.PHONY: clean tests test-cpp20 examples examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-report bench-all
+.PHONY: clean tests test-cpp20 examples examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
 
 clean:
-	rm -rf build build_tests
+	rm -rf build build_tests build_bench build_*_cpp20*
 
 tests: test-cpp20
 
@@ -90,6 +90,15 @@ bench-collatz:
 
 bench-mutual-recursion:
 	./venv_3.11/bin/python ./scripts/benchmark_mutual_recursion_compare.py --runs 5 --backend cpp20_i32
+
+bench-fp-dot:
+	./venv_3.11/bin/python ./scripts/benchmark_fp_dot_compare.py --runs 5 --backend cpp20
+
+bench-fp-axpy:
+	./venv_3.11/bin/python ./scripts/benchmark_fp_axpy_compare.py --runs 5 --backend cpp20
+
+bench-fp-triad:
+	./venv_3.11/bin/python ./scripts/benchmark_fp_triad_compare.py --runs 5 --backend cpp20
 
 bench-report:
 	./venv_3.11/bin/python ./benchmarks/generate_report.py --runs $(BENCH_RUNS) --warmup $(BENCH_WARMUP)

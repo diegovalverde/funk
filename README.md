@@ -85,6 +85,9 @@ make bench-concat-compare
 make bench-sum-range
 make bench-collatz
 make bench-mutual-recursion
+make bench-fp-dot
+make bench-fp-axpy
+make bench-fp-triad
 ```
 
 You can also run fastpath/i32 variants:

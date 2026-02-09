@@ -34,6 +34,9 @@ BENCH_SCRIPTS = [
     ("sum_range", "scripts/benchmark_sum_range_compare.py"),
     ("collatz", "scripts/benchmark_collatz_compare.py"),
     ("mutual_recursion", "scripts/benchmark_mutual_recursion_compare.py"),
+    ("fp_dot", "scripts/benchmark_fp_dot_compare.py"),
+    ("fp_axpy", "scripts/benchmark_fp_axpy_compare.py"),
+    ("fp_triad", "scripts/benchmark_fp_triad_compare.py"),
 ]
 
 WORKLOAD_DESCRIPTIONS = {
@@ -43,6 +46,9 @@ WORKLOAD_DESCRIPTIONS = {
     "sum_range": "integer-only tail-recursive accumulation",
     "collatz": "branch-heavy integer recursion",
     "mutual_recursion": "cross-function recursive call overhead",
+    "fp_dot": "double-precision dot product reduction",
+    "fp_axpy": "double-precision daxpy-style reduction",
+    "fp_triad": "double-precision STREAM-like triad reduction",
 }
 
 

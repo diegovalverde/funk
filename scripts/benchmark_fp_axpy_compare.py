@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import math
 import os
 import statistics
 import subprocess
@@ -20,8 +21,7 @@ def timed(cmd, runs, cwd=None, warmup=1):
     for _ in range(runs):
         t0 = time.perf_counter()
         last_out = run_cmd(cmd, cwd=cwd)
-        dt = time.perf_counter() - t0
-        samples.append(dt)
+        samples.append(time.perf_counter() - t0)
     return {
         "last_out": last_out,
         "min": min(samples),
@@ -30,24 +30,34 @@ def timed(cmd, runs, cwd=None, warmup=1):
     }
 
 
+def assert_close(expected_s, actual_s, name):
+    expected = float(expected_s)
+    actual = float(actual_s)
+    # Funk uses default stream formatting, so large FP values may be rounded
+    # to scientific notation with limited precision in stdout.
+    tol = max(1e-6, abs(expected) * 1e-6)
+    if math.isnan(actual) or abs(actual - expected) > tol:
+        raise RuntimeError(f"Output mismatch for {name}: expected {expected_s}, got {actual_s}")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Benchmark Funk vs Python vs C using fib(35).")
-    parser.add_argument("--runs", type=int, default=5, help="Number of timing runs per implementation.")
+    parser = argparse.ArgumentParser(description="Benchmark floating-point daxpy reduction across Funk/Python/C.")
+    parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--warmup", type=int, default=1, help="Warmup runs per implementation (excluded from timing).")
     parser.add_argument("--fastpath", action="store_true", help="Enable FUNK_I32_FASTPATH for Funk C++ build.")
     parser.add_argument("--backend", choices=["cpp20", "cpp20_i32"], default="cpp20")
     args = parser.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    funk_src = os.path.join(root, "examples", "bench", "fib_compare.f")
-    py_src = os.path.join(root, "examples", "bench", "fib_compare.py")
-    c_src = os.path.join(root, "examples", "bench", "fib_compare.c")
+    funk_src = os.path.join(root, "examples", "bench", "fp_axpy_compare.f")
+    py_src = os.path.join(root, "examples", "bench", "fp_axpy_compare.py")
+    c_src = os.path.join(root, "examples", "bench", "fp_axpy_compare.c")
     benchmark_name = os.path.splitext(os.path.basename(funk_src))[0]
     variant_tag = f"{args.backend}_{'fast' if args.fastpath else 'base'}"
     build_subdir = f"build_{benchmark_name}_{variant_tag}"
     build_dir = os.path.join(root, build_subdir)
     os.makedirs(build_dir, exist_ok=True)
-    c_bin = os.path.join(build_dir, "fib_compare_c")
+    c_bin = os.path.join(build_dir, "fp_axpy_compare_c")
 
     env = os.environ.copy()
     base_flags = env.get("FUNK_EXTRA_CXXFLAGS", "").strip()
@@ -71,21 +81,14 @@ def main():
 
     subprocess.check_call(["clang", "-O3", c_src, "-o", c_bin], cwd=root)
 
-    funk_bin = os.path.join(build_dir, "fib_compare")
-    py_cmd = ["python3", py_src]
-    funk_cmd = [funk_bin]
-    c_cmd = [c_bin]
-
-    py_stats = timed(py_cmd, args.runs, cwd=root, warmup=args.warmup)
-    funk_stats = timed(funk_cmd, args.runs, cwd=root, warmup=args.warmup)
-    c_stats = timed(c_cmd, args.runs, cwd=root, warmup=args.warmup)
+    funk_bin = os.path.join(build_dir, "fp_axpy_compare")
+    py_stats = timed(["python3", py_src], args.runs, cwd=root, warmup=args.warmup)
+    funk_stats = timed([funk_bin], args.runs, cwd=root, warmup=args.warmup)
+    c_stats = timed([c_bin], args.runs, cwd=root, warmup=args.warmup)
 
     expected = py_stats["last_out"]
-    for name, stats in (("funk_cpp20", funk_stats), ("c_o3", c_stats)):
-        if stats["last_out"] != expected:
-            raise RuntimeError(
-                f"Output mismatch for {name}: expected {expected}, got {stats['last_out']}"
-            )
+    assert_close(expected, funk_stats["last_out"], "funk_cpp20")
+    assert_close(expected, c_stats["last_out"], "c_o3")
 
     print(f"result: {expected}")
     print(f"runs: {args.runs}")

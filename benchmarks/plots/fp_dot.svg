@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520">
 <rect width="100%" height="100%" fill="#0f172a"/>
-<text x="90" y="36" fill="#e5e7eb" font-size="26" font-family="Helvetica, Arial">collatz runtime comparison</text>
+<text x="90" y="36" fill="#e5e7eb" font-size="26" font-family="Helvetica, Arial">fp_dot runtime comparison</text>
 <text x="90" y="58" fill="#94a3b8" font-size="14" font-family="Helvetica, Arial">Median runtime (seconds, log scale)</text>
-<line x1="90" y1="276.20" x2="1060" y2="276.20" stroke="#334155" stroke-width="1"/>
-<text x="82" y="281.20" text-anchor="end" fill="#94a3b8" font-size="12" font-family="Helvetica, Arial">0.01</text>
+<line x1="90" y1="211.79" x2="1060" y2="211.79" stroke="#334155" stroke-width="1"/>
+<text x="82" y="216.79" text-anchor="end" fill="#94a3b8" font-size="12" font-family="Helvetica, Arial">0.01</text>
 <rect x="90" y="70" width="970" height="310" fill="none" stroke="#475569" stroke-width="1.2"/>
 <rect x="106.00" y="70.00" width="174.80" height="310.00" fill="#6c8cff" opacity="0.92"/>
-<text x="193.40" y="62.00" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.067024s</text>
+<text x="193.40" y="62.00" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.021194s</text>
 <text x="193.40" y="398.00" text-anchor="end" transform="rotate(-35 193.40,398.00)" fill="#cbd5e1" font-size="12" font-family="Helvetica, Arial">python3</text>
-<rect x="296.80" y="341.26" width="174.80" height="38.74" fill="#46b3a9" opacity="0.92"/>
-<text x="384.20" y="333.26" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.005487s</text>
+<rect x="296.80" y="370.49" width="174.80" height="9.51" fill="#46b3a9" opacity="0.92"/>
+<text x="384.20" y="362.49" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.004314s</text>
 <text x="384.20" y="398.00" text-anchor="end" transform="rotate(-35 384.20,398.00)" fill="#cbd5e1" font-size="12" font-family="Helvetica, Arial">c_o3</text>
 <rect x="487.60" y="380.00" width="174.80" height="0.00" fill="#f28f3b" opacity="0.92"/>
-<text x="575.00" y="372.00" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.003838s</text>
+<text x="575.00" y="372.00" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.004102s</text>
 <text x="575.00" y="398.00" text-anchor="end" transform="rotate(-35 575.00,398.00)" fill="#cbd5e1" font-size="12" font-family="Helvetica, Arial">funk_cpp20</text>
-<rect x="678.40" y="343.03" width="174.80" height="36.97" fill="#b27cff" opacity="0.92"/>
-<text x="765.80" y="335.03" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.005398s</text>
+<rect x="678.40" y="332.24" width="174.80" height="47.76" fill="#b27cff" opacity="0.92"/>
+<text x="765.80" y="324.24" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.005283s</text>
 <text x="765.80" y="398.00" text-anchor="end" transform="rotate(-35 765.80,398.00)" fill="#cbd5e1" font-size="12" font-family="Helvetica, Arial">funk_cpp20_i32</text>
-<rect x="869.20" y="347.58" width="174.80" height="32.42" fill="#ef476f" opacity="0.92"/>
-<text x="956.60" y="339.58" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.005176s</text>
+<rect x="869.20" y="325.36" width="174.80" height="54.64" fill="#ef476f" opacity="0.92"/>
+<text x="956.60" y="317.36" text-anchor="middle" fill="#e2e8f0" font-size="11" font-family="Helvetica, Arial">0.005479s</text>
 <text x="956.60" y="398.00" text-anchor="end" transform="rotate(-35 956.60,398.00)" fill="#cbd5e1" font-size="12" font-family="Helvetica, Arial">funk_cpp20_i32_fastpath</text>
 </svg>
