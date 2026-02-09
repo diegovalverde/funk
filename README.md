@@ -58,6 +58,51 @@ To pull the latest changes for all submodules later:
 git submodule update --remote --recursive
 ```
 
+# Benchmarks
+
+The repository includes cross-language benchmarks (Funk vs Python vs C) and an auto-generated report.
+
+## Run the full benchmark report
+
+```
+make bench-report BENCH_RUNS=7 BENCH_WARMUP=2
+```
+
+This runs all benchmark workloads and regenerates:
+
+- `benchmarks/benchmarks.md`
+- `benchmarks/raw/results.csv`
+- `benchmarks/plots/*.svg`
+
+`BENCH_RUNS` controls timed samples per configuration, and `BENCH_WARMUP` controls untimed warmup runs.
+
+## Run individual benchmark workloads
+
+```
+make bench-fib-compare
+make bench-fib-tr
+make bench-concat-compare
+make bench-sum-range
+make bench-collatz
+make bench-mutual-recursion
+```
+
+You can also run fastpath/i32 variants:
+
+```
+make bench-fib-fastpath
+make bench-concat-fastpath
+make bench-fib-i32
+make bench-concat-i32
+make bench-fib-tr-fastpath
+```
+
+## Notes
+
+- Benchmarks use scripts under `scripts/benchmark_*.py`.
+- The default benchmark report command uses the local virtualenv python: `./venv_3.11/bin/python`.
+- For stable comparisons, avoid running heavy background workloads while benchmarking.
+
 # Quick Language walk-through
 
 ## Functions
