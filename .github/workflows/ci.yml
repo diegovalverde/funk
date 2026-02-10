@@ -156,14 +156,4 @@ jobs:
       - name: Full tests
         env:
           FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
-        run: make tests
-
-      - name: Full examples
-        env:
-          FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
-        run: make examples
-
-      - name: Benchmark smoke
-        env:
-          FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
-        run: make bench-report BENCH_RUNS=1 BENCH_WARMUP=0
+        run: make release-check

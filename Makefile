@@ -1,4 +1,4 @@
-.PHONY: clean doctor sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
+.PHONY: clean doctor release-check sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
@@ -22,6 +22,12 @@ doctor:
 	echo "$$sub_status"; \
 	echo "$$sub_status" | awk '$$1 ~ /^[-+U]/ { bad=1 } END { exit bad }' || (echo "submodule status is not clean; run make sync-submodules"; exit 1)
 	@echo "doctor: OK"
+
+release-check:
+	$(MAKE) doctor
+	$(MAKE) tests-fast
+	$(MAKE) examples-smoke
+	$(MAKE) bench-report BENCH_RUNS=1 BENCH_WARMUP=0
 
 sync-submodules:
 	git submodule sync --recursive

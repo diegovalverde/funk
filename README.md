@@ -97,6 +97,11 @@ make tests-integration
 make examples
 ```
 
+Release/pre-tag smoke:
+```
+make release-check
+```
+
 # Benchmarks
 
 The repository includes cross-language benchmarks (Funk vs Python vs C) and an auto-generated report.
