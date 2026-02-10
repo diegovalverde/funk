@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - stable_2026
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout funk
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Checkout examples repo
+        uses: actions/checkout@v4
+        with:
+          repository: diegovalverde/funky_example_files
+          ref: stable_2026
+          path: funky_example_files
+          submodules: recursive
+
+      - name: Install clang (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv venv_3.11
+          ./venv_3.11/bin/python -m pip install --upgrade pip
+          ./venv_3.11/bin/python -m pip install -r requirements.txt
+
+      - name: Sync submodules
+        run: make sync-submodules
+
+      - name: Run tests
+        env:
+          FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
+        run: make tests
+
+      - name: Run examples
+        env:
+          FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
+        run: make examples
+
+      - name: Benchmark smoke
+        env:
+          FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
+        run: make bench-report BENCH_RUNS=1 BENCH_WARMUP=0
