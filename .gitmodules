@@ -4,4 +4,4 @@
 	branch = main
 [submodule "stdlib"]
 	path = stdlib
-	url = /Users/diegovalverdegarro/workspace/projects/funk_stdlib
+	url = git@github.com:diegovalverde/funk_stdlib.git
