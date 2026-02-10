@@ -64,7 +64,6 @@ jobs:
   warning-gate:
     name: Warning Gate (non-blocking)
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Checkout funk
