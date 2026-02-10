@@ -238,25 +238,25 @@ Each `NAME <-> value` line is removed and later occurrences of `NAME` are replac
 
 ---
 
-## Example Programs (Repo References)
+## Example Programs (External Examples Repo)
 
 ### FizzBuzz
-`examples/fizzbuzz/fizzbuzz.f`
+`$FUNK_EXAMPLES_PATH/fizzbuzz.f`
 
 ### Sorting
-`include/sort.f` and `examples/experimental/merge_sort.f`
+`include/sort.f` and `$FUNK_EXAMPLES_PATH/merge_sort.f`
 
 ### Game of Life
-`examples/experimental/game_of_life/game_of_life.f`
+`$FUNK_EXAMPLES_PATH/graphics/game_of_life.f`
 
 ### Sudoku (backtracking)
-`examples/experimental/sudoku/sudoku_backtracking.f`
+`$FUNK_EXAMPLES_PATH/games/sudoku.f` (uses `sudoku_backtracking` from include libs)
 
 ### Connect-4
-`examples/experimental/connect_4.f` and `examples/experimental/connect4_new.f`
+`$FUNK_EXAMPLES_PATH/games/connect4.f`
 
 ### 8-Puzzle
-`examples/experimental/8_puzzle.f`
+`$FUNK_EXAMPLES_PATH/games/puzzle_8_main.f`
 
 ---
 

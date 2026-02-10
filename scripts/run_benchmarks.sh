@@ -9,9 +9,9 @@ REPEAT="${REPEAT:-3}"
 OUT_CSV="${OUT_CSV:-$ROOT_DIR/bench_results.csv}"
 
 BENCHES=(
-  "examples/bench/fibonacci.f"
-  "examples/bench/array_concat.f"
-  "examples/bench/small_lists.f"
+  "benchs/fibonacci.f"
+  "benchs/array_concat.f"
+  "benchs/small_lists.f"
 )
 
 run_one() {

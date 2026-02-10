@@ -34,7 +34,7 @@ You may also need to install latest command-line tools from https://developer.ap
 
 # SDL (optional, for graphics examples)
 
-Some examples (e.g. `examples/experimental/barnsly_fern.f`) use SDL via `sdl_simple`. Install SDL2 development headers:
+Some examples (e.g. `$FUNK_EXAMPLES_PATH/graphics/barnsly_fern.f`) use SDL via `sdl_simple`. Install SDL2 development headers:
 
 Linux (Debian/Ubuntu):
 ```
