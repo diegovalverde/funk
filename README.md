@@ -52,8 +52,15 @@ This repo uses git submodules for:
 - `funk/` (core compiler/runtime)
 - `stdlib/` (standard library files used via `FUNK_INCLUDE_PATH`)
 
-After cloning, initialize and update submodules:
+After cloning, sync and initialize submodules:
 ```
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+If submodule URLs change later, re-sync and update:
+```
+git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
