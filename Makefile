@@ -2,6 +2,7 @@
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
+FUNK_INCLUDE_PATH ?= $(CURDIR)/stdlib
 
 clean:
 	rm -rf build build_tests build_bench build_*_cpp20*

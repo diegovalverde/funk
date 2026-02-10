@@ -2,3 +2,6 @@
 	path = funk
 	url = git@github.com:diegovalverde/lib_funky.git
 	branch = main
+[submodule "stdlib"]
+	path = stdlib
+	url = /Users/diegovalverdegarro/workspace/projects/funk_stdlib

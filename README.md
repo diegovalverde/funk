@@ -48,7 +48,11 @@ brew install sdl2
 
 # Submodules
 
-This repo uses a git submodule for the Funk core library. After cloning, initialize and update it:
+This repo uses git submodules for:
+- `funk/` (core compiler/runtime)
+- `stdlib/` (standard library files used via `FUNK_INCLUDE_PATH`)
+
+After cloning, initialize and update submodules:
 ```
 git submodule update --init --recursive
 ```
@@ -57,6 +61,9 @@ To pull the latest changes for all submodules later:
 ```
 git submodule update --remote --recursive
 ```
+
+`FUNK_INCLUDE_PATH` defaults to `./stdlib` in the `Makefile`.
+You still need to set `FUNK_EXAMPLES_PATH` to your examples repo path (for `make tests` / `make examples`).
 
 # Benchmarks
 
