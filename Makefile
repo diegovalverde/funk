@@ -1,4 +1,4 @@
-.PHONY: clean doctor sync-submodules update-submodules submodule-status tests test-cpp20 examples examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
+.PHONY: clean doctor sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
@@ -33,7 +33,17 @@ update-submodules:
 submodule-status:
 	git submodule status --recursive
 
-tests: test-cpp20
+tests: tests-fast
+
+tests-fast: test-cpp20
+
+tests-integration:
+	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)
+	@test -n "$(FUNK_EXAMPLES_PATH)" || (echo "FUNK_EXAMPLES_PATH is not set"; exit 1)
+	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/games/puzzle_8_main.f" --backend cpp20 --include "$(FUNK_INCLUDE_PATH)" "$(FUNK_EXAMPLES_PATH)/games"
+	./build/puzzle_8_main
+	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/games/sudoku.f" --backend cpp20 --include "$(FUNK_INCLUDE_PATH)"
+	./build/sudoku
 
 test-cpp20:
 	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)
@@ -60,6 +70,16 @@ examples:
 	./build/puzzle_8_main
 	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/games/sudoku.f" --backend cpp20 --include "$(FUNK_INCLUDE_PATH)"
 	./build/sudoku
+
+examples-smoke:
+	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)
+	@test -n "$(FUNK_EXAMPLES_PATH)" || (echo "FUNK_EXAMPLES_PATH is not set"; exit 1)
+	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/fibonacci.f" --backend cpp20 --include "$(FUNK_INCLUDE_PATH)"
+	./build/fibonacci
+	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/fizzbuzz.f" --backend cpp20 --include "$(FUNK_INCLUDE_PATH)"
+	./build/fizzbuzz
+	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/test_bfs.f" --backend cpp20 --include "$(FUNK_INCLUDE_PATH)"
+	./build/test_bfs
 
 examples-graphics:
 	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)

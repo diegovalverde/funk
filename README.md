@@ -82,6 +82,21 @@ You still need to set `FUNK_EXAMPLES_PATH` to your examples repo path (for `make
 
 Version compatibility across `funk`, `lib_funky`, `funk_stdlib`, and `funky_example_files` is tracked in `VERSIONS.md`.
 
+# Validation Shortcuts
+
+Quick local validation:
+```
+make tests-fast
+make examples-smoke
+```
+
+Full local validation:
+```
+make tests
+make tests-integration
+make examples
+```
+
 # Benchmarks
 
 The repository includes cross-language benchmarks (Funk vs Python vs C) and an auto-generated report.
