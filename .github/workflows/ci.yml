@@ -65,3 +65,57 @@ jobs:
         env:
           FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
         run: make bench-report BENCH_RUNS=1 BENCH_WARMUP=0
+
+  warning-gate:
+    name: Warning Gate (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout funk
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Checkout examples repo
+        uses: actions/checkout@v4
+        with:
+          repository: diegovalverde/funky_example_files
+          ref: 77bd37bfbdf64a72df2ae70a35812affb3806d80
+          path: funky_example_files
+          submodules: recursive
+
+      - name: Install clang (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv venv_3.11
+          ./venv_3.11/bin/python -m pip install --upgrade pip
+          ./venv_3.11/bin/python -m pip install -r requirements.txt
+
+      - name: Sync submodules
+        run: make sync-submodules
+
+      - name: Strict compile warnings (tests)
+        env:
+          FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
+          FUNK_EXTRA_CXXFLAGS: -Wall -Wextra -Werror
+        run: |
+          set -o pipefail
+          make tests 2>&1 | tee warning-gate.log
+
+      - name: Upload warning gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: warning-gate-log
+          path: warning-gate.log
+          if-no-files-found: warn
