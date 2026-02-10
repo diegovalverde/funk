@@ -75,6 +75,8 @@ make submodule-status
 `FUNK_INCLUDE_PATH` defaults to `./stdlib` in the `Makefile`.
 You still need to set `FUNK_EXAMPLES_PATH` to your examples repo path (for `make tests` / `make examples`).
 
+Version compatibility across `funk`, `lib_funky`, `funk_stdlib`, and `funky_example_files` is tracked in `VERSIONS.md`.
+
 # Benchmarks
 
 The repository includes cross-language benchmarks (Funk vs Python vs C) and an auto-generated report.
