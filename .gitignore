@@ -109,3 +109,8 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Generated benchmark outputs (do not version)
+benchmarks/benchmarks.md
+benchmarks/raw/results.csv
+benchmarks/plots/*.svg

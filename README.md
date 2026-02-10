@@ -118,6 +118,8 @@ This runs all benchmark workloads and regenerates:
 - `benchmarks/raw/results.csv`
 - `benchmarks/plots/*.svg`
 
+These files are generated locally and are not versioned.
+
 `BENCH_RUNS` controls timed samples per configuration, and `BENCH_WARMUP` controls untimed warmup runs.
 
 ## Run individual benchmark workloads

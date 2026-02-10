@@ -156,3 +156,14 @@ jobs:
         env:
           FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
         run: make release-check
+
+      - name: Upload benchmark smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-smoke-artifacts
+          path: |
+            benchmarks/benchmarks.md
+            benchmarks/raw/results.csv
+            benchmarks/plots/*.svg
+          if-no-files-found: warn
