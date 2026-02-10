@@ -38,9 +38,9 @@ def main():
     args = parser.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    funk_src = os.path.join(root, "benchs", "collatz_compare.f")
-    py_src = os.path.join(root, "benchs", "collatz_compare.py")
-    c_src = os.path.join(root, "benchs", "collatz_compare.c")
+    funk_src = os.path.join(root, "benchmarks", "bench", "collatz_compare.f")
+    py_src = os.path.join(root, "benchmarks", "bench", "collatz_compare.py")
+    c_src = os.path.join(root, "benchmarks", "bench", "collatz_compare.c")
     benchmark_name = os.path.splitext(os.path.basename(funk_src))[0]
     variant_tag = f"{args.backend}_{'fast' if args.fastpath else 'base'}"
     build_subdir = f"build_{benchmark_name}_{variant_tag}"
