@@ -149,6 +149,7 @@ make bench-fib-tr-fastpath
 - Benchmarks use scripts under `scripts/benchmark_*.py`.
 - The default benchmark report command uses the local virtualenv python: `./venv_3.11/bin/python`.
 - For stable comparisons, avoid running heavy background workloads while benchmarking.
+- Contributor workflow and required local checks are documented in `CONTRIBUTING.md`.
 
 # Quick Language walk-through
 
