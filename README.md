@@ -54,19 +54,22 @@ This repo uses git submodules for:
 
 After cloning, sync and initialize submodules:
 ```
-git submodule sync --recursive
-git submodule update --init --recursive
+make sync-submodules
 ```
 
 If submodule URLs change later, re-sync and update:
 ```
-git submodule sync --recursive
-git submodule update --init --recursive
+make sync-submodules
 ```
 
 To pull the latest changes for all submodules later:
 ```
-git submodule update --remote --recursive
+make update-submodules
+```
+
+You can inspect current pins with:
+```
+make submodule-status
 ```
 
 `FUNK_INCLUDE_PATH` defaults to `./stdlib` in the `Makefile`.
