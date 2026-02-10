@@ -72,6 +72,11 @@ You can inspect current pins with:
 make submodule-status
 ```
 
+Validate local toolchain + submodule/env setup with:
+```
+make doctor
+```
+
 `FUNK_INCLUDE_PATH` defaults to `./stdlib` in the `Makefile`.
 You still need to set `FUNK_EXAMPLES_PATH` to your examples repo path (for `make tests` / `make examples`).
 

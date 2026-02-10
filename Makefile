@@ -1,4 +1,4 @@
-.PHONY: clean sync-submodules update-submodules submodule-status tests test-cpp20 examples examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
+.PHONY: clean doctor sync-submodules update-submodules submodule-status tests test-cpp20 examples examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
@@ -6,6 +6,22 @@ FUNK_INCLUDE_PATH ?= $(CURDIR)/stdlib
 
 clean:
 	rm -rf build build_tests build_bench build_*_cpp20*
+
+doctor:
+	@echo "== funk doctor =="
+	@command -v clang++ >/dev/null || (echo "missing clang++ in PATH"; exit 1)
+	@./venv_3.11/bin/python --version >/dev/null || (echo "missing ./venv_3.11/bin/python (create venv and install requirements)"; exit 1)
+	@./venv_3.11/bin/python -m pip --version >/dev/null || (echo "pip not available in ./venv_3.11"; exit 1)
+	@test -d "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH does not exist: $(FUNK_INCLUDE_PATH)"; exit 1)
+	@test -f "$(FUNK_INCLUDE_PATH)/assert.f" || (echo "stdlib check failed: $(FUNK_INCLUDE_PATH)/assert.f not found"; exit 1)
+	@test -n "$(FUNK_EXAMPLES_PATH)" || (echo "FUNK_EXAMPLES_PATH is not set"; exit 1)
+	@test -d "$(FUNK_EXAMPLES_PATH)" || (echo "FUNK_EXAMPLES_PATH does not exist: $(FUNK_EXAMPLES_PATH)"; exit 1)
+	@test -f "$(FUNK_EXAMPLES_PATH)/bottles_of_beer.f" || (echo "examples check failed: $(FUNK_EXAMPLES_PATH)/bottles_of_beer.f not found"; exit 1)
+	@echo "== submodule status =="
+	@sub_status="$$(git submodule status --recursive)"; \
+	echo "$$sub_status"; \
+	echo "$$sub_status" | awk '$$1 ~ /^[-+U]/ { bad=1 } END { exit bad }' || (echo "submodule status is not clean; run make sync-submodules"; exit 1)
+	@echo "doctor: OK"
 
 sync-submodules:
 	git submodule sync --recursive
