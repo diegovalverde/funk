@@ -131,7 +131,7 @@ bytecode-tests-subset:
 		build_dir="build_bytecode_$$name"; \
 		echo "== bytecode subset: $$name =="; \
 		./venv_3.11/bin/python ./funky.py "$$src" --backend bytecode --build-dir "$$build_dir" --include "$(FUNK_INCLUDE_PATH)"; \
-		(cd ./funk_vm && cargo run --offline -- run "../$$build_dir/$$name.fkb.json"); \
+		(cd ./funk_vm && cargo run --offline -- run "../$$build_dir/$$name.fkb"); \
 	done
 
 test-bytecode-main:
@@ -140,7 +140,7 @@ test-bytecode-main:
 	./venv_3.11/bin/python ./funky.py ./funk/tests/test_main.f --backend bytecode --build-dir build_tests_bytecode --include "$(FUNK_INCLUDE_PATH)" ./funk/tests "$(FUNK_EXAMPLES_PATH)/games"
 	@set -e; \
 	rc=0; \
-	(cd ./funk_vm && cargo run --offline -- run ../build_tests_bytecode/test_main.fkb.json) || rc=$$?; \
+	(cd ./funk_vm && cargo run --offline -- run ../build_tests_bytecode/test_main.fkb) || rc=$$?; \
 	if [ "$$rc" -ne 0 ] && [ "$$rc" -ne 1 ]; then \
 		exit $$rc; \
 	fi
@@ -152,10 +152,10 @@ bytecode-build-smoke:
 	./venv_3.11/bin/python ./funky.py "$(BYTECODE_SMOKE_SRC)" --backend bytecode --build-dir "$(BYTECODE_BUILD_DIR)" --include "$(FUNK_INCLUDE_PATH)"
 
 bytecode-disasm-smoke: bytecode-build-smoke
-	cd ./funk_vm && cargo run --offline -- disasm ../$(BYTECODE_BUILD_DIR)/bytecode_smoke.fkb.json
+	cd ./funk_vm && cargo run --offline -- disasm ../$(BYTECODE_BUILD_DIR)/bytecode_smoke.fkb
 
 bytecode-run-smoke: bytecode-build-smoke
-	cd ./funk_vm && cargo run --offline -- run ../$(BYTECODE_BUILD_DIR)/bytecode_smoke.fkb.json
+	cd ./funk_vm && cargo run --offline -- run ../$(BYTECODE_BUILD_DIR)/bytecode_smoke.fkb
 
 bench-fib-compare:
 	./venv_3.11/bin/python ./scripts/benchmark_fib_compare.py --runs 5

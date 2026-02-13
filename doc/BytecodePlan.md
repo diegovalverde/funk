@@ -122,6 +122,12 @@ Status update:
 - Add strict validation pass (unknown opcodes, bounds, jump targets, trailing bytes).
 - Keep JSON as debug format.
 
+Status update:
+- Backend now emits both:
+  - JSON debug artifact: `*.fkb.json`
+  - Binary runtime artifact: `*.fkb` (magic `FKB1`, LE payload)
+- VM loader accepts either input format by content (`FKB1` magic vs JSON).
+
 ### Phase 6: Performance and migration
 - Optional threaded dispatch or superinstructions.
 - Add bytecode smoke targets in Makefile.

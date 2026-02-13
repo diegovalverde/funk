@@ -108,6 +108,7 @@ make bytecode-run-smoke
 ```
 
 `make test-bytecode-main` requires `FUNK_EXAMPLES_PATH` (same as `make test`) because `funk/tests/test_main.f` pulls game helpers from `$(FUNK_EXAMPLES_PATH)/games`.
+The bytecode backend emits both `*.fkb.json` (debug JSON) and `*.fkb` (binary) artifacts.
 
 Release/pre-tag smoke:
 ```

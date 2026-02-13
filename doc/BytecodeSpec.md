@@ -3,7 +3,7 @@
 ## Status
 - Draft for incremental implementation.
 - Versioned as `funk-bytecode-v1-json` for the JSON container.
-- Binary container (`FKB1`) is deferred to a later phase.
+- Binary container (`FKB1`) is available as an optional runtime artifact (`*.fkb`).
 
 ## Design Goals
 - Deterministic execution model.
@@ -32,6 +32,24 @@ Top-level object shape:
   "entry_fn": 0
 }
 ```
+
+## Binary Container (`*.fkb`)
+- Magic: `FKB1` (4 bytes).
+- Little-endian payload:
+  - `u32 strings_len`, then repeated `u32 byte_len + utf8 bytes`
+  - `u32 functions_len`, then for each function:
+    - `u32 name_len + utf8 name`
+    - `u32 arity`
+    - `u32 captures`
+    - `u32 code_len`
+    - instructions (`op:u8`, `arg_kind:u8`, optional arg payload, `argc:u8|255`, `id:u8|255`)
+  - `u32 entry_fn`
+- Arg kinds:
+  - `0 = none`
+  - `1 = i64`
+  - `2 = f64`
+  - `3 = bool(u8)`
+- VM loader accepts both `*.fkb.json` and `*.fkb`.
 
 ## Value Domains
 - `strings`: UTF-8 string pool, indexed by integer.
@@ -69,6 +87,7 @@ Top-level object shape:
 - Calls:
   - `CALL_BUILTIN {id:u8, argc:u8}`
   - `CALL_FN {arg:u32, argc:u8}` (function index)
+  - `CALL_INDIRECT {argc:u8}` (callee from stack string + args)
 - List/array baseline:
   - `MK_LIST {argc:u8}` (pop argc values, push list)
   - `GET_INDEX` (pop index + list, push element)
@@ -94,7 +113,6 @@ Top-level object shape:
 
 ## Non-goals (v1)
 - Bytecode-level optimizations.
-- Binary container.
 - Full closure support.
 - Full multi-dimensional slicing semantics.
 

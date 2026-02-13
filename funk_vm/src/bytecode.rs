@@ -3,9 +3,10 @@ use std::fs;
 use std::path::Path;
 
 use serde::Deserialize;
-use serde_json::Value as JsonValue;
+use serde_json::{Number as JsonNumber, Value as JsonValue};
 
 pub const FORMAT_V1_JSON: &str = "funk-bytecode-v1-json";
+const BINARY_MAGIC: &[u8; 4] = b"FKB1";
 
 #[derive(Debug, Clone)]
 pub struct BytecodeError {
@@ -120,13 +121,22 @@ pub fn load_bytecode_from_str(src: &str) -> Result<Bytecode, BytecodeError> {
 }
 
 pub fn load_bytecode_from_path(path: &Path) -> Result<Bytecode, BytecodeError> {
-    let text = fs::read_to_string(path).map_err(|e| {
+    let raw = fs::read(path).map_err(|e| {
         BytecodeError::new(
             "E4201",
             format!("failed reading bytecode file '{}': {e}", path.display()),
         )
     })?;
-    load_bytecode_from_str(&text)
+    load_bytecode_from_bytes(&raw)
+}
+
+pub fn load_bytecode_from_bytes(raw: &[u8]) -> Result<Bytecode, BytecodeError> {
+    if raw.len() >= 4 && &raw[0..4] == BINARY_MAGIC {
+        return decode_binary(raw);
+    }
+    let text = std::str::from_utf8(raw)
+        .map_err(|e| BytecodeError::new("E4201", format!("bytecode is not valid UTF-8 JSON: {e}")))?;
+    load_bytecode_from_str(text)
 }
 
 fn validate_instruction(
@@ -219,6 +229,171 @@ fn validate_instruction(
         }
     }
     Ok(())
+}
+
+fn decode_binary(raw: &[u8]) -> Result<Bytecode, BytecodeError> {
+    let mut c = BinaryCursor::new(raw);
+    c.expect_magic(BINARY_MAGIC)?;
+
+    let strings_len = c.read_u32()? as usize;
+    let mut strings = Vec::with_capacity(strings_len);
+    for _ in 0..strings_len {
+        strings.push(c.read_string()?);
+    }
+
+    let fn_len = c.read_u32()? as usize;
+    let mut functions = Vec::with_capacity(fn_len);
+    for _ in 0..fn_len {
+        let name = c.read_string()?;
+        let arity = c.read_u32()?;
+        let captures = c.read_u32()?;
+        let code_len = c.read_u32()? as usize;
+        let mut code = Vec::with_capacity(code_len);
+        for _ in 0..code_len {
+            let op = decode_op(c.read_u8()?)?;
+            let arg_kind = c.read_u8()?;
+            let arg = match arg_kind {
+                0 => None,
+                1 => Some(JsonValue::from(c.read_i64()?)),
+                2 => {
+                    let v = c.read_f64()?;
+                    let num = JsonNumber::from_f64(v).ok_or_else(|| {
+                        BytecodeError::new("E4201", "invalid binary float payload")
+                    })?;
+                    Some(JsonValue::Number(num))
+                }
+                3 => Some(JsonValue::Bool(c.read_u8()? != 0)),
+                other => {
+                    return Err(BytecodeError::new(
+                        "E4201",
+                        format!("unknown binary arg kind {}", other),
+                    ))
+                }
+            };
+            let argc_raw = c.read_u8()?;
+            let id_raw = c.read_u8()?;
+            code.push(Instruction {
+                op,
+                arg,
+                argc: if argc_raw == u8::MAX { None } else { Some(argc_raw) },
+                id: if id_raw == u8::MAX { None } else { Some(id_raw) },
+            });
+        }
+        functions.push(FunctionBytecode {
+            name,
+            arity,
+            captures,
+            code,
+        });
+    }
+
+    let entry_fn = c.read_u32()?;
+    if c.remaining() != 0 {
+        return Err(BytecodeError::new(
+            "E4201",
+            format!("binary payload has {} trailing bytes", c.remaining()),
+        ));
+    }
+
+    let bytecode = Bytecode {
+        format: FORMAT_V1_JSON.to_string(),
+        strings,
+        functions,
+        entry_fn,
+    };
+    bytecode.validate()?;
+    Ok(bytecode)
+}
+
+fn decode_op(raw: u8) -> Result<OpCode, BytecodeError> {
+    match raw {
+        0 => Ok(OpCode::PushInt),
+        1 => Ok(OpCode::PushFloat),
+        2 => Ok(OpCode::PushBool),
+        3 => Ok(OpCode::PushString),
+        4 => Ok(OpCode::PushUnit),
+        5 => Ok(OpCode::LoadLocal),
+        6 => Ok(OpCode::StoreLocal),
+        7 => Ok(OpCode::Pop),
+        8 => Ok(OpCode::Jump),
+        9 => Ok(OpCode::JumpIfFalse),
+        10 => Ok(OpCode::CallBuiltin),
+        11 => Ok(OpCode::CallFn),
+        12 => Ok(OpCode::CallIndirect),
+        13 => Ok(OpCode::Return),
+        14 => Ok(OpCode::Trap),
+        15 => Ok(OpCode::MkList),
+        16 => Ok(OpCode::GetIndex),
+        17 => Ok(OpCode::Len),
+        _ => Err(BytecodeError::new(
+            "E4201",
+            format!("unknown opcode byte {}", raw),
+        )),
+    }
+}
+
+struct BinaryCursor<'a> {
+    raw: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> BinaryCursor<'a> {
+    fn new(raw: &'a [u8]) -> Self {
+        Self { raw, pos: 0 }
+    }
+
+    fn remaining(&self) -> usize {
+        self.raw.len().saturating_sub(self.pos)
+    }
+
+    fn expect_magic(&mut self, magic: &[u8]) -> Result<(), BytecodeError> {
+        let got = self.read_exact(magic.len())?;
+        if got != magic {
+            return Err(BytecodeError::new("E4201", "invalid binary magic"));
+        }
+        Ok(())
+    }
+
+    fn read_exact(&mut self, n: usize) -> Result<&'a [u8], BytecodeError> {
+        if self.pos + n > self.raw.len() {
+            return Err(BytecodeError::new("E4201", "unexpected end of binary payload"));
+        }
+        let out = &self.raw[self.pos..self.pos + n];
+        self.pos += n;
+        Ok(out)
+    }
+
+    fn read_u8(&mut self) -> Result<u8, BytecodeError> {
+        Ok(self.read_exact(1)?[0])
+    }
+
+    fn read_u32(&mut self) -> Result<u32, BytecodeError> {
+        let bytes = self.read_exact(4)?;
+        let mut arr = [0u8; 4];
+        arr.copy_from_slice(bytes);
+        Ok(u32::from_le_bytes(arr))
+    }
+
+    fn read_i64(&mut self) -> Result<i64, BytecodeError> {
+        let bytes = self.read_exact(8)?;
+        let mut arr = [0u8; 8];
+        arr.copy_from_slice(bytes);
+        Ok(i64::from_le_bytes(arr))
+    }
+
+    fn read_f64(&mut self) -> Result<f64, BytecodeError> {
+        let bytes = self.read_exact(8)?;
+        let mut arr = [0u8; 8];
+        arr.copy_from_slice(bytes);
+        Ok(f64::from_le_bytes(arr))
+    }
+
+    fn read_string(&mut self) -> Result<String, BytecodeError> {
+        let len = self.read_u32()? as usize;
+        let bytes = self.read_exact(len)?;
+        String::from_utf8(bytes.to_vec())
+            .map_err(|e| BytecodeError::new("E4201", format!("invalid utf-8 string payload: {e}")))
+    }
 }
 
 pub fn require_i64_arg(ins: &Instruction, op: &str) -> Result<i64, BytecodeError> {
