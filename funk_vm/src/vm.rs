@@ -401,6 +401,44 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 _ => Err(VmError::new("E4305", "abs expects int or float arg")),
             }
         }
+        38 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "sum expects one list arg"));
+            }
+            let items = match &args[0] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "sum expects list arg")),
+            };
+            let mut int_acc: i64 = 0;
+            let mut float_acc: f64 = 0.0;
+            let mut is_float = false;
+            for item in items {
+                match item {
+                    Value::Int(v) => {
+                        if is_float {
+                            float_acc += *v as f64;
+                        } else {
+                            int_acc = int_acc
+                                .checked_add(*v)
+                                .ok_or_else(|| VmError::new("E4305", "integer overflow in sum"))?;
+                        }
+                    }
+                    Value::Float(v) => {
+                        if !is_float {
+                            float_acc = int_acc as f64;
+                            is_float = true;
+                        }
+                        float_acc += *v;
+                    }
+                    _ => return Err(VmError::new("E4305", "sum expects numeric list elements")),
+                }
+            }
+            if is_float {
+                Ok(Value::Float(float_acc))
+            } else {
+                Ok(Value::Int(int_acc))
+            }
+        }
         _ => Err(VmError::new(
             "E4305",
             format!("unsupported builtin id {}", id),
@@ -779,5 +817,63 @@ mod tests {
         let bc = load_bytecode_from_str(src).expect("bytecode parse");
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Bool(true));
+    }
+
+    #[test]
+    fn run_sum_builtin_int_list_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"PUSH_INT","arg":3},
+        {"op":"MK_LIST","argc":3},
+        {"op":"CALL_BUILTIN","id":38,"argc":1},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(6));
+    }
+
+    #[test]
+    fn run_sum_builtin_mixed_list_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"PUSH_FLOAT","arg":2.5},
+        {"op":"PUSH_INT","arg":3},
+        {"op":"MK_LIST","argc":3},
+        {"op":"CALL_BUILTIN","id":38,"argc":1},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Float(6.5));
     }
 }

@@ -11,6 +11,7 @@ main():
     n <- len([1,2,3])
     arr <- [10,20,30]
     mid <- arr[1]
+    s <- sum([1,2,3])
     r <- pick(z + n - 3) - 40
     t <- truthy(0)
-    gate(r + 1) + mid - 21 + t + abs(-7) - 7.
+    gate(r + 1) + mid - 21 + t + abs(-7) - 7 + s - 6.
