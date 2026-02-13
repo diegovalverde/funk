@@ -100,6 +100,7 @@ make examples
 Bytecode VM validation:
 ```
 make vm-test
+make bytecode-tests-subset
 make bytecode-disasm-smoke
 make bytecode-run-smoke
 ```

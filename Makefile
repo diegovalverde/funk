@@ -1,10 +1,12 @@
-.PHONY: clean clear test doctor release-check sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive vm-test bytecode-build-smoke bytecode-disasm-smoke bytecode-run-smoke bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
+.PHONY: clean clear test doctor release-check sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive vm-test bytecode-build-smoke bytecode-disasm-smoke bytecode-run-smoke bytecode-tests-subset test-bytecode bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
 FUNK_INCLUDE_PATH ?= $(CURDIR)/stdlib
 BYTECODE_BUILD_DIR ?= build_bytecode_smoke
 BYTECODE_SMOKE_SRC ?= $(CURDIR)/bytecode_smoke.f
+BYTECODE_TEST_DIR ?= $(CURDIR)/tests/bytecode
+BYTECODE_TEST_SRCS ?= $(BYTECODE_TEST_DIR)/core_lists_ranges.f $(BYTECODE_TEST_DIR)/clauses_recursion.f
 
 clean:
 	rm -rf build build_tests build_bench build_*_cpp20*
@@ -119,6 +121,19 @@ examples-interactive:
 
 vm-test:
 	cd ./funk_vm && cargo test --offline
+
+bytecode-tests-subset:
+	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)
+	@set -e; \
+	for src in $(BYTECODE_TEST_SRCS); do \
+		name="$$(basename "$$src" .f)"; \
+		build_dir="build_bytecode_$$name"; \
+		echo "== bytecode subset: $$name =="; \
+		./venv_3.11/bin/python ./funky.py "$$src" --backend bytecode --build-dir "$$build_dir" --include "$(FUNK_INCLUDE_PATH)"; \
+		(cd ./funk_vm && cargo run --offline -- run "../$$build_dir/$$name.fkb.json"); \
+	done
+
+test-bytecode: vm-test bytecode-tests-subset
 
 bytecode-build-smoke:
 	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)

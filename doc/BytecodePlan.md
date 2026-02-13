@@ -10,8 +10,9 @@ The design should be inspired by `mu` bytecode/runtime in:
 
 ## Current State in Funk
 - Backend plugin architecture now exists (`funk/backends/base.py`, `funk/backends/__init__.py`).
-- `bytecode` backend currently emits metadata JSON only (`funk/backends/bytecode.py`).
-- No instruction stream, no VM runtime, no bytecode execution path.
+- `bytecode` backend emits executable JSON bytecode (`*.fkb.json`) via lowering.
+- Rust VM runtime executes/disassembles emitted bytecode (`funk_vm` crate).
+- Makefile includes smoke + subset bytecode validation targets.
 
 ## What to Reuse from mu
 - Stack machine execution model (single value stack + call frames).
@@ -107,6 +108,10 @@ The design should be inspired by `mu` bytecode/runtime in:
 Status update:
 - v1 already supports range slicing through builtin `40` with omitted bounds:
   - `[..x]`, `[x..]`, `[..]` are lowered with default bounds.
+- `make bytecode-tests-subset` now runs a deterministic bytecode subset covering:
+  - lists/indexing/ranges,
+  - clause dispatch + guards,
+  - recursion and builtin helpers.
 
 ### Phase 5: Binary format + validation hardening
 - Introduce binary `.fkb` encoder/decoder.
