@@ -17,8 +17,10 @@
 # under the License.
 
 import argparse
+import os
 
-from funk.funky_builder import *
+from funk.backends import BACKEND_OPTIMIZED, list_backends
+from funk.funky_builder import build, set_cwd
 
 
 if __name__ == '__main__':
@@ -26,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('input_path', help='Path to input file')
     parser.add_argument('--debug', action='store_true', default=False, help='For tool debugging purposes only')
     parser.add_argument('--include', nargs='+', help='Path to the .f includes', default='.')
-    parser.add_argument('--backend', choices=['cpp20', 'cpp20_i32'], default='cpp20',
+    parser.add_argument('--backend', choices=list_backends(), default=BACKEND_OPTIMIZED,
                         help='Select codegen backend')
     parser.add_argument('--build-dir', default=None, help='Build output directory')
 
