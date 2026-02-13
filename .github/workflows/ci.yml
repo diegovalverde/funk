@@ -101,13 +101,10 @@ jobs:
       - name: Sync submodules
         run: make sync-submodules
 
-      - name: Bytecode VM tests
-        run: make vm-test
-
-      - name: Bytecode subset
+      - name: Full bytecode validation
         env:
           FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
-        run: make bytecode-tests-subset
+        run: make test-bytecode
 
   warning-gate:
     name: Warning Gate (non-blocking)
