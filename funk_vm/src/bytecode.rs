@@ -457,3 +457,170 @@ pub fn op_name(op: OpCode) -> &'static str {
         OpCode::Len => "LEN",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn put_u32(buf: &mut Vec<u8>, v: u32) {
+        buf.extend_from_slice(&v.to_le_bytes());
+    }
+
+    fn put_i64(buf: &mut Vec<u8>, v: i64) {
+        buf.extend_from_slice(&v.to_le_bytes());
+    }
+
+    fn put_str(buf: &mut Vec<u8>, s: &str) {
+        put_u32(buf, s.len() as u32);
+        buf.extend_from_slice(s.as_bytes());
+    }
+
+    fn sample_binary() -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(BINARY_MAGIC);
+        put_u32(&mut out, 0); // strings_len
+        put_u32(&mut out, 1); // functions_len
+        put_str(&mut out, "main");
+        put_u32(&mut out, 0); // arity
+        put_u32(&mut out, 0); // captures
+        put_u32(&mut out, 2); // code_len
+
+        // PUSH_INT 7
+        out.push(0); // op: PUSH_INT
+        out.push(1); // arg kind: int
+        put_i64(&mut out, 7);
+        out.push(u8::MAX); // argc = none
+        out.push(u8::MAX); // id = none
+
+        // RETURN
+        out.push(13); // op: RETURN
+        out.push(0); // arg kind: none
+        out.push(u8::MAX); // argc = none
+        out.push(u8::MAX); // id = none
+
+        put_u32(&mut out, 0); // entry_fn
+        out
+    }
+
+    fn sample_json() -> &'static str {
+        r#"{
+  "format":"funk-bytecode-v1-json",
+  "strings":[],
+  "functions":[
+    {
+      "name":"main",
+      "arity":0,
+      "captures":0,
+      "code":[
+        {"op":"PUSH_INT","arg":7},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn":0
+}"#
+    }
+
+    #[test]
+    fn load_binary_matches_json_model() {
+        let json_bc = load_bytecode_from_str(sample_json()).expect("json should parse");
+        let bin_bc = load_bytecode_from_bytes(&sample_binary()).expect("binary should parse");
+
+        assert_eq!(json_bc.format, bin_bc.format);
+        assert_eq!(json_bc.strings, bin_bc.strings);
+        assert_eq!(json_bc.entry_fn, bin_bc.entry_fn);
+        assert_eq!(json_bc.functions.len(), bin_bc.functions.len());
+
+        let j = &json_bc.functions[0];
+        let b = &bin_bc.functions[0];
+        assert_eq!(j.name, b.name);
+        assert_eq!(j.arity, b.arity);
+        assert_eq!(j.captures, b.captures);
+        assert_eq!(j.code.len(), b.code.len());
+        assert_eq!(j.code[0].op, b.code[0].op);
+        assert_eq!(j.code[0].arg.as_ref().and_then(|v| v.as_i64()), Some(7));
+        assert_eq!(b.code[0].arg.as_ref().and_then(|v| v.as_i64()), Some(7));
+        assert_eq!(j.code[1].op, b.code[1].op);
+    }
+
+    #[test]
+    fn rejects_truncated_binary_payload() {
+        let raw = b"FKB1\x00\x00";
+        let err = load_bytecode_from_bytes(raw).expect_err("expected binary decode error");
+        assert_eq!(err.code, "E4201");
+        assert!(err.message.contains("unexpected end of binary payload"));
+    }
+
+    #[test]
+    fn rejects_unknown_opcode_byte() {
+        let mut raw = Vec::new();
+        raw.extend_from_slice(BINARY_MAGIC);
+        put_u32(&mut raw, 0); // strings_len
+        put_u32(&mut raw, 1); // functions_len
+        put_str(&mut raw, "main");
+        put_u32(&mut raw, 0);
+        put_u32(&mut raw, 0);
+        put_u32(&mut raw, 1); // code_len
+        raw.push(99); // unknown opcode
+        raw.push(0); // no arg
+        raw.push(u8::MAX);
+        raw.push(u8::MAX);
+        put_u32(&mut raw, 0); // entry_fn
+
+        let err = load_bytecode_from_bytes(&raw).expect_err("expected unknown opcode");
+        assert_eq!(err.code, "E4201");
+        assert!(err.message.contains("unknown opcode byte"));
+    }
+
+    #[test]
+    fn rejects_unknown_arg_kind() {
+        let mut raw = Vec::new();
+        raw.extend_from_slice(BINARY_MAGIC);
+        put_u32(&mut raw, 0); // strings_len
+        put_u32(&mut raw, 1); // functions_len
+        put_str(&mut raw, "main");
+        put_u32(&mut raw, 0);
+        put_u32(&mut raw, 0);
+        put_u32(&mut raw, 1); // code_len
+        raw.push(13); // RETURN
+        raw.push(9); // invalid arg kind
+        raw.push(u8::MAX);
+        raw.push(u8::MAX);
+        put_u32(&mut raw, 0); // entry_fn
+
+        let err = load_bytecode_from_bytes(&raw).expect_err("expected invalid arg kind");
+        assert_eq!(err.code, "E4201");
+        assert!(err.message.contains("unknown binary arg kind"));
+    }
+
+    #[test]
+    fn rejects_trailing_bytes() {
+        let mut raw = sample_binary();
+        raw.push(0xAA);
+        let err = load_bytecode_from_bytes(&raw).expect_err("expected trailing bytes error");
+        assert_eq!(err.code, "E4201");
+        assert!(err.message.contains("trailing bytes"));
+    }
+
+    #[test]
+    fn rejects_invalid_utf8_string_payload() {
+        let mut raw = Vec::new();
+        raw.extend_from_slice(BINARY_MAGIC);
+        put_u32(&mut raw, 0); // strings_len
+        put_u32(&mut raw, 1); // functions_len
+        put_u32(&mut raw, 1); // function name length
+        raw.push(0xFF); // invalid utf8
+        put_u32(&mut raw, 0);
+        put_u32(&mut raw, 0);
+        put_u32(&mut raw, 1);
+        raw.push(13); // RETURN
+        raw.push(0); // no arg
+        raw.push(u8::MAX);
+        raw.push(u8::MAX);
+        put_u32(&mut raw, 0);
+
+        let err = load_bytecode_from_bytes(&raw).expect_err("expected utf8 decode error");
+        assert_eq!(err.code, "E4201");
+        assert!(err.message.contains("invalid utf-8 string payload"));
+    }
+}

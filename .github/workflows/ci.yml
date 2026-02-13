@@ -106,6 +106,17 @@ jobs:
           FUNK_EXAMPLES_PATH: ${{ github.workspace }}/funky_example_files/root/examples
         run: make test-bytecode
 
+      - name: Upload bytecode failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bytecode-failure-artifacts
+          path: |
+            build_tests_bytecode/test_main.fkb.bundle.json
+            build_tests_bytecode/test_main.fkb.json
+            build_tests_bytecode/test_main.fkb
+          if-no-files-found: warn
+
   warning-gate:
     name: Warning Gate (non-blocking)
     runs-on: ubuntu-latest
