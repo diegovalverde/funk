@@ -34,6 +34,7 @@ doctor:
 release-check:
 	$(MAKE) doctor
 	$(MAKE) tests-fast
+	$(MAKE) test-bytecode
 	$(MAKE) examples-smoke
 	$(MAKE) bench-report BENCH_RUNS=1 BENCH_WARMUP=0
 

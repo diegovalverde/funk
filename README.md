@@ -114,6 +114,8 @@ Release/pre-tag smoke:
 make release-check
 ```
 
+`release-check` now includes bytecode parity (`make test-bytecode`) in addition to the cpp20 fast checks.
+
 # Benchmarks
 
 The repository includes cross-language benchmarks (Funk vs Python vs C) and an auto-generated report.
