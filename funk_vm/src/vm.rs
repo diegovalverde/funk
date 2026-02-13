@@ -577,4 +577,34 @@ mod tests {
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Int(3));
     }
+
+    #[test]
+    fn run_get_index_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":10},
+        {"op":"PUSH_INT","arg":20},
+        {"op":"PUSH_INT","arg":30},
+        {"op":"MK_LIST","argc":3},
+        {"op":"PUSH_INT","arg":1},
+        {"op":"GET_INDEX"},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(20));
+    }
 }
