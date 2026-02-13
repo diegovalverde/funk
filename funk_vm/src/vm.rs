@@ -768,7 +768,7 @@ fn mod_values(a: &Value, b: &Value) -> Result<Value, VmError> {
     match (a, b) {
         (Value::List(_), _) | (_, Value::List(_)) => map_list2(a, b, mod_values),
         _ => {
-            let pair = num2(&[a.clone(), b.clone()], "%")?;
+            let pair = num_pair(a, b, "%")?;
             match pair {
                 NumPair::Int(x, y) => {
                     if y == 0 {
@@ -795,7 +795,7 @@ fn map_numeric2(
         (Value::List(_), _) | (_, Value::List(_)) => map_list2(a, b, |x, y| {
             map_numeric2(x, y, op, int_op, float_op)
         }),
-        _ => match num2(&[a.clone(), b.clone()], op)? {
+        _ => match num_pair(a, b, op)? {
             NumPair::Int(x, y) => int_op(x, y)
                 .map(Value::Int)
                 .ok_or_else(|| VmError::new("E4305", format!("integer overflow in {}", op))),
@@ -990,7 +990,11 @@ fn num2(args: &[Value], op: &str) -> Result<NumPair, VmError> {
             format!("builtin {} expects 2 numeric args", op),
         ));
     }
-    match (&args[0], &args[1]) {
+    num_pair(&args[0], &args[1], op)
+}
+
+fn num_pair(a: &Value, b: &Value, op: &str) -> Result<NumPair, VmError> {
+    match (a, b) {
         (Value::Int(a), Value::Int(b)) => Ok(NumPair::Int(*a, *b)),
         (Value::Int(a), Value::Float(b)) => Ok(NumPair::Float(*a as f64, *b)),
         (Value::Float(a), Value::Int(b)) => Ok(NumPair::Float(*a, *b as f64)),
