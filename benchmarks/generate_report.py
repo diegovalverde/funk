@@ -118,7 +118,9 @@ def benchmark_bytecode_workload(
     if not funk_src.exists() or not py_src.exists():
         raise RuntimeError(f"Missing benchmark sources for workload '{workload}'")
 
-    build_dir = f"build_{workload}_bytecode"
+    build_prefix = os.environ.get("FUNK_BUILD_ROOT", "").strip()
+    build_dir_name = f"build_{workload}_bytecode"
+    build_dir = os.path.join(build_prefix, build_dir_name) if build_prefix else build_dir_name
     artifact = root / build_dir / f"{workload}_compare.fkb"
     must_build = True
     if reuse_build and artifact.exists():

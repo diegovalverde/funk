@@ -43,17 +43,29 @@ def main():
     vm_bin = os.path.join(vm_dir, "target", "release", "funk_vm")
     include_path = os.path.join(root, "stdlib")
 
+    build_prefix = os.environ.get("FUNK_BUILD_ROOT", "").strip()
+    build_dir_core = (
+        os.path.join(build_prefix, "build_bytecode_core_lists_ranges")
+        if build_prefix
+        else "build_bytecode_core_lists_ranges"
+    )
+    build_dir_clauses = (
+        os.path.join(build_prefix, "build_bytecode_clauses_recursion")
+        if build_prefix
+        else "build_bytecode_clauses_recursion"
+    )
+
     workloads = [
         {
             "name": "core_lists_ranges",
             "src": os.path.join(root, "tests", "bytecode", "core_lists_ranges.f"),
-            "build_dir": "build_bytecode_core_lists_ranges",
+            "build_dir": build_dir_core,
             "artifact": "core_lists_ranges.fkb",
         },
         {
             "name": "clauses_recursion",
             "src": os.path.join(root, "tests", "bytecode", "clauses_recursion.f"),
-            "build_dir": "build_bytecode_clauses_recursion",
+            "build_dir": build_dir_clauses,
             "artifact": "clauses_recursion.fkb",
         },
     ]

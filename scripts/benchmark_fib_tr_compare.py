@@ -43,7 +43,8 @@ def main():
     c_src = os.path.join(root, "benchmarks", "bench", "fib_tr_compare.c")
     benchmark_name = os.path.splitext(os.path.basename(funk_src))[0]
     variant_tag = f"{args.backend}_{'fast' if args.fastpath else 'base'}"
-    build_subdir = f"build_{benchmark_name}_{variant_tag}"
+    build_prefix = os.environ.get("FUNK_BUILD_ROOT", "").strip()
+    build_subdir = os.path.join(build_prefix, f"build_{benchmark_name}_{variant_tag}") if build_prefix else f"build_{benchmark_name}_{variant_tag}"
     build_dir = os.path.join(root, build_subdir)
     os.makedirs(build_dir, exist_ok=True)
     c_bin = os.path.join(build_dir, "fib_tr_compare_c")
