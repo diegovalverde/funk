@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fs;
 use std::io::{self, Write};
 
 use crate::bytecode::{
@@ -277,75 +278,72 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
 fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
     match id {
         1 => {
-            if args.len() != 1 {
-                return Err(VmError::new("E4305", "print expects one argument"));
+            for arg in args {
+                print!("{}", render_value(arg));
             }
-            print!("{}", render_value(&args[0]));
             io::stdout()
                 .flush()
                 .map_err(|e| VmError::new("E4305", format!("print flush failed: {e}")))?;
             Ok(Value::Unit)
         }
         2 => {
-            if args.len() != 1 {
-                return Err(VmError::new("E4305", "println expects one argument"));
+            if args.is_empty() {
+                println!();
+                return Ok(Value::Unit);
             }
-            println!("{}", render_value(&args[0]));
+            let mut out = String::new();
+            for (i, arg) in args.iter().enumerate() {
+                if i > 0 {
+                    out.push(' ');
+                }
+                out.push_str(&render_value(arg));
+            }
+            println!("{}", out);
             Ok(Value::Unit)
         }
-        20 => {
-            match num2(args, "+")? {
-                NumPair::Int(a, b) => a
-                    .checked_add(b)
-                    .map(Value::Int)
-                    .ok_or_else(|| VmError::new("E4305", "integer overflow in +")),
-                NumPair::Float(a, b) => Ok(Value::Float(a + b)),
+        3 => {
+            if args.len() > 1 {
+                return Err(VmError::new("E4305", "exit expects zero or one argument"));
             }
+            let code = if args.len() == 1 {
+                match args[0] {
+                    Value::Int(v) => v,
+                    _ => return Err(VmError::new("E4305", "exit arg must be int")),
+                }
+            } else {
+                1
+            };
+            Err(VmError::new("E4306", format!("exit({code})")))
+        }
+        20 => {
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "builtin + expects 2 args"));
+            }
+            add_values(&args[0], &args[1])
         }
         21 => {
-            match num2(args, "-")? {
-                NumPair::Int(a, b) => a
-                    .checked_sub(b)
-                    .map(Value::Int)
-                    .ok_or_else(|| VmError::new("E4305", "integer overflow in -")),
-                NumPair::Float(a, b) => Ok(Value::Float(a - b)),
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "builtin - expects 2 args"));
             }
+            sub_values(&args[0], &args[1])
         }
         22 => {
-            match num2(args, "*")? {
-                NumPair::Int(a, b) => a
-                    .checked_mul(b)
-                    .map(Value::Int)
-                    .ok_or_else(|| VmError::new("E4305", "integer overflow in *")),
-                NumPair::Float(a, b) => Ok(Value::Float(a * b)),
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "builtin * expects 2 args"));
             }
+            mul_values(&args[0], &args[1])
         }
         23 => {
-            match num2(args, "/")? {
-                NumPair::Int(a, b) => {
-                    if b == 0 {
-                        return Err(VmError::new("E4305", "division by zero"));
-                    }
-                    a.checked_div(b)
-                        .map(Value::Int)
-                        .ok_or_else(|| VmError::new("E4305", "integer overflow in /"))
-                }
-                NumPair::Float(a, b) => {
-                    if b == 0.0 {
-                        return Err(VmError::new("E4305", "division by zero"));
-                    }
-                    Ok(Value::Float(a / b))
-                }
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "builtin / expects 2 args"));
             }
+            div_values(&args[0], &args[1])
         }
         24 => {
-            let (a, b) = int2(args, "%")?;
-            if b == 0 {
-                return Err(VmError::new("E4305", "division by zero"));
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "builtin % expects 2 args"));
             }
-            a.checked_rem(b)
-                .map(Value::Int)
-                .ok_or_else(|| VmError::new("E4305", "integer overflow in %"))
+            mod_values(&args[0], &args[1])
         }
         25 => cmp_eq(args, true),
         26 => cmp_eq(args, false),
@@ -367,15 +365,27 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
         }
         34 => {
             if args.len() != 1 {
-                return Err(VmError::new("E4305", "neg expects one integer arg"));
+                return Err(VmError::new("E4305", "neg expects one arg"));
             }
-            let v = match args[0] {
-                Value::Int(v) => v,
-                _ => return Err(VmError::new("E4305", "neg expects integer arg")),
-            };
-            v.checked_neg()
-                .map(Value::Int)
-                .ok_or_else(|| VmError::new("E4305", "integer overflow in neg"))
+            match &args[0] {
+                Value::Int(v) => Ok(Value::Int(if *v == 0 { 1 } else { 0 })),
+                Value::Float(v) => Ok(Value::Int(if *v == 0.0 { 1 } else { 0 })),
+                Value::Bool(v) => Ok(Value::Int(if *v { 0 } else { 1 })),
+                Value::List(items) => {
+                    let mut out = Vec::with_capacity(items.len());
+                    for item in items {
+                        out.push(call_builtin(34, &[item.clone()])?);
+                    }
+                    Ok(Value::List(out))
+                }
+                _ => Err(VmError::new("E4305", "neg expects numeric/bool/list arg")),
+            }
+        }
+        35 => {
+            if !args.is_empty() {
+                return Err(VmError::new("E4305", "infinity expects no args"));
+            }
+            Ok(Value::Int(i32::MAX as i64))
         }
         36 => {
             if args.len() != 1 {
@@ -392,12 +402,19 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             if args.len() != 1 {
                 return Err(VmError::new("E4305", "abs expects one numeric arg"));
             }
-            match args[0] {
+            match &args[0] {
                 Value::Int(v) => v
                     .checked_abs()
                     .map(Value::Int)
                     .ok_or_else(|| VmError::new("E4305", "integer overflow in abs")),
                 Value::Float(v) => Ok(Value::Float(v.abs())),
+                Value::List(items) => {
+                    let mut out = Vec::with_capacity(items.len());
+                    for item in items {
+                        out.push(call_builtin(37, &[item.clone()])?);
+                    }
+                    Ok(Value::List(out))
+                }
                 _ => Err(VmError::new("E4305", "abs expects int or float arg")),
             }
         }
@@ -451,6 +468,107 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             flatten_values(items, &mut out);
             Ok(Value::List(out))
         }
+        41 => {
+            let (left, right) = list2(args, "concat")?;
+            let mut out = Vec::with_capacity(left.len() + right.len());
+            out.extend(left.iter().cloned());
+            out.extend(right.iter().cloned());
+            Ok(Value::List(out))
+        }
+        42 => {
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "list union expects 2 args"));
+            }
+            let right = match &args[1] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "list union arg1 must be list")),
+            };
+            let mut out = Vec::with_capacity(1 + right.len());
+            out.push(args[0].clone());
+            out.extend(right.iter().cloned());
+            Ok(Value::List(out))
+        }
+        43 => {
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "list concat tail expects 2 args"));
+            }
+            let left = match &args[0] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "list concat tail arg0 must be list")),
+            };
+            let mut out = left.clone();
+            out.push(args[1].clone());
+            Ok(Value::List(out))
+        }
+        44 => {
+            let (left, right) = list2(args, "difference")?;
+            let mut out = Vec::new();
+            for item in left {
+                if !right.contains(item) {
+                    out.push(item.clone());
+                }
+            }
+            Ok(Value::List(out))
+        }
+        45 => {
+            if args.len() != 3 {
+                return Err(VmError::new("E4305", "reshape expects 3 args"));
+            }
+            let items = match &args[0] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "reshape arg0 must be list")),
+            };
+            let rows = match args[1] {
+                Value::Int(v) if v >= 0 => v as usize,
+                _ => return Err(VmError::new("E4305", "reshape arg1 must be non-negative int")),
+            };
+            let cols = match args[2] {
+                Value::Int(v) if v >= 0 => v as usize,
+                _ => return Err(VmError::new("E4305", "reshape arg2 must be non-negative int")),
+            };
+            if rows == 0 || cols == 0 || rows * cols != items.len() {
+                return Ok(Value::List(items.clone()));
+            }
+            let mut out = Vec::with_capacity(rows);
+            for i in 0..rows {
+                let start = i * cols;
+                let end = start + cols;
+                out.push(Value::List(items[start..end].to_vec()));
+            }
+            Ok(Value::List(out))
+        }
+        46 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "fread_list expects one string path arg"));
+            }
+            let path = match &args[0] {
+                Value::String(s) => s,
+                _ => return Err(VmError::new("E4305", "fread_list arg must be string path")),
+            };
+            let content = match fs::read_to_string(path) {
+                Ok(v) => v,
+                Err(_) => {
+                    let alt = format!("../{}", path);
+                    fs::read_to_string(&alt).map_err(|e| {
+                        VmError::new(
+                            "E4305",
+                            format!("fread_list failed reading '{}' or '{}': {e}", path, alt),
+                        )
+                    })?
+                }
+            };
+            let mut out = Vec::new();
+            for tok in content.split_whitespace() {
+                let n = tok.parse::<i64>().map_err(|e| {
+                    VmError::new(
+                        "E4305",
+                        format!("fread_list token '{}' is not an integer: {e}", tok),
+                    )
+                })?;
+                out.push(Value::Int(n));
+            }
+            Ok(Value::List(out))
+        }
         40 => {
             if args.len() != 3 {
                 return Err(VmError::new("E4305", "slice expects (list, start, end)"));
@@ -494,6 +612,124 @@ fn flatten_values(items: &[Value], out: &mut Vec<Value>) {
             _ => out.push(item.clone()),
         }
     }
+}
+
+fn add_values(a: &Value, b: &Value) -> Result<Value, VmError> {
+    map_numeric2(a, b, "+", |x, y| x.checked_add(y), |x, y| x + y)
+}
+
+fn sub_values(a: &Value, b: &Value) -> Result<Value, VmError> {
+    map_numeric2(a, b, "-", |x, y| x.checked_sub(y), |x, y| x - y)
+}
+
+fn mul_values(a: &Value, b: &Value) -> Result<Value, VmError> {
+    map_numeric2(a, b, "*", |x, y| x.checked_mul(y), |x, y| x * y)
+}
+
+fn div_values(a: &Value, b: &Value) -> Result<Value, VmError> {
+    map_numeric2(
+        a,
+        b,
+        "/",
+        |x, y| if y == 0 { None } else { x.checked_div(y) },
+        |x, y| x / y,
+    )
+}
+
+fn mod_values(a: &Value, b: &Value) -> Result<Value, VmError> {
+    match (a, b) {
+        (Value::List(_), _) | (_, Value::List(_)) => map_list2(a, b, mod_values),
+        _ => {
+            let pair = num2(&[a.clone(), b.clone()], "%")?;
+            match pair {
+                NumPair::Int(x, y) => {
+                    if y == 0 {
+                        return Err(VmError::new("E4305", "division by zero"));
+                    }
+                    x.checked_rem(y)
+                        .map(Value::Int)
+                        .ok_or_else(|| VmError::new("E4305", "integer overflow in %"))
+                }
+                NumPair::Float(_, _) => Err(VmError::new("E4305", "builtin % expects integer args")),
+            }
+        }
+    }
+}
+
+fn map_numeric2(
+    a: &Value,
+    b: &Value,
+    op: &str,
+    int_op: fn(i64, i64) -> Option<i64>,
+    float_op: fn(f64, f64) -> f64,
+) -> Result<Value, VmError> {
+    match (a, b) {
+        (Value::List(_), _) | (_, Value::List(_)) => map_list2(a, b, |x, y| {
+            map_numeric2(x, y, op, int_op, float_op)
+        }),
+        _ => match num2(&[a.clone(), b.clone()], op)? {
+            NumPair::Int(x, y) => int_op(x, y)
+                .map(Value::Int)
+                .ok_or_else(|| VmError::new("E4305", format!("integer overflow in {}", op))),
+            NumPair::Float(x, y) => {
+                if op == "/" && y == 0.0 {
+                    return Err(VmError::new("E4305", "division by zero"));
+                }
+                Ok(Value::Float(float_op(x, y)))
+            }
+        },
+    }
+}
+
+fn map_list2<F>(a: &Value, b: &Value, f: F) -> Result<Value, VmError>
+where
+    F: Fn(&Value, &Value) -> Result<Value, VmError> + Copy,
+{
+    match (a, b) {
+        (Value::List(lhs), Value::List(rhs)) => {
+            if lhs.len() != rhs.len() {
+                return Err(VmError::new("E4305", "list sizes must match for elementwise operation"));
+            }
+            let mut out = Vec::with_capacity(lhs.len());
+            for i in 0..lhs.len() {
+                out.push(f(&lhs[i], &rhs[i])?);
+            }
+            Ok(Value::List(out))
+        }
+        (Value::List(lhs), scalar) => {
+            let mut out = Vec::with_capacity(lhs.len());
+            for item in lhs {
+                out.push(f(item, scalar)?);
+            }
+            Ok(Value::List(out))
+        }
+        (scalar, Value::List(rhs)) => {
+            let mut out = Vec::with_capacity(rhs.len());
+            for item in rhs {
+                out.push(f(scalar, item)?);
+            }
+            Ok(Value::List(out))
+        }
+        _ => Err(VmError::new("E4305", "internal map_list2 misuse")),
+    }
+}
+
+fn list2<'a>(args: &'a [Value], op: &str) -> Result<(&'a [Value], &'a [Value]), VmError> {
+    if args.len() != 2 {
+        return Err(VmError::new(
+            "E4305",
+            format!("builtin {} expects 2 list args", op),
+        ));
+    }
+    let left = match &args[0] {
+        Value::List(items) => items,
+        _ => return Err(VmError::new("E4305", format!("builtin {} arg0 must be list", op))),
+    };
+    let right = match &args[1] {
+        Value::List(items) => items,
+        _ => return Err(VmError::new("E4305", format!("builtin {} arg1 must be list", op))),
+    };
+    Ok((left, right))
 }
 
 fn render_value(value: &Value) -> String {
