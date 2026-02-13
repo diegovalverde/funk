@@ -139,6 +139,12 @@ Status update:
 - Current workload set:
   - `tests/bytecode/core_lists_ranges.f`
   - `tests/bytecode/clauses_recursion.f`
+- First low-risk VM optimization landed:
+  - `CALL_BUILTIN` no longer allocates an intermediate args vector (`split_off` -> slice + truncate).
+  - `normalize_index` now has a non-negative fast path.
+- Current baseline (`make bench-bytecode-smoke BENCH_RUNS=7 BENCH_WARMUP=2`):
+  - `core_lists_ranges` median: `0.002539s`
+  - `clauses_recursion` median: `0.002072s`
 
 ## Testing Strategy
 - Unit tests:

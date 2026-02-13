@@ -178,8 +178,9 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
-                let args = stack.split_off(stack.len() - argc);
-                let result = call_builtin(id, &args)?;
+                let args_start = stack.len() - argc;
+                let result = call_builtin(id, &stack[args_start..])?;
+                stack.truncate(args_start);
                 stack.push(result);
             }
             OpCode::CallFn => {
@@ -652,6 +653,9 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
 }
 
 fn normalize_index(raw: i64, len: usize) -> usize {
+    if raw >= 0 {
+        return (raw as usize) % len;
+    }
     let len_i64 = len as i64;
     raw.rem_euclid(len_i64) as usize
 }
