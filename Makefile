@@ -118,6 +118,7 @@ vm-test:
 
 bytecode-build-smoke:
 	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)
+	rm -rf "$(BYTECODE_BUILD_DIR)"
 	./venv_3.11/bin/python ./funky.py "$(BYTECODE_SMOKE_SRC)" --backend bytecode --build-dir "$(BYTECODE_BUILD_DIR)" --include "$(FUNK_INCLUDE_PATH)"
 
 bytecode-disasm-smoke: bytecode-build-smoke

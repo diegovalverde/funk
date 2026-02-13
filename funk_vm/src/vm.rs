@@ -548,4 +548,33 @@ mod tests {
         let err = run(&bc, DEFAULT_FUEL).expect_err("vm should trap");
         assert!(err.message.contains("boom"));
     }
+
+    #[test]
+    fn run_list_len_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":10},
+        {"op":"PUSH_INT","arg":20},
+        {"op":"PUSH_INT","arg":30},
+        {"op":"MK_LIST","argc":3},
+        {"op":"CALL_BUILTIN","id":36,"argc":1},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(3));
+    }
 }
