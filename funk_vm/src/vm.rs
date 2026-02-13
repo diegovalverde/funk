@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
+use std::rc::Rc;
 use std::collections::HashMap;
 
 use crate::bytecode::{
@@ -16,7 +17,7 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     String(String),
-    List(Vec<Value>),
+    List(Rc<Vec<Value>>),
     Unit,
 }
 
@@ -210,13 +211,16 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_FN"));
                 }
-                let args = stack.split_off(stack.len() - argc);
+                let args_start = stack.len() - argc;
                 let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
                 if tail_pos {
+                    frame.locals.clear();
+                    frame.locals.extend(stack.drain(args_start..));
                     frame.fn_id = target_fn;
                     frame.ip = 0;
-                    frame.locals = args;
                 } else {
+                    let mut args = Vec::with_capacity(argc);
+                    args.extend(stack.drain(args_start..));
                     frames.push(Frame {
                         fn_id: target_fn,
                         ip: 0,
@@ -232,10 +236,9 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                 if stack.len() < argc + 1 {
                     return Err(VmError::new("E4304", "stack underflow in CALL_INDIRECT"));
                 }
-                let args = stack.split_off(stack.len() - argc);
-                let callee = stack
-                    .pop()
-                    .ok_or_else(|| VmError::new("E4304", "stack underflow in CALL_INDIRECT"))?;
+                let callee_idx = stack.len() - argc - 1;
+                let args_start = callee_idx + 1;
+                let callee = stack[callee_idx].clone();
                 let callee_name = match callee {
                     Value::String(s) => s,
                     _ => return Err(VmError::new("E4305", "CALL_INDIRECT expects string callee")),
@@ -250,10 +253,15 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                     })?;
                 let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
                 if tail_pos {
+                    frame.locals.clear();
+                    frame.locals.extend(stack.drain(args_start..));
+                    stack.truncate(callee_idx);
                     frame.fn_id = *target_fn;
                     frame.ip = 0;
-                    frame.locals = args;
                 } else {
+                    let mut args = Vec::with_capacity(argc);
+                    args.extend(stack.drain(args_start..));
+                    stack.truncate(callee_idx);
                     frames.push(Frame {
                         fn_id: *target_fn,
                         ip: 0,
@@ -287,7 +295,7 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                     return Err(VmError::new("E4304", "stack underflow in MK_LIST"));
                 }
                 let items = stack.split_off(stack.len() - argc);
-                stack.push(Value::List(items));
+                stack.push(Value::List(Rc::new(items)));
             }
             OpCode::GetIndex => {
                 let idx_val = stack
@@ -471,7 +479,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             };
             let mut out = Vec::new();
             flatten_values(items, &mut out);
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         41 => {
             if args.len() != 2 {
@@ -487,7 +495,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 Value::List(items) => out.extend(items.iter().cloned()),
                 other => out.push(other.clone()),
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         42 => {
             if args.len() != 2 {
@@ -510,7 +518,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 Value::List(items) => out.extend(items.iter().cloned()),
                 other => out.push(other.clone()),
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         43 => {
             if args.len() != 2 {
@@ -519,7 +527,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             let left = spread_list(&args[0], "list concat tail arg0")?;
             let mut out = left.to_vec();
             out.push(args[1].clone());
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         44 => {
             let (left, right) = spread_list2(args, "difference")?;
@@ -529,7 +537,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                     out.push(item.clone());
                 }
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         45 => {
             if args.len() != 3 {
@@ -554,9 +562,9 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             for i in 0..rows {
                 let start = i * cols;
                 let end = start + cols;
-                out.push(Value::List(items[start..end].to_vec()));
+                out.push(Value::List(Rc::new(items[start..end].to_vec())));
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         47 => {
             if args.len() != 1 {
@@ -573,9 +581,9 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 _ => return Err(VmError::new("E4305", "tail arg must be list")),
             };
             if items.len() <= 1 {
-                Ok(Value::List(Vec::new()))
+                Ok(Value::List(Rc::new(Vec::new())))
             } else {
-                Ok(Value::List(items[1..].to_vec()))
+                Ok(Value::List(Rc::new(items[1..].to_vec())))
             }
         }
         49 => {
@@ -618,7 +626,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 })?;
                 out.push(Value::Int(n));
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         40 => {
             if args.len() != 3 {
@@ -629,7 +637,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 _ => return Err(VmError::new("E4305", "slice arg0 expects list")),
             };
             if items.is_empty() {
-                return Ok(Value::List(Vec::new()));
+                return Ok(Value::List(Rc::new(Vec::new())));
             }
             let start = match args[1] {
                 Value::Int(v) => normalize_index(v, items.len()),
@@ -640,9 +648,9 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 _ => return Err(VmError::new("E4305", "slice arg2 expects int")),
             };
             if end < start {
-                return Ok(Value::List(Vec::new()));
+                return Ok(Value::List(Rc::new(Vec::new())));
             }
-            Ok(Value::List(items[start..=end].to_vec()))
+            Ok(Value::List(Rc::new(items[start..=end].to_vec())))
         }
         _ => Err(VmError::new(
             "E4305",
@@ -695,7 +703,7 @@ fn sum_recursive(
 ) -> Result<(), VmError> {
     match value {
         Value::List(items) => {
-            for item in items {
+            for item in items.iter() {
                 sum_recursive(item, int_acc, float_acc, is_float)?;
             }
             Ok(())
@@ -729,10 +737,10 @@ fn neg_value(value: &Value) -> Result<Value, VmError> {
         Value::Bool(v) => Ok(Value::Int(if *v { 0 } else { 1 })),
         Value::List(items) => {
             let mut out = Vec::with_capacity(items.len());
-            for item in items {
+            for item in items.iter() {
                 out.push(neg_value(item)?);
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         _ => Err(VmError::new("E4305", "neg expects numeric/bool/list arg")),
     }
@@ -747,10 +755,10 @@ fn abs_value(value: &Value) -> Result<Value, VmError> {
         Value::Float(v) => Ok(Value::Float(v.abs())),
         Value::List(items) => {
             let mut out = Vec::with_capacity(items.len());
-            for item in items {
+            for item in items.iter() {
                 out.push(abs_value(item)?);
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         _ => Err(VmError::new("E4305", "abs expects int or float arg")),
     }
@@ -836,21 +844,21 @@ where
             for i in 0..lhs.len() {
                 out.push(f(&lhs[i], &rhs[i])?);
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         (Value::List(lhs), scalar) => {
             let mut out = Vec::with_capacity(lhs.len());
-            for item in lhs {
+            for item in lhs.iter() {
                 out.push(f(item, scalar)?);
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         (scalar, Value::List(rhs)) => {
             let mut out = Vec::with_capacity(rhs.len());
-            for item in rhs {
+            for item in rhs.iter() {
                 out.push(f(scalar, item)?);
             }
-            Ok(Value::List(out))
+            Ok(Value::List(Rc::new(out)))
         }
         _ => Err(VmError::new("E4305", "internal map_list2 misuse")),
     }
