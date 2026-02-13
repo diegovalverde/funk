@@ -111,7 +111,7 @@ def timed_capture(cmd: List[str], cwd: Path, runs: int, warmup: int) -> Dict[str
 
 
 def benchmark_bytecode_workload(
-    root: Path, workload: str, runs: int, warmup: int, fuel: int
+    root: Path, workload: str, runs: int, warmup: int, fuel: int, reuse_build: bool
 ) -> Row:
     funk_src = root / "benchmarks" / "bench" / f"{workload}_compare.f"
     py_src = root / "benchmarks" / "bench" / f"{workload}_compare.py"
@@ -119,22 +119,28 @@ def benchmark_bytecode_workload(
         raise RuntimeError(f"Missing benchmark sources for workload '{workload}'")
 
     build_dir = f"build_{workload}_bytecode"
-    subprocess.check_call(
-        [
-            "./venv_3.11/bin/python",
-            "./funky.py",
-            str(funk_src),
-            "--backend",
-            "bytecode",
-            "--build-dir",
-            build_dir,
-            "--include",
-            ".",
-        ],
-        cwd=str(root),
-    )
-
     artifact = root / build_dir / f"{workload}_compare.fkb"
+    must_build = True
+    if reuse_build and artifact.exists():
+        must_build = artifact.stat().st_mtime < funk_src.stat().st_mtime
+    if must_build:
+        subprocess.check_call(
+            [
+                "./venv_3.11/bin/python",
+                "./funky.py",
+                str(funk_src),
+                "--backend",
+                "bytecode",
+                "--build-dir",
+                build_dir,
+                "--include",
+                ".",
+            ],
+            cwd=str(root),
+        )
+    else:
+        print(f"[bytecode] reuse {artifact}")
+
     vm_bin = root / "funk_vm" / "target" / "release" / "funk_vm"
     try:
         stats = timed_capture(
@@ -372,6 +378,12 @@ def main() -> None:
         default=200_000_000,
         help="Fuel budget used when running bytecode workload binaries.",
     )
+    parser.add_argument(
+        "--reuse-bytecode-build",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Reuse existing bytecode benchmark artifacts when up to date.",
+    )
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -389,7 +401,7 @@ def main() -> None:
             all_rows.extend(parse_output(workload, variant, out))
         all_rows.append(
             benchmark_bytecode_workload(
-                root, workload, args.runs, args.warmup, args.bytecode_fuel
+                root, workload, args.runs, args.warmup, args.bytecode_fuel, args.reuse_bytecode_build
             )
         )
 
