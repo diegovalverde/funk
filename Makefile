@@ -1,4 +1,4 @@
-.PHONY: clean clear test doctor release-check sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive vm-test bytecode-build-smoke bytecode-disasm-smoke bytecode-run-smoke bytecode-tests-subset test-bytecode bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
+.PHONY: clean clear test doctor release-check sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive vm-test bytecode-build-smoke bytecode-disasm-smoke bytecode-run-smoke bytecode-tests-subset test-bytecode-main test-bytecode bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
@@ -133,7 +133,18 @@ bytecode-tests-subset:
 		(cd ./funk_vm && cargo run --offline -- run "../$$build_dir/$$name.fkb.json"); \
 	done
 
-test-bytecode: vm-test bytecode-tests-subset
+test-bytecode-main:
+	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)
+	@test -n "$(FUNK_EXAMPLES_PATH)" || (echo "FUNK_EXAMPLES_PATH is not set"; exit 1)
+	./venv_3.11/bin/python ./funky.py ./funk/tests/test_main.f --backend bytecode --build-dir build_tests_bytecode --include "$(FUNK_INCLUDE_PATH)" ./funk/tests "$(FUNK_EXAMPLES_PATH)/games"
+	@set -e; \
+	rc=0; \
+	(cd ./funk_vm && cargo run --offline -- run ../build_tests_bytecode/test_main.fkb.json) || rc=$$?; \
+	if [ "$$rc" -ne 0 ] && [ "$$rc" -ne 1 ]; then \
+		exit $$rc; \
+	fi
+
+test-bytecode: vm-test bytecode-tests-subset test-bytecode-main
 
 bytecode-build-smoke:
 	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)

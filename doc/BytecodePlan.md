@@ -112,6 +112,10 @@ Status update:
   - lists/indexing/ranges,
   - clause dispatch + guards,
   - recursion and builtin helpers.
+- Full `funk/tests/test_main.f` now has a dedicated bytecode target:
+  - `make test-bytecode-main` (requires `FUNK_EXAMPLES_PATH`).
+- Aggregated bytecode validation target:
+  - `make test-bytecode` runs VM unit tests + subset + full `test_main` bytecode run.
 
 ### Phase 5: Binary format + validation hardening
 - Introduce binary `.fkb` encoder/decoder.

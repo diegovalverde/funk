@@ -101,9 +101,13 @@ Bytecode VM validation:
 ```
 make vm-test
 make bytecode-tests-subset
+make test-bytecode-main
+make test-bytecode
 make bytecode-disasm-smoke
 make bytecode-run-smoke
 ```
+
+`make test-bytecode-main` requires `FUNK_EXAMPLES_PATH` (same as `make test`) because `funk/tests/test_main.f` pulls game helpers from `$(FUNK_EXAMPLES_PATH)/games`.
 
 Release/pre-tag smoke:
 ```
