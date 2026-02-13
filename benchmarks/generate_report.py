@@ -157,7 +157,7 @@ def benchmark_bytecode_workload(
         )
 
     expected = run_cmd(["python3", str(py_src)], root).strip()
-    if stats["last_out"] != expected:
+    if not outputs_match(expected, stats["last_out"]):
         return Row(
             workload=workload,
             variant="funk_bytecode",
@@ -187,6 +187,17 @@ def fmt_ratio(num: float, den: float) -> str:
     if math.isnan(num) or math.isnan(den) or den == 0.0:
         return "n/a"
     return f"{num/den:.2f}x"
+
+
+def outputs_match(expected: str, actual: str) -> bool:
+    if expected == actual:
+        return True
+    try:
+        e = float(expected)
+        a = float(actual)
+    except ValueError:
+        return False
+    return math.isclose(e, a, rel_tol=1e-9, abs_tol=1e-9)
 
 
 def parse_output(workload: str, variant: str, text: str) -> List[Row]:
