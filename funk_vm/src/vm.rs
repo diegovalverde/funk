@@ -451,11 +451,40 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             flatten_values(items, &mut out);
             Ok(Value::List(out))
         }
+        40 => {
+            if args.len() != 3 {
+                return Err(VmError::new("E4305", "slice expects (list, start, end)"));
+            }
+            let items = match &args[0] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "slice arg0 expects list")),
+            };
+            if items.is_empty() {
+                return Ok(Value::List(Vec::new()));
+            }
+            let start = match args[1] {
+                Value::Int(v) => normalize_index(v, items.len()),
+                _ => return Err(VmError::new("E4305", "slice arg1 expects int")),
+            };
+            let end = match args[2] {
+                Value::Int(v) => normalize_index(v, items.len()),
+                _ => return Err(VmError::new("E4305", "slice arg2 expects int")),
+            };
+            if end < start {
+                return Ok(Value::List(Vec::new()));
+            }
+            Ok(Value::List(items[start..=end].to_vec()))
+        }
         _ => Err(VmError::new(
             "E4305",
             format!("unsupported builtin id {}", id),
         )),
     }
+}
+
+fn normalize_index(raw: i64, len: usize) -> usize {
+    let len_i64 = len as i64;
+    raw.rem_euclid(len_i64) as usize
 }
 
 fn flatten_values(items: &[Value], out: &mut Vec<Value>) {
@@ -929,5 +958,70 @@ mod tests {
         let bc = load_bytecode_from_str(src).expect("bytecode parse");
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Int(3));
+    }
+
+    #[test]
+    fn run_slice_builtin_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":10},
+        {"op":"PUSH_INT","arg":20},
+        {"op":"PUSH_INT","arg":30},
+        {"op":"MK_LIST","argc":3},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"PUSH_INT","arg":1},
+        {"op":"CALL_BUILTIN","id":40,"argc":3},
+        {"op":"LEN"},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(2));
+    }
+
+    #[test]
+    fn run_slice_builtin_negative_indices_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":10},
+        {"op":"PUSH_INT","arg":20},
+        {"op":"PUSH_INT","arg":30},
+        {"op":"MK_LIST","argc":3},
+        {"op":"PUSH_INT","arg":-2},
+        {"op":"PUSH_INT","arg":-1},
+        {"op":"CALL_BUILTIN","id":40,"argc":3},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(20));
     }
 }
