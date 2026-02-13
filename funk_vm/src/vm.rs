@@ -408,19 +408,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             if args.len() != 1 {
                 return Err(VmError::new("E4305", "neg expects one arg"));
             }
-            match &args[0] {
-                Value::Int(v) => Ok(Value::Int(if *v == 0 { 1 } else { 0 })),
-                Value::Float(v) => Ok(Value::Int(if *v == 0.0 { 1 } else { 0 })),
-                Value::Bool(v) => Ok(Value::Int(if *v { 0 } else { 1 })),
-                Value::List(items) => {
-                    let mut out = Vec::with_capacity(items.len());
-                    for item in items {
-                        out.push(call_builtin(34, &[item.clone()])?);
-                    }
-                    Ok(Value::List(out))
-                }
-                _ => Err(VmError::new("E4305", "neg expects numeric/bool/list arg")),
-            }
+            neg_value(&args[0])
         }
         35 => {
             if !args.is_empty() {
@@ -443,21 +431,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             if args.len() != 1 {
                 return Err(VmError::new("E4305", "abs expects one numeric arg"));
             }
-            match &args[0] {
-                Value::Int(v) => v
-                    .checked_abs()
-                    .map(Value::Int)
-                    .ok_or_else(|| VmError::new("E4305", "integer overflow in abs")),
-                Value::Float(v) => Ok(Value::Float(v.abs())),
-                Value::List(items) => {
-                    let mut out = Vec::with_capacity(items.len());
-                    for item in items {
-                        out.push(call_builtin(37, &[item.clone()])?);
-                    }
-                    Ok(Value::List(out))
-                }
-                _ => Err(VmError::new("E4305", "abs expects int or float arg")),
-            }
+            abs_value(&args[0])
         }
         38 => {
             if args.len() != 1 {
@@ -489,28 +463,39 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             if args.len() != 2 {
                 return Err(VmError::new("E4305", "concat expects 2 args"));
             }
-            let mut out = match &args[1] {
-                Value::List(items) => items.clone(),
-                other => vec![other.clone()],
+            let right_len = match &args[1] {
+                Value::List(items) => items.len(),
+                _ => 1,
             };
-            out.insert(0, args[0].clone());
+            let mut out = Vec::with_capacity(1 + right_len);
+            out.push(args[0].clone());
+            match &args[1] {
+                Value::List(items) => out.extend(items.iter().cloned()),
+                other => out.push(other.clone()),
+            }
             Ok(Value::List(out))
         }
         42 => {
             if args.len() != 2 {
                 return Err(VmError::new("E4305", "list union expects 2 args"));
             }
-            let left = match &args[0] {
-                Value::List(items) => items.clone(),
-                other => vec![other.clone()],
+            let left_len = match &args[0] {
+                Value::List(items) => items.len(),
+                _ => 1,
             };
-            let right = match &args[1] {
-                Value::List(items) => items.clone(),
-                other => vec![other.clone()],
+            let right_len = match &args[1] {
+                Value::List(items) => items.len(),
+                _ => 1,
             };
-            let mut out = Vec::with_capacity(left.len() + right.len());
-            out.extend(left);
-            out.extend(right);
+            let mut out = Vec::with_capacity(left_len + right_len);
+            match &args[0] {
+                Value::List(items) => out.extend(items.iter().cloned()),
+                other => out.push(other.clone()),
+            }
+            match &args[1] {
+                Value::List(items) => out.extend(items.iter().cloned()),
+                other => out.push(other.clone()),
+            }
             Ok(Value::List(out))
         }
         43 => {
@@ -720,6 +705,40 @@ fn sum_recursive(
             Ok(())
         }
         _ => Err(VmError::new("E4305", "sum expects numeric/list elements")),
+    }
+}
+
+fn neg_value(value: &Value) -> Result<Value, VmError> {
+    match value {
+        Value::Int(v) => Ok(Value::Int(if *v == 0 { 1 } else { 0 })),
+        Value::Float(v) => Ok(Value::Int(if *v == 0.0 { 1 } else { 0 })),
+        Value::Bool(v) => Ok(Value::Int(if *v { 0 } else { 1 })),
+        Value::List(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(neg_value(item)?);
+            }
+            Ok(Value::List(out))
+        }
+        _ => Err(VmError::new("E4305", "neg expects numeric/bool/list arg")),
+    }
+}
+
+fn abs_value(value: &Value) -> Result<Value, VmError> {
+    match value {
+        Value::Int(v) => v
+            .checked_abs()
+            .map(Value::Int)
+            .ok_or_else(|| VmError::new("E4305", "integer overflow in abs")),
+        Value::Float(v) => Ok(Value::Float(v.abs())),
+        Value::List(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(abs_value(item)?);
+            }
+            Ok(Value::List(out))
+        }
+        _ => Err(VmError::new("E4305", "abs expects int or float arg")),
     }
 }
 

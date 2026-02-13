@@ -142,9 +142,12 @@ Status update:
 - First low-risk VM optimization landed:
   - `CALL_BUILTIN` no longer allocates an intermediate args vector (`split_off` -> slice + truncate).
   - `normalize_index` now has a non-negative fast path.
-- Current baseline (`make bench-bytecode-smoke BENCH_RUNS=7 BENCH_WARMUP=2`):
-  - `core_lists_ranges` median: `0.002539s`
-  - `clauses_recursion` median: `0.002072s`
+- Second low-risk VM optimization landed:
+  - `neg`/`abs` list recursion avoids per-element builtin redispatch allocations.
+  - `concat`/`list union` avoid extra intermediate vector clones.
+- Latest baseline (`make bench-bytecode-smoke BENCH_RUNS=7 BENCH_WARMUP=2`):
+  - `core_lists_ranges` median: `0.002105s`
+  - `clauses_recursion` median: `0.001881s`
 
 ## Testing Strategy
 - Unit tests:
