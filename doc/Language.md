@@ -173,6 +173,9 @@ Slicing supports ranges:
 
 ```
 B <- A[0 .. -1]   # full copy
+B <- A[..]        # full copy (omitted start/end)
+L <- A[..2]       # from start to index 2 (inclusive)
+R <- A[2..]       # from index 2 to end
 ```
 
 For matrices, indexing is `M[i,j]` and slices can use multiple ranges:
@@ -180,6 +183,8 @@ For matrices, indexing is `M[i,j]` and slices can use multiple ranges:
 ```
 cell <- M[i,j]
 sub  <- M[i0 .. i1, j0 .. j1]
+col0 <- M[.., 0]
+rows <- M[1.., ..]
 ```
 
 ---

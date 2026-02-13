@@ -96,4 +96,14 @@ Top-level object shape:
 - Bytecode-level optimizations.
 - Binary container.
 - Full closure support.
-- Full Funk list slicing semantics.
+- Full multi-dimensional slicing semantics.
+
+## Current Slicing/Range Support (v1)
+- Scalar list index: `GET_INDEX` (e.g. `A[1]`).
+- Range slicing is lowered to `CALL_BUILTIN` with builtin id `40` and args:
+  - `(list, start, end)` where `end` is inclusive.
+- Omitted bounds in source index syntax are normalized during lowering:
+  - `A[..x]` -> `(start=0, end=x)`
+  - `A[x..]` -> `(start=x, end=-1)`
+  - `A[..]` -> `(start=0, end=-1)`
+- Negative indices are normalized by VM modulo list length.

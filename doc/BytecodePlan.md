@@ -45,7 +45,7 @@ The design should be inspired by `mu` bytecode/runtime in:
 ### Extended opcodes (v2)
 - Pattern matching: `MATCH_TAG`, `GET_FIELD`, list destructuring helpers
 - Closures: `MK_CLOSURE`, `CALL_CLOSURE`
-- Advanced slicing/range helpers
+- Advanced slicing/range helpers (multi-dimensional + specialized ops)
 
 ## Mapping Funk Semantics to ByteCode
 ### Function clauses + preconditions
@@ -103,6 +103,10 @@ The design should be inspired by `mu` bytecode/runtime in:
 - Add list operations needed by current tests/examples.
 - Expand builtins and/or runtime helpers.
 - Run `make tests` subset under bytecode backend.
+
+Status update:
+- v1 already supports range slicing through builtin `40` with omitted bounds:
+  - `[..x]`, `[x..]`, `[..]` are lowered with default bounds.
 
 ### Phase 5: Binary format + validation hardening
 - Introduce binary `.fkb` encoder/decoder.
