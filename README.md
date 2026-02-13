@@ -141,6 +141,7 @@ These files are generated locally and are not versioned.
 
 ```
 make bench-fib-compare
+make bench-bytecode-smoke
 make bench-fib-tr
 make bench-concat-compare
 make bench-sum-range
@@ -164,6 +165,7 @@ make bench-fib-tr-fastpath
 ## Notes
 
 - Benchmarks use scripts under `scripts/benchmark_*.py`.
+- `make bench-bytecode-smoke` runs deterministic bytecode VM workloads (`tests/bytecode/core_lists_ranges.f` and `tests/bytecode/clauses_recursion.f`) and reports min/median/max runtime.
 - The default benchmark report command uses the local virtualenv python: `./venv_3.11/bin/python`.
 - For stable comparisons, avoid running heavy background workloads while benchmarking.
 - Contributor workflow and required local checks are documented in `CONTRIBUTING.md`.

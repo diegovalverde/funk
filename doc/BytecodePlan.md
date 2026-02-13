@@ -133,6 +133,13 @@ Status update:
 - Add bytecode smoke targets in Makefile.
 - Document backend maturity and known gaps.
 
+Status update:
+- Added deterministic bytecode runtime benchmark target:
+  - `make bench-bytecode-smoke`
+- Current workload set:
+  - `tests/bytecode/core_lists_ranges.f`
+  - `tests/bytecode/clauses_recursion.f`
+
 ## Testing Strategy
 - Unit tests:
   - encode/decode roundtrip,
