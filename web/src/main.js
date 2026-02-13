@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor';
-import initWasm, { check_bytecode, run_bytecode, source_stats } from './pkg/mu_wasm.js';
+import initWasm, { check_bytecode, run_bytecode, source_stats } from './pkg/funk_wasm.js';
 
 const DEFAULT_SOURCE = `# Funk Playground\nmain():\n    say("hello from browser")\n    0.\n`;
 const DEFAULT_FUEL = 10_000_000;

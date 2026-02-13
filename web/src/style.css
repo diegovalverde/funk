@@ -19,6 +19,20 @@ body {
   color: var(--text);
 }
 
+.site-logo {
+  width: 128px;
+  height: auto;
+  display: block;
+  margin: 0;
+}
+
+.logo-banner {
+  width: 100%;
+  background: #ffffff;
+  padding: 8px 14px;
+  border-bottom: 1px solid #d5d9e6;
+}
+
 .topbar {
   padding: 16px 20px;
   border-bottom: 1px solid #263357;

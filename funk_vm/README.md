@@ -29,3 +29,24 @@ Run tests:
 ```bash
 cargo test
 ```
+
+## Browser Playground (local)
+
+The browser playground uses this VM via the WASM wrapper crate (`crates/funk_wasm`).
+
+From repo root:
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli
+cd web
+npm install
+npm run dev
+```
+
+If `web/src/pkg/funk_wasm.js` is missing, run:
+
+```bash
+cd web
+npm run build:wasm
+```

@@ -40,4 +40,5 @@ const manifest = {
 };
 
 await writeFile(path.join(runtimeRoot, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+await writeFile(path.join(runtimeRoot, '.gitkeep'), '', 'utf8');
 console.log('runtime synced:', runtimeRoot);

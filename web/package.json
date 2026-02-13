@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "prepare:runtime": "node ./scripts/sync-runtime.mjs",
-    "build:wasm": "wasm-pack build ../crates/mu_wasm --target web --out-dir ./src/pkg",
+    "build:wasm": "wasm-pack build ../crates/funk_wasm --target web --out-dir ../../web/src/pkg",
     "dev": "npm run prepare:runtime && npm run build:wasm && vite",
     "build": "npm run prepare:runtime && npm run build:wasm && vite build",
     "preview": "vite preview"

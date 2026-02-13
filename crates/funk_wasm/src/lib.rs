@@ -4,8 +4,8 @@ use funk_vm::{load_bytecode_from_bytes, run_with_host, Bytecode, VmError, VmHost
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-const DEFAULT_FUEL: u64 = 10_000_000;
-const DEFAULT_OUTPUT_LIMIT: usize = 64 * 1024;
+const DEFAULT_FUEL: u32 = 10_000_000;
+const DEFAULT_OUTPUT_LIMIT: u32 = 64 * 1024;
 
 #[derive(Debug, Serialize)]
 struct RunnerError {
@@ -70,7 +70,7 @@ impl VmHost for BufferHost {
 }
 
 #[wasm_bindgen]
-pub fn run_bytecode(bytecode_bytes: &[u8], fuel: Option<u64>, max_output_bytes: Option<usize>) -> JsValue {
+pub fn run_bytecode(bytecode_bytes: &[u8], fuel: Option<u32>, max_output_bytes: Option<u32>) -> JsValue {
     let fuel_budget = fuel.unwrap_or(DEFAULT_FUEL);
     let output_cap = max_output_bytes.unwrap_or(DEFAULT_OUTPUT_LIMIT);
 
@@ -98,8 +98,8 @@ pub fn run_bytecode(bytecode_bytes: &[u8], fuel: Option<u64>, max_output_bytes: 
         });
     }
 
-    let mut host = BufferHost::new(output_cap);
-    match run_with_host(&bytecode, fuel_budget, &mut host) {
+    let mut host = BufferHost::new(output_cap as usize);
+    match run_with_host(&bytecode, fuel_budget as u64, &mut host) {
         Ok(result) => serialize_payload(RunResultPayload {
             ok: true,
             output: host.out,

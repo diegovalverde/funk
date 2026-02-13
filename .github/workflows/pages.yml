@@ -34,7 +34,7 @@ jobs:
           node-version: '20'
 
       - name: Build wasm package
-        run: wasm-pack build ./crates/mu_wasm --target web --out-dir ../../web/src/pkg
+        run: wasm-pack build ./crates/funk_wasm --target web --out-dir ../../web/src/pkg
 
       - name: Install web dependencies
         working-directory: web

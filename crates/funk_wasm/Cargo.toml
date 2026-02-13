@@ -1,10 +1,13 @@
 [package]
-name = "mu_wasm"
+name = "funk_wasm"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
 
 [dependencies]
 funk_vm = { path = "../../funk_vm" }

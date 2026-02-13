@@ -41,16 +41,22 @@ Install from https://rustup.rs and ensure `cargo` is available in your shell.
 # Playground (Browser)
 
 A browser-only Funk Playground is available under `web/` and deploys as a static site on GitHub Pages.
-It reuses the existing Python compiler pipeline in-browser (via Pyodide) and executes Bytecode with the Rust WASM VM wrapper (`crates/mu_wasm`).
+It reuses the existing Python compiler pipeline in-browser (via Pyodide) and executes Bytecode with the Rust WASM VM wrapper (`crates/funk_wasm`).
 
 ## Local development
 
-1. Build WASM package:
+1. Ensure WebAssembly target/tooling is available:
 ```
-wasm-pack build ./crates/mu_wasm --target web --out-dir ../../web/src/pkg
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli
 ```
 
-2. Run Vite dev server:
+2. Build WASM package:
+```
+wasm-pack build ./crates/funk_wasm --target web --out-dir ../../web/src/pkg
+```
+
+3. Run Vite dev server:
 ```
 cd web
 npm install
