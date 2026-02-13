@@ -5,6 +5,8 @@ import math
 import os
 import re
 import subprocess
+import time
+import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
@@ -53,8 +55,132 @@ WORKLOAD_DESCRIPTIONS = {
 
 
 def run_cmd(cmd: List[str], cwd: Path) -> str:
-    out = subprocess.check_output(cmd, cwd=str(cwd), text=True)
+    out = subprocess.check_output(cmd, cwd=str(cwd), text=True, stderr=subprocess.STDOUT)
     return out
+
+
+def timed(cmd: List[str], cwd: Path, runs: int, warmup: int) -> Dict[str, float]:
+    for _ in range(warmup):
+        run_cmd(cmd, cwd)
+    samples = []
+    last_out = ""
+    for _ in range(runs):
+        t0 = time.perf_counter()
+        last_out = run_cmd(cmd, cwd).strip()
+        samples.append(time.perf_counter() - t0)
+    return {
+        "last_out": last_out,
+        "min": min(samples),
+        "median": statistics.median(samples),
+        "max": max(samples),
+    }
+
+
+def timed_capture(cmd: List[str], cwd: Path, runs: int, warmup: int) -> Dict[str, float]:
+    def run_once() -> str:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        return proc.stdout.strip()
+
+    for _ in range(warmup):
+        out = run_once()
+        if "E4301" in out:
+            raise RuntimeError("fuel exhausted")
+
+    samples = []
+    last_out = ""
+    for _ in range(runs):
+        t0 = time.perf_counter()
+        last_out = run_once()
+        if "E4301" in last_out:
+            raise RuntimeError("fuel exhausted")
+        samples.append(time.perf_counter() - t0)
+
+    return {
+        "last_out": last_out,
+        "min": min(samples),
+        "median": statistics.median(samples),
+        "max": max(samples),
+    }
+
+
+def benchmark_bytecode_workload(
+    root: Path, workload: str, runs: int, warmup: int, fuel: int
+) -> Row:
+    funk_src = root / "benchmarks" / "bench" / f"{workload}_compare.f"
+    py_src = root / "benchmarks" / "bench" / f"{workload}_compare.py"
+    if not funk_src.exists() or not py_src.exists():
+        raise RuntimeError(f"Missing benchmark sources for workload '{workload}'")
+
+    build_dir = f"build_{workload}_bytecode"
+    subprocess.check_call(
+        [
+            "./venv_3.11/bin/python",
+            "./funky.py",
+            str(funk_src),
+            "--backend",
+            "bytecode",
+            "--build-dir",
+            build_dir,
+            "--include",
+            ".",
+        ],
+        cwd=str(root),
+    )
+
+    artifact = root / build_dir / f"{workload}_compare.fkb"
+    vm_bin = root / "funk_vm" / "target" / "release" / "funk_vm"
+    try:
+        stats = timed_capture(
+            [str(vm_bin), "run", str(artifact), "--fuel", str(fuel)], root, runs, warmup
+        )
+    except RuntimeError:
+        return Row(
+            workload=workload,
+            variant="funk_bytecode",
+            name="funk_bytecode",
+            min_s=float("nan"),
+            median_s=float("nan"),
+            max_s=float("nan"),
+        )
+
+    expected = run_cmd(["python3", str(py_src)], root).strip()
+    if stats["last_out"] != expected:
+        return Row(
+            workload=workload,
+            variant="funk_bytecode",
+            name="funk_bytecode",
+            min_s=float("nan"),
+            median_s=float("nan"),
+            max_s=float("nan"),
+        )
+
+    return Row(
+        workload=workload,
+        variant="funk_bytecode",
+        name="funk_bytecode",
+        min_s=stats["min"],
+        median_s=stats["median"],
+        max_s=stats["max"],
+    )
+
+
+def fmt_s(value: float) -> str:
+    if math.isnan(value):
+        return "n/a"
+    return f"{value:.6f}"
+
+
+def fmt_ratio(num: float, den: float) -> str:
+    if math.isnan(num) or math.isnan(den) or den == 0.0:
+        return "n/a"
+    return f"{num/den:.2f}x"
 
 
 def parse_output(workload: str, variant: str, text: str) -> List[Row]:
@@ -194,15 +320,21 @@ def build_markdown(rows: List[Row], plots_rel: Dict[str, str], runs: int, warmup
         lines.append("")
         lines.append(f"![{workload} plot]({plots_rel[workload]})")
         lines.append("")
-        lines.append("| Variant | Python (s) | Funk (s) | C (s) | Funk/Python | Funk/C |")
-        lines.append("|---|---:|---:|---:|---:|---:|")
+        lines.append("| Variant | Python (s) | Funk (s) | Bytecode (s) | C (s) | Funk/Python | Funk/C | Bytecode/Python | Bytecode/C |")
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
         rows_w = [r for r in by_workload.get(workload, [])]
+        bc = next(r.median_s for r in rows_w if r.name == "funk_bytecode")
         variants = sorted(set(r.variant for r in rows_w))
         for variant in variants:
+            if variant == "funk_bytecode":
+                continue
             py = next(r.median_s for r in rows_w if r.variant == variant and r.name == "python3")
             fk = next(r.median_s for r in rows_w if r.variant == variant and r.name == "funk_cpp20")
             cc = next(r.median_s for r in rows_w if r.variant == variant and r.name == "c_o3")
-            lines.append(f"| `{variant}` | {py:.6f} | {fk:.6f} | {cc:.6f} | {fk/py:.2f}x | {fk/cc:.2f}x |")
+            lines.append(
+                f"| `{variant}` | {fmt_s(py)} | {fmt_s(fk)} | {fmt_s(bc)} | {fmt_s(cc)} | "
+                f"{fmt_ratio(fk, py)} | {fmt_ratio(fk, cc)} | {fmt_ratio(bc, py)} | {fmt_ratio(bc, cc)} |"
+            )
         lines.append("")
 
     lines.append("## Findings")
@@ -210,12 +342,22 @@ def build_markdown(rows: List[Row], plots_rel: Dict[str, str], runs: int, warmup
     for workload in workload_order:
         rows_w = [r for r in rows if r.workload == workload]
         best_funk = min((r for r in rows_w if r.name == "funk_cpp20"), key=lambda x: x.median_s)
+        bc = next(r for r in rows_w if r.name == "funk_bytecode")
         py = next(r.median_s for r in rows_w if r.variant == best_funk.variant and r.name == "python3")
         cc = next(r.median_s for r in rows_w if r.variant == best_funk.variant and r.name == "c_o3")
-        lines.append(
-            f"- `{workload}` best Funk variant is `{best_funk.variant}` at `{best_funk.median_s:.6f}s` "
-            f"({best_funk.median_s/py:.2f}x vs Python, {best_funk.median_s/cc:.2f}x vs C)."
-        )
+        if math.isnan(bc.median_s):
+            lines.append(
+                f"- `{workload}` best Funk variant is `{best_funk.variant}` at `{best_funk.median_s:.6f}s` "
+                f"({best_funk.median_s/py:.2f}x vs Python, {best_funk.median_s/cc:.2f}x vs C); "
+                "bytecode: n/a (fuel exhausted)."
+            )
+        else:
+            lines.append(
+                f"- `{workload}` best Funk variant is `{best_funk.variant}` at `{best_funk.median_s:.6f}s` "
+                f"({best_funk.median_s/py:.2f}x vs Python, {best_funk.median_s/cc:.2f}x vs C); "
+                f"bytecode is `{bc.median_s:.6f}s` "
+                f"({bc.median_s/py:.2f}x vs Python, {bc.median_s/cc:.2f}x vs C)."
+            )
     lines.append("")
     return "\n".join(lines)
 
@@ -224,6 +366,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run benchmark scripts and generate plots + markdown report.")
     parser.add_argument("--runs", type=int, default=7, help="Timing runs per benchmark configuration.")
     parser.add_argument("--warmup", type=int, default=1, help="Warmup runs per benchmark configuration.")
+    parser.add_argument(
+        "--bytecode-fuel",
+        type=int,
+        default=200_000_000,
+        help="Fuel budget used when running bytecode workload binaries.",
+    )
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -239,11 +387,16 @@ def main() -> None:
                 cmd.append("--fastpath")
             out = run_cmd(cmd, root)
             all_rows.extend(parse_output(workload, variant, out))
+        all_rows.append(
+            benchmark_bytecode_workload(
+                root, workload, args.runs, args.warmup, args.bytecode_fuel
+            )
+        )
 
     csv_path = dirs["raw"] / "results.csv"
     write_csv(csv_path, all_rows)
 
-    # Build per-workload plots (Funk variants + python + c baselines from same run family).
+    # Build per-workload plots (Funk variants + bytecode + python + c baselines).
     plot_paths = {}
     workload_order = [name for name, _ in BENCH_SCRIPTS]
     for workload in workload_order:
@@ -257,6 +410,10 @@ def main() -> None:
             next(r.median_s for r in rows_w if r.variant == base_variant and r.name == "python3"),
             next(r.median_s for r in rows_w if r.variant == base_variant and r.name == "c_o3"),
         ])
+        bc = next(r.median_s for r in rows_w if r.variant == "funk_bytecode" and r.name == "funk_bytecode")
+        if not math.isnan(bc):
+            labels.append("funk_bytecode")
+            values.append(bc)
         for v in ("funk_cpp20", "funk_cpp20_i32", "funk_cpp20_i32_fastpath"):
             labels.append(v)
             values.append(next(r.median_s for r in rows_w if r.variant == v and r.name == "funk_cpp20"))
