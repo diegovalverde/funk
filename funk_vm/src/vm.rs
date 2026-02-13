@@ -439,10 +439,31 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 Ok(Value::Int(int_acc))
             }
         }
+        39 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "flatten expects one list arg"));
+            }
+            let items = match &args[0] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "flatten expects list arg")),
+            };
+            let mut out = Vec::new();
+            flatten_values(items, &mut out);
+            Ok(Value::List(out))
+        }
         _ => Err(VmError::new(
             "E4305",
             format!("unsupported builtin id {}", id),
         )),
+    }
+}
+
+fn flatten_values(items: &[Value], out: &mut Vec<Value>) {
+    for item in items {
+        match item {
+            Value::List(nested) => flatten_values(nested, out),
+            _ => out.push(item.clone()),
+        }
     }
 }
 
@@ -875,5 +896,38 @@ mod tests {
         let bc = load_bytecode_from_str(src).expect("bytecode parse");
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Float(6.5));
+    }
+
+    #[test]
+    fn run_flatten_builtin_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"MK_LIST","argc":1},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"PUSH_INT","arg":3},
+        {"op":"MK_LIST","argc":1},
+        {"op":"MK_LIST","argc":2},
+        {"op":"MK_LIST","argc":2},
+        {"op":"CALL_BUILTIN","id":39,"argc":1},
+        {"op":"LEN"},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(3));
     }
 }
