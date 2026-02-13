@@ -211,11 +211,18 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                     return Err(VmError::new("E4304", "stack underflow in CALL_FN"));
                 }
                 let args = stack.split_off(stack.len() - argc);
-                frames.push(Frame {
-                    fn_id: target_fn,
-                    ip: 0,
-                    locals: args,
-                });
+                let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
+                if tail_pos {
+                    frame.fn_id = target_fn;
+                    frame.ip = 0;
+                    frame.locals = args;
+                } else {
+                    frames.push(Frame {
+                        fn_id: target_fn,
+                        ip: 0,
+                        locals: args,
+                    });
+                }
             }
             OpCode::CallIndirect => {
                 let argc = ins
@@ -241,11 +248,18 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                             format!("CALL_INDIRECT unresolved target '{}/{}'", callee_name, argc),
                         )
                     })?;
-                frames.push(Frame {
-                    fn_id: *target_fn,
-                    ip: 0,
-                    locals: args,
-                });
+                let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
+                if tail_pos {
+                    frame.fn_id = *target_fn;
+                    frame.ip = 0;
+                    frame.locals = args;
+                } else {
+                    frames.push(Frame {
+                        fn_id: *target_fn,
+                        ip: 0,
+                        locals: args,
+                    });
+                }
             }
             OpCode::Return => {
                 let ret = stack
