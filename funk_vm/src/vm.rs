@@ -337,6 +337,16 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
         30 => cmp_i64(args, |a, b| a >= b, ">="),
         31 => bool2(args, "and").map(|(a, b)| Value::Bool(a && b)),
         32 => bool2(args, "or").map(|(a, b)| Value::Bool(a || b)),
+        33 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "not expects one bool arg"));
+            }
+            let v = match args[0] {
+                Value::Bool(v) => v,
+                _ => return Err(VmError::new("E4305", "not expects bool arg")),
+            };
+            Ok(Value::Bool(!v))
+        }
         34 => {
             if args.len() != 1 {
                 return Err(VmError::new("E4305", "neg expects one integer arg"));
@@ -606,5 +616,31 @@ mod tests {
         let bc = load_bytecode_from_str(src).expect("bytecode parse");
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Int(20));
+    }
+
+    #[test]
+    fn run_not_builtin_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_BOOL","arg":true},
+        {"op":"CALL_BUILTIN","id":33,"argc":1},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Bool(false));
     }
 }
