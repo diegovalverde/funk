@@ -1,4 +1,5 @@
 use std::fmt;
+use std::io::{self, Write};
 
 use crate::bytecode::{
     op_name, require_bool_arg, require_f64_arg, require_i64_arg, require_u32_arg, Bytecode,
@@ -275,6 +276,23 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
 
 fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
     match id {
+        1 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "print expects one argument"));
+            }
+            print!("{}", render_value(&args[0]));
+            io::stdout()
+                .flush()
+                .map_err(|e| VmError::new("E4305", format!("print flush failed: {e}")))?;
+            Ok(Value::Unit)
+        }
+        2 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "println expects one argument"));
+            }
+            println!("{}", render_value(&args[0]));
+            Ok(Value::Unit)
+        }
         20 => {
             let (a, b) = int2(args, "+")?;
             a.checked_add(b)
@@ -319,10 +337,54 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
         30 => cmp_i64(args, |a, b| a >= b, ">="),
         31 => bool2(args, "and").map(|(a, b)| Value::Bool(a && b)),
         32 => bool2(args, "or").map(|(a, b)| Value::Bool(a || b)),
+        34 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "neg expects one integer arg"));
+            }
+            let v = match args[0] {
+                Value::Int(v) => v,
+                _ => return Err(VmError::new("E4305", "neg expects integer arg")),
+            };
+            v.checked_neg()
+                .map(Value::Int)
+                .ok_or_else(|| VmError::new("E4305", "integer overflow in neg"))
+        }
+        36 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "len expects one arg"));
+            }
+            let len = match &args[0] {
+                Value::List(items) => items.len() as i64,
+                Value::String(s) => s.chars().count() as i64,
+                _ => return Err(VmError::new("E4305", "len expects list or string")),
+            };
+            Ok(Value::Int(len))
+        }
         _ => Err(VmError::new(
             "E4305",
             format!("unsupported builtin id {}", id),
         )),
+    }
+}
+
+fn render_value(value: &Value) -> String {
+    match value {
+        Value::Int(v) => v.to_string(),
+        Value::Float(v) => v.to_string(),
+        Value::Bool(v) => v.to_string(),
+        Value::String(s) => s.clone(),
+        Value::List(items) => {
+            let mut out = String::from("[");
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                out.push_str(&render_value(item));
+            }
+            out.push(']');
+            out
+        }
+        Value::Unit => "()".to_string(),
     }
 }
 
