@@ -13,4 +13,4 @@ main():
     mid <- arr[1]
     r <- pick(z + n - 3) - 40
     t <- truthy(0)
-    gate(r + 1) + mid - 21 + t.
+    gate(r + 1) + mid - 21 + t + abs(-7) - 7.

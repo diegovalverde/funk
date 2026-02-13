@@ -370,6 +370,19 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             };
             Ok(Value::Int(len))
         }
+        37 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "abs expects one numeric arg"));
+            }
+            match args[0] {
+                Value::Int(v) => v
+                    .checked_abs()
+                    .map(Value::Int)
+                    .ok_or_else(|| VmError::new("E4305", "integer overflow in abs")),
+                Value::Float(v) => Ok(Value::Float(v.abs())),
+                _ => Err(VmError::new("E4305", "abs expects int or float arg")),
+            }
+        }
         _ => Err(VmError::new(
             "E4305",
             format!("unsupported builtin id {}", id),
@@ -642,5 +655,31 @@ mod tests {
         let bc = load_bytecode_from_str(src).expect("bytecode parse");
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Bool(false));
+    }
+
+    #[test]
+    fn run_abs_builtin_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":-9},
+        {"op":"CALL_BUILTIN","id":37,"argc":1},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(9));
     }
 }
