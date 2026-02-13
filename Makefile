@@ -1,8 +1,10 @@
-.PHONY: clean doctor release-check sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
+.PHONY: clean doctor release-check sync-submodules update-submodules submodule-status tests tests-fast tests-integration test-cpp20 examples examples-smoke examples-graphics examples-experimental examples-interactive vm-test bytecode-build-smoke bytecode-disasm-smoke bytecode-run-smoke bench-fib-compare bench-concat-compare bench-fib-fastpath bench-concat-fastpath bench-fib-i32 bench-concat-i32 bench-fib-tr bench-fib-tr-fastpath bench-sum-range bench-collatz bench-mutual-recursion bench-fp-dot bench-fp-axpy bench-fp-triad bench-report bench-all
 
 BENCH_RUNS ?= 7
 BENCH_WARMUP ?= 1
 FUNK_INCLUDE_PATH ?= $(CURDIR)/stdlib
+BYTECODE_BUILD_DIR ?= build_bytecode_smoke
+BYTECODE_SMOKE_SRC ?= $(CURDIR)/bytecode_smoke.f
 
 clean:
 	rm -rf build build_tests build_bench build_*_cpp20*
@@ -110,6 +112,19 @@ examples-interactive:
 	./build/connect4
 	./venv_3.11/bin/python ./funky.py "$(FUNK_EXAMPLES_PATH)/games/tic_tac_toe.f" --backend cpp20 --include "$(FUNK_INCLUDE_PATH)"
 	./build/tic_tac_toe
+
+vm-test:
+	cd ./funk_vm && cargo test --offline
+
+bytecode-build-smoke:
+	@test -n "$(FUNK_INCLUDE_PATH)" || (echo "FUNK_INCLUDE_PATH is not set"; exit 1)
+	./venv_3.11/bin/python ./funky.py "$(BYTECODE_SMOKE_SRC)" --backend bytecode --build-dir "$(BYTECODE_BUILD_DIR)" --include "$(FUNK_INCLUDE_PATH)"
+
+bytecode-disasm-smoke: bytecode-build-smoke
+	cd ./funk_vm && cargo run --offline -- disasm ../$(BYTECODE_BUILD_DIR)/bytecode_smoke.fkb.json
+
+bytecode-run-smoke: bytecode-build-smoke
+	cd ./funk_vm && cargo run --offline -- run ../$(BYTECODE_BUILD_DIR)/bytecode_smoke.fkb.json
 
 bench-fib-compare:
 	./venv_3.11/bin/python ./scripts/benchmark_fib_compare.py --runs 5

@@ -97,6 +97,13 @@ make tests-integration
 make examples
 ```
 
+Bytecode VM validation:
+```
+make vm-test
+make bytecode-disasm-smoke
+make bytecode-run-smoke
+```
+
 Release/pre-tag smoke:
 ```
 make release-check
