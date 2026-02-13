@@ -3,13 +3,13 @@
 <img src="doc/images/funk_logo.png" width="600">
 
 # funk
-*Functional Programming Language Experiment*
+*Functional Programming Language*
 
-Funk is an experimental functional programming language, inspired by Erlang and Python.
+Funk is a functional programming language inspired by Erlang and Python, with a practical toolchain centered on Python-based compilation plus `cpp20` and Bytecode backends.
 
-The goal of Funk is not to be efficient or safe, but rather to be simple and easy to read. 
+The language focuses on readable syntax, simple semantics, and deterministic behavior for tests, examples, and benchmarking.
 
-The Funk compiler translates to LLVM code, such that an executable file for the target platform can be created.
+The currently supported backends are `cpp20` and `bytecode`; LLVM is not part of the active toolchain.
 
 Please note the the state of this project is **under early stages of development**.
 
@@ -20,17 +20,23 @@ Install the python requirements:
 pip install -r requirements.txt 
 ```
 
-Install **llvm** toolchain:
+Install build/runtime toolchains:
 
-Linux:
+- C++ toolchain (for `cpp20` backend):
+
+Linux (Debian/Ubuntu):
 ```
-sudo apt install llvm
+sudo apt install clang
 ```
-Mac:
+
+macOS (Homebrew):
 ```
-brew install --with-toolchain llvm
+brew install llvm
 ```
-You may also need to install latest command-line tools from https://developer.apple.com/download/more/
+
+- Rust toolchain (for Bytecode VM):
+
+Install from https://rustup.rs and ensure `cargo` is available in your shell.
 
 # SDL (optional, for graphics examples)
 
@@ -229,7 +235,7 @@ Each of these function definitions for ```fibo``` is called a **function clause*
 
 The order in which these function clauses are declared is important. 
 
-When the compiler translates your code into LLVM IM, it will use this same order to do the pattern matching.
+When the compiler lowers your code, it uses this same declaration order for clause pattern matching.
 
 ### Function preconditions
 
