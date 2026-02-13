@@ -294,31 +294,49 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             Ok(Value::Unit)
         }
         20 => {
-            let (a, b) = int2(args, "+")?;
-            a.checked_add(b)
-                .map(Value::Int)
-                .ok_or_else(|| VmError::new("E4305", "integer overflow in +"))
+            match num2(args, "+")? {
+                NumPair::Int(a, b) => a
+                    .checked_add(b)
+                    .map(Value::Int)
+                    .ok_or_else(|| VmError::new("E4305", "integer overflow in +")),
+                NumPair::Float(a, b) => Ok(Value::Float(a + b)),
+            }
         }
         21 => {
-            let (a, b) = int2(args, "-")?;
-            a.checked_sub(b)
-                .map(Value::Int)
-                .ok_or_else(|| VmError::new("E4305", "integer overflow in -"))
+            match num2(args, "-")? {
+                NumPair::Int(a, b) => a
+                    .checked_sub(b)
+                    .map(Value::Int)
+                    .ok_or_else(|| VmError::new("E4305", "integer overflow in -")),
+                NumPair::Float(a, b) => Ok(Value::Float(a - b)),
+            }
         }
         22 => {
-            let (a, b) = int2(args, "*")?;
-            a.checked_mul(b)
-                .map(Value::Int)
-                .ok_or_else(|| VmError::new("E4305", "integer overflow in *"))
+            match num2(args, "*")? {
+                NumPair::Int(a, b) => a
+                    .checked_mul(b)
+                    .map(Value::Int)
+                    .ok_or_else(|| VmError::new("E4305", "integer overflow in *")),
+                NumPair::Float(a, b) => Ok(Value::Float(a * b)),
+            }
         }
         23 => {
-            let (a, b) = int2(args, "/")?;
-            if b == 0 {
-                return Err(VmError::new("E4305", "division by zero"));
+            match num2(args, "/")? {
+                NumPair::Int(a, b) => {
+                    if b == 0 {
+                        return Err(VmError::new("E4305", "division by zero"));
+                    }
+                    a.checked_div(b)
+                        .map(Value::Int)
+                        .ok_or_else(|| VmError::new("E4305", "integer overflow in /"))
+                }
+                NumPair::Float(a, b) => {
+                    if b == 0.0 {
+                        return Err(VmError::new("E4305", "division by zero"));
+                    }
+                    Ok(Value::Float(a / b))
+                }
             }
-            a.checked_div(b)
-                .map(Value::Int)
-                .ok_or_else(|| VmError::new("E4305", "integer overflow in /"))
         }
         24 => {
             let (a, b) = int2(args, "%")?;
@@ -331,10 +349,10 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
         }
         25 => cmp_eq(args, true),
         26 => cmp_eq(args, false),
-        27 => cmp_i64(args, |a, b| a < b, "<"),
-        28 => cmp_i64(args, |a, b| a <= b, "<="),
-        29 => cmp_i64(args, |a, b| a > b, ">"),
-        30 => cmp_i64(args, |a, b| a >= b, ">="),
+        27 => cmp_num(args, |a, b| a < b, "<"),
+        28 => cmp_num(args, |a, b| a <= b, "<="),
+        29 => cmp_num(args, |a, b| a > b, ">"),
+        30 => cmp_num(args, |a, b| a >= b, ">="),
         31 => bool2(args, "and").map(|(a, b)| Value::Bool(a && b)),
         32 => bool2(args, "or").map(|(a, b)| Value::Bool(a || b)),
         33 => {
@@ -419,9 +437,11 @@ fn cmp_eq(args: &[Value], eq: bool) -> Result<Value, VmError> {
     Ok(Value::Bool(if eq { res } else { !res }))
 }
 
-fn cmp_i64(args: &[Value], f: fn(i64, i64) -> bool, op: &str) -> Result<Value, VmError> {
-    let (a, b) = int2(args, op)?;
-    Ok(Value::Bool(f(a, b)))
+fn cmp_num(args: &[Value], f: fn(f64, f64) -> bool, op: &str) -> Result<Value, VmError> {
+    match num2(args, op)? {
+        NumPair::Int(a, b) => Ok(Value::Bool(f(a as f64, b as f64))),
+        NumPair::Float(a, b) => Ok(Value::Bool(f(a, b))),
+    }
 }
 
 fn int2(args: &[Value], op: &str) -> Result<(i64, i64), VmError> {
@@ -478,6 +498,30 @@ fn bool2(args: &[Value], op: &str) -> Result<(bool, bool), VmError> {
         }
     };
     Ok((a, b))
+}
+
+enum NumPair {
+    Int(i64, i64),
+    Float(f64, f64),
+}
+
+fn num2(args: &[Value], op: &str) -> Result<NumPair, VmError> {
+    if args.len() != 2 {
+        return Err(VmError::new(
+            "E4305",
+            format!("builtin {} expects 2 numeric args", op),
+        ));
+    }
+    match (&args[0], &args[1]) {
+        (Value::Int(a), Value::Int(b)) => Ok(NumPair::Int(*a, *b)),
+        (Value::Int(a), Value::Float(b)) => Ok(NumPair::Float(*a as f64, *b)),
+        (Value::Float(a), Value::Int(b)) => Ok(NumPair::Float(*a, *b as f64)),
+        (Value::Float(a), Value::Float(b)) => Ok(NumPair::Float(*a, *b)),
+        _ => Err(VmError::new(
+            "E4305",
+            format!("builtin {} expects numeric args", op),
+        )),
+    }
 }
 
 pub fn disassemble(bytecode: &Bytecode) -> String {
@@ -681,5 +725,59 @@ mod tests {
         let bc = load_bytecode_from_str(src).expect("bytecode parse");
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Int(9));
+    }
+
+    #[test]
+    fn run_mixed_numeric_arithmetic_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_FLOAT","arg":2.5},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Float(4.5));
+    }
+
+    #[test]
+    fn run_mixed_numeric_compare_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_FLOAT","arg":2.5},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Bool(true));
     }
 }
