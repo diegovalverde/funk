@@ -1,0 +1,19 @@
+{
+  "name": "funk-playground-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prepare:runtime": "node ./scripts/sync-runtime.mjs",
+    "build:wasm": "wasm-pack build ../crates/mu_wasm --target web --out-dir ./src/pkg",
+    "dev": "npm run prepare:runtime && npm run build:wasm && vite",
+    "build": "npm run prepare:runtime && npm run build:wasm && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.52.2"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}

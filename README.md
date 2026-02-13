@@ -38,6 +38,42 @@ brew install llvm
 
 Install from https://rustup.rs and ensure `cargo` is available in your shell.
 
+# Playground (Browser)
+
+A browser-only Funk Playground is available under `web/` and deploys as a static site on GitHub Pages.
+It reuses the existing Python compiler pipeline in-browser (via Pyodide) and executes Bytecode with the Rust WASM VM wrapper (`crates/mu_wasm`).
+
+## Local development
+
+1. Build WASM package:
+```
+wasm-pack build ./crates/mu_wasm --target web --out-dir ../../web/src/pkg
+```
+
+2. Run Vite dev server:
+```
+cd web
+npm install
+npm run dev
+```
+
+`npm run dev` syncs runtime compiler/stdlib files into `web/public/runtime/`, rebuilds WASM, and starts the local web app.
+
+## GitHub Pages deployment
+
+Deployment is defined in `.github/workflows/pages.yml`.
+
+- Enable Pages in repo settings:
+  - `Settings -> Pages -> Source: GitHub Actions`
+- Push to `main` (or run the workflow manually) to publish.
+
+## Browser runner limitations
+
+- No filesystem, network, or process effects are allowed at runtime.
+- Programs using disallowed effects return a structured `E_EFFECT` error.
+- Execution is fuel-limited; exhaustion returns `E_FUEL`.
+- Output is capped (default 64KB); overflow returns `E_OUTPUT_LIMIT`.
+
 # SDL (optional, for graphics examples)
 
 Some examples (e.g. `$FUNK_EXAMPLES_PATH/graphics/barnsly_fern.f`) use SDL via `sdl_simple`. Install SDL2 development headers:

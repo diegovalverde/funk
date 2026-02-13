@@ -115,3 +115,10 @@ venv.bak/
 benchmarks/benchmarks.md
 benchmarks/raw/results.csv
 benchmarks/plots/*.svg
+
+# Browser playground build outputs
+web/node_modules/
+web/dist/
+web/src/pkg/
+web/public/runtime/*
+!web/public/runtime/.gitkeep

@@ -63,6 +63,37 @@ struct Frame {
 }
 
 pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
+    let mut host = StdoutHost {};
+    run_with_host(bytecode, fuel, &mut host)
+}
+
+pub trait VmHost {
+    fn write(&mut self, text: &str) -> Result<(), VmError>;
+    fn writeln(&mut self, text: &str) -> Result<(), VmError>;
+}
+
+struct StdoutHost {}
+
+impl VmHost for StdoutHost {
+    fn write(&mut self, text: &str) -> Result<(), VmError> {
+        print!("{text}");
+        io::stdout()
+            .flush()
+            .map_err(|e| VmError::new("E4305", format!("print flush failed: {e}")))?;
+        Ok(())
+    }
+
+    fn writeln(&mut self, text: &str) -> Result<(), VmError> {
+        println!("{text}");
+        Ok(())
+    }
+}
+
+pub fn run_with_host<H: VmHost>(
+    bytecode: &Bytecode,
+    fuel: u64,
+    host: &mut H,
+) -> Result<VmResult, VmError> {
     bytecode.validate()?;
     let mut function_lookup: HashMap<(String, usize), usize> = HashMap::new();
     for (idx, f) in bytecode.functions.iter().enumerate() {
@@ -180,7 +211,7 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
                 let args_start = stack.len() - argc;
-                let result = call_builtin(id, &stack[args_start..])?;
+                let result = call_builtin(id, &stack[args_start..], host)?;
                 stack.truncate(args_start);
                 stack.push(result);
             }
@@ -338,20 +369,19 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
     Err(VmError::new("E4302", "program terminated without RETURN"))
 }
 
-fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
+fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value, VmError> {
     match id {
         1 => {
+            let mut out = String::new();
             for arg in args {
-                print!("{}", render_value(arg));
+                out.push_str(&render_value(arg));
             }
-            io::stdout()
-                .flush()
-                .map_err(|e| VmError::new("E4305", format!("print flush failed: {e}")))?;
+            host.write(&out)?;
             Ok(Value::Unit)
         }
         2 => {
             if args.is_empty() {
-                println!();
+                host.writeln("")?;
                 return Ok(Value::Unit);
             }
             let mut out = String::new();
@@ -361,7 +391,7 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 }
                 out.push_str(&render_value(arg));
             }
-            println!("{}", out);
+            host.writeln(&out)?;
             Ok(Value::Unit)
         }
         3 => {
