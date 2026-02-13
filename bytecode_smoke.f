@@ -13,10 +13,13 @@ main():
     mid <- arr[1]
     sl <- arr[0..1]
     sln <- arr[1..-1]
-    sllen <- len(sl) + len(sln)
+    sl_l <- arr[..1]
+    sl_r <- arr[1..]
+    sl_all <- arr[..]
+    sllen <- len(sl) + len(sln) + len(sl_l) + len(sl_r) + len(sl_all)
     s <- sum([1,2,3])
     f <- flatten([[1],[2,[3]]])
     fl <- len(f)
     r <- pick(z + n - 3) - 40
     t <- truthy(0)
-    gate(r + 1) + mid - 21 + t + abs(-7) - 7 + s - 6 + fl - 3 + sllen - 4.
+    gate(r + 1) + mid - 21 + t + abs(-7) - 7 + s - 6 + fl - 3 + sllen - 11.
