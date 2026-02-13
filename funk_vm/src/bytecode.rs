@@ -45,6 +45,7 @@ pub enum OpCode {
     JumpIfFalse,
     CallBuiltin,
     CallFn,
+    CallIndirect,
     Return,
     Trap,
     MkList,
@@ -200,6 +201,14 @@ fn validate_instruction(
                 ));
             }
         }
+        OpCode::CallIndirect => {
+            if ins.argc.is_none() {
+                return Err(BytecodeError::new(
+                    "E4202",
+                    format!("CALL_INDIRECT missing argc at function {}, ip {}", fn_idx, ip),
+                ));
+            }
+        }
         OpCode::MkList => {
             if ins.argc.is_none() {
                 return Err(BytecodeError::new(
@@ -265,6 +274,7 @@ pub fn op_name(op: OpCode) -> &'static str {
         OpCode::JumpIfFalse => "JUMP_IF_FALSE",
         OpCode::CallBuiltin => "CALL_BUILTIN",
         OpCode::CallFn => "CALL_FN",
+        OpCode::CallIndirect => "CALL_INDIRECT",
         OpCode::Return => "RETURN",
         OpCode::Trap => "TRAP",
         OpCode::MkList => "MK_LIST",

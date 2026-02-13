@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
+use std::collections::HashMap;
 
 use crate::bytecode::{
     op_name, require_bool_arg, require_f64_arg, require_i64_arg, require_u32_arg, Bytecode,
@@ -62,6 +63,12 @@ struct Frame {
 
 pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
     bytecode.validate()?;
+    let mut function_lookup: HashMap<(String, usize), usize> = HashMap::new();
+    for (idx, f) in bytecode.functions.iter().enumerate() {
+        if let Some((name, arity)) = parse_function_signature(&f.name) {
+            function_lookup.insert((name, arity), idx);
+        }
+    }
     let mut stack: Vec<Value> = Vec::new();
     let mut frames = vec![Frame {
         fn_id: bytecode.entry_fn as usize,
@@ -209,6 +216,36 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                     locals: args,
                 });
             }
+            OpCode::CallIndirect => {
+                let argc = ins
+                    .argc
+                    .ok_or_else(|| VmError::new("E4305", "CALL_INDIRECT missing argc"))?
+                    as usize;
+                if stack.len() < argc + 1 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_INDIRECT"));
+                }
+                let args = stack.split_off(stack.len() - argc);
+                let callee = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in CALL_INDIRECT"))?;
+                let callee_name = match callee {
+                    Value::String(s) => s,
+                    _ => return Err(VmError::new("E4305", "CALL_INDIRECT expects string callee")),
+                };
+                let target_fn = function_lookup
+                    .get(&(callee_name.clone(), argc))
+                    .ok_or_else(|| {
+                        VmError::new(
+                            "E4303",
+                            format!("CALL_INDIRECT unresolved target '{}/{}'", callee_name, argc),
+                        )
+                    })?;
+                frames.push(Frame {
+                    fn_id: *target_fn,
+                    ip: 0,
+                    locals: args,
+                });
+            }
             OpCode::Return => {
                 let ret = stack
                     .pop()
@@ -244,12 +281,15 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                 let list_val = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
-                let idx = match idx_val {
-                    Value::Int(v) if v >= 0 => v as usize,
-                    _ => return Err(VmError::new("E4305", "GET_INDEX expects non-negative integer index")),
-                };
                 match list_val {
                     Value::List(items) => {
+                        if items.is_empty() {
+                            return Err(VmError::new("E4303", "GET_INDEX list index out of bounds"));
+                        }
+                        let idx = match idx_val {
+                            Value::Int(v) => normalize_index(v, items.len()),
+                            _ => return Err(VmError::new("E4305", "GET_INDEX expects integer index")),
+                        };
                         let item = items.get(idx).ok_or_else(|| {
                             VmError::new("E4303", "GET_INDEX list index out of bounds")
                         })?;
@@ -263,9 +303,9 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in LEN"))?;
                 let len = match value {
-                    Value::List(items) => items.len() as i64,
+                    Value::List(items) => deep_len(&items) as i64,
                     Value::String(s) => s.chars().count() as i64,
-                    _ => return Err(VmError::new("E4305", "LEN expects list or string")),
+                    _ => 1,
                 };
                 stack.push(Value::Int(len));
             }
@@ -392,9 +432,9 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 return Err(VmError::new("E4305", "len expects one arg"));
             }
             let len = match &args[0] {
-                Value::List(items) => items.len() as i64,
+                Value::List(items) => deep_len(items) as i64,
                 Value::String(s) => s.chars().count() as i64,
-                _ => return Err(VmError::new("E4305", "len expects list or string")),
+                _ => 1,
             };
             Ok(Value::Int(len))
         }
@@ -422,34 +462,10 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             if args.len() != 1 {
                 return Err(VmError::new("E4305", "sum expects one list arg"));
             }
-            let items = match &args[0] {
-                Value::List(items) => items,
-                _ => return Err(VmError::new("E4305", "sum expects list arg")),
-            };
             let mut int_acc: i64 = 0;
             let mut float_acc: f64 = 0.0;
             let mut is_float = false;
-            for item in items {
-                match item {
-                    Value::Int(v) => {
-                        if is_float {
-                            float_acc += *v as f64;
-                        } else {
-                            int_acc = int_acc
-                                .checked_add(*v)
-                                .ok_or_else(|| VmError::new("E4305", "integer overflow in sum"))?;
-                        }
-                    }
-                    Value::Float(v) => {
-                        if !is_float {
-                            float_acc = int_acc as f64;
-                            is_float = true;
-                        }
-                        float_acc += *v;
-                    }
-                    _ => return Err(VmError::new("E4305", "sum expects numeric list elements")),
-                }
-            }
+            sum_recursive(&args[0], &mut int_acc, &mut float_acc, &mut is_float)?;
             if is_float {
                 Ok(Value::Float(float_acc))
             } else {
@@ -469,39 +485,44 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
             Ok(Value::List(out))
         }
         41 => {
-            let (left, right) = list2(args, "concat")?;
-            let mut out = Vec::with_capacity(left.len() + right.len());
-            out.extend(left.iter().cloned());
-            out.extend(right.iter().cloned());
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "concat expects 2 args"));
+            }
+            let mut out = match &args[1] {
+                Value::List(items) => items.clone(),
+                other => vec![other.clone()],
+            };
+            out.insert(0, args[0].clone());
             Ok(Value::List(out))
         }
         42 => {
             if args.len() != 2 {
                 return Err(VmError::new("E4305", "list union expects 2 args"));
             }
-            let right = match &args[1] {
-                Value::List(items) => items,
-                _ => return Err(VmError::new("E4305", "list union arg1 must be list")),
+            let left = match &args[0] {
+                Value::List(items) => items.clone(),
+                other => vec![other.clone()],
             };
-            let mut out = Vec::with_capacity(1 + right.len());
-            out.push(args[0].clone());
-            out.extend(right.iter().cloned());
+            let right = match &args[1] {
+                Value::List(items) => items.clone(),
+                other => vec![other.clone()],
+            };
+            let mut out = Vec::with_capacity(left.len() + right.len());
+            out.extend(left);
+            out.extend(right);
             Ok(Value::List(out))
         }
         43 => {
             if args.len() != 2 {
                 return Err(VmError::new("E4305", "list concat tail expects 2 args"));
             }
-            let left = match &args[0] {
-                Value::List(items) => items,
-                _ => return Err(VmError::new("E4305", "list concat tail arg0 must be list")),
-            };
-            let mut out = left.clone();
+            let left = spread_list(&args[0], "list concat tail arg0")?;
+            let mut out = left.to_vec();
             out.push(args[1].clone());
             Ok(Value::List(out))
         }
         44 => {
-            let (left, right) = list2(args, "difference")?;
+            let (left, right) = spread_list2(args, "difference")?;
             let mut out = Vec::new();
             for item in left {
                 if !right.contains(item) {
@@ -536,6 +557,36 @@ fn call_builtin(id: u8, args: &[Value]) -> Result<Value, VmError> {
                 out.push(Value::List(items[start..end].to_vec()));
             }
             Ok(Value::List(out))
+        }
+        47 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "is_list expects one arg"));
+            }
+            Ok(Value::Bool(matches!(args[0], Value::List(_))))
+        }
+        48 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "tail expects one list arg"));
+            }
+            let items = match &args[0] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "tail arg must be list")),
+            };
+            if items.len() <= 1 {
+                Ok(Value::List(Vec::new()))
+            } else {
+                Ok(Value::List(items[1..].to_vec()))
+            }
+        }
+        49 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "list_size expects one list arg"));
+            }
+            let items = match &args[0] {
+                Value::List(items) => items,
+                _ => return Err(VmError::new("E4305", "list_size arg must be list")),
+            };
+            Ok(Value::Int(items.len() as i64))
         }
         46 => {
             if args.len() != 1 {
@@ -605,12 +656,66 @@ fn normalize_index(raw: i64, len: usize) -> usize {
     raw.rem_euclid(len_i64) as usize
 }
 
+fn parse_function_signature(name: &str) -> Option<(String, usize)> {
+    let (base, arity_raw) = name.rsplit_once('#')?;
+    let arity = arity_raw.parse::<usize>().ok()?;
+    Some((base.to_string(), arity))
+}
+
 fn flatten_values(items: &[Value], out: &mut Vec<Value>) {
     for item in items {
         match item {
             Value::List(nested) => flatten_values(nested, out),
             _ => out.push(item.clone()),
         }
+    }
+}
+
+fn deep_len(items: &[Value]) -> usize {
+    let mut total = 0usize;
+    for item in items {
+        match item {
+            Value::List(nested) => {
+                total += deep_len(nested);
+            }
+            _ => total += 1,
+        }
+    }
+    total
+}
+
+fn sum_recursive(
+    value: &Value,
+    int_acc: &mut i64,
+    float_acc: &mut f64,
+    is_float: &mut bool,
+) -> Result<(), VmError> {
+    match value {
+        Value::List(items) => {
+            for item in items {
+                sum_recursive(item, int_acc, float_acc, is_float)?;
+            }
+            Ok(())
+        }
+        Value::Int(v) => {
+            if *is_float {
+                *float_acc += *v as f64;
+            } else {
+                *int_acc = int_acc
+                    .checked_add(*v)
+                    .ok_or_else(|| VmError::new("E4305", "integer overflow in sum"))?;
+            }
+            Ok(())
+        }
+        Value::Float(v) => {
+            if !*is_float {
+                *float_acc = *int_acc as f64;
+                *is_float = true;
+            }
+            *float_acc += *v;
+            Ok(())
+        }
+        _ => Err(VmError::new("E4305", "sum expects numeric/list elements")),
     }
 }
 
@@ -730,6 +835,32 @@ fn list2<'a>(args: &'a [Value], op: &str) -> Result<(&'a [Value], &'a [Value]), 
         _ => return Err(VmError::new("E4305", format!("builtin {} arg1 must be list", op))),
     };
     Ok((left, right))
+}
+
+fn spread_list<'a>(value: &'a Value, arg_name: &str) -> Result<&'a [Value], VmError> {
+    let items = match value {
+        Value::List(items) => items.as_slice(),
+        _ => return Err(VmError::new("E4305", format!("{} must be list", arg_name))),
+    };
+    if items.len() == 1 {
+        if let Value::List(inner) = &items[0] {
+            return Ok(inner.as_slice());
+        }
+    }
+    Ok(items)
+}
+
+fn spread_list2<'a>(args: &'a [Value], op: &str) -> Result<(&'a [Value], &'a [Value]), VmError> {
+    if args.len() != 2 {
+        return Err(VmError::new(
+            "E4305",
+            format!("builtin {} expects 2 list args", op),
+        ));
+    }
+    Ok((
+        spread_list(&args[0], &format!("{} arg0", op))?,
+        spread_list(&args[1], &format!("{} arg1", op))?,
+    ))
 }
 
 fn render_value(value: &Value) -> String {
