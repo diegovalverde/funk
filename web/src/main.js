@@ -17,8 +17,17 @@ const state = {
   statsEl: null,
 };
 
-renderLayout();
-await boot();
+void start();
+
+async function start() {
+  renderLayout();
+  try {
+    await boot();
+  } catch (err) {
+    setStatus('Initialization failed.');
+    setOutput(String(err));
+  }
+}
 
 async function boot() {
   setStatus('Initializing WASM runtime...');
