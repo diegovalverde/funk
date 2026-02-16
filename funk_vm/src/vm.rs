@@ -75,6 +75,12 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
 pub trait VmHost {
     fn write(&mut self, text: &str) -> Result<(), VmError>;
     fn writeln(&mut self, text: &str) -> Result<(), VmError>;
+    fn read_text_file(&mut self, path: &str) -> Result<String, VmError> {
+        Err(VmError::new(
+            "E_EFFECT",
+            format!("disallowed file read: '{}'", path),
+        ))
+    }
     fn call_host(&mut self, name: &str, _args: &[Value]) -> Result<Value, VmError> {
         Err(VmError::new(
             "E_EFFECT",
@@ -97,6 +103,21 @@ impl VmHost for StdoutHost {
     fn writeln(&mut self, text: &str) -> Result<(), VmError> {
         println!("{text}");
         Ok(())
+    }
+
+    fn read_text_file(&mut self, path: &str) -> Result<String, VmError> {
+        match fs::read_to_string(path) {
+            Ok(v) => Ok(v),
+            Err(_) => {
+                let alt = format!("../{}", path);
+                fs::read_to_string(&alt).map_err(|e| {
+                    VmError::new(
+                        "E4305",
+                        format!("fread_list failed reading '{}' or '{}': {e}", path, alt),
+                    )
+                })
+            }
+        }
     }
 }
 
@@ -734,18 +755,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 Value::String(s) => s,
                 _ => return Err(VmError::new("E4305", "fread_list arg must be string path")),
             };
-            let content = match fs::read_to_string(path) {
-                Ok(v) => v,
-                Err(_) => {
-                    let alt = format!("../{}", path);
-                    fs::read_to_string(&alt).map_err(|e| {
-                        VmError::new(
-                            "E4305",
-                            format!("fread_list failed reading '{}' or '{}': {e}", path, alt),
-                        )
-                    })?
-                }
-            };
+            let content = host.read_text_file(path)?;
             let mut out = Vec::new();
             for tok in content.split_whitespace() {
                 let n = tok.parse::<i64>().map_err(|e| {

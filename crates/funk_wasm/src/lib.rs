@@ -39,6 +39,8 @@ struct BufferHost {
 extern "C" {
     #[wasm_bindgen(js_namespace = globalThis, js_name = __funk_host_call, catch)]
     fn js_host_call(name: &str, args: JsValue) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(js_namespace = globalThis, js_name = __funk_read_asset, catch)]
+    fn js_read_asset(path: &str) -> Result<JsValue, JsValue>;
 }
 
 impl BufferHost {
@@ -73,6 +75,18 @@ impl VmHost for BufferHost {
     fn writeln(&mut self, text: &str) -> Result<(), VmError> {
         self.push_text(text)?;
         self.push_text("\n")
+    }
+
+    fn read_text_file(&mut self, path: &str) -> Result<String, VmError> {
+        let js_result = js_read_asset(path).map_err(|err| {
+            VmError::new(
+                "E_EFFECT",
+                format!("asset read '{}' failed: {}", path, js_error_to_string(&err)),
+            )
+        })?;
+        js_result
+            .as_string()
+            .ok_or_else(|| VmError::new("E_EFFECT", "asset reader returned non-string value"))
     }
 
     fn call_host(&mut self, name: &str, args: &[Value]) -> Result<Value, VmError> {
@@ -280,10 +294,12 @@ fn reject_disallowed_effects(bytecode: &Bytecode, allow_host_effects: bool) -> O
                         })
                     }
                     Some(46) => {
-                        return Some(RunnerError {
-                            code: "E_EFFECT".to_string(),
-                            message: "disallowed effect: filesystem builtin is not available in browser".to_string(),
-                        })
+                        if !allow_host_effects {
+                            return Some(RunnerError {
+                                code: "E_EFFECT".to_string(),
+                                message: "disallowed effect: asset file reads require host effects in browser".to_string(),
+                            })
+                        }
                     }
                     _ => {}
                 },
