@@ -4,6 +4,7 @@ import initWasm, { check_bytecode, run_bytecode, source_stats } from './pkg/funk
 const DEFAULT_SOURCE = `# Funk Playground\nmain():\n    say("hello from browser")\n    0.\n`;
 const DEFAULT_FUEL = 10_000_000;
 const OUTPUT_LIMIT_BYTES = 64 * 1024;
+const UNLIMITED_FUEL = Number.MAX_SAFE_INTEGER;
 
 const state = {
   wasmReady: false,
@@ -14,8 +15,10 @@ const state = {
   outputEl: null,
   fuelEl: null,
   fuelLabelEl: null,
+  fuelUnlimitedEl: null,
   statsEl: null,
   buildInfoEl: null,
+  sourcePath: '/workspace/main.f',
 };
 
 void start();
@@ -45,6 +48,7 @@ async function boot() {
 }
 
 function renderLayout() {
+  const localUnlimited = isLocalHost();
   const app = document.getElementById('app');
   app.innerHTML = `
     <header class="topbar">
@@ -58,11 +62,16 @@ function renderLayout() {
           <summary>stdlib</summary>
           <ul id="stdlib-tree" class="tree"></ul>
         </details>
+        <details open>
+          <summary>examples</summary>
+          <ul id="examples-tree" class="tree"></ul>
+        </details>
         <div class="sidebar-preview">
           <h3>Source Preview</h3>
           <pre id="stdlib-preview">Select a stdlib file.</pre>
         </div>
       </aside>
+      <div id="sidebar-splitter" class="splitter splitter-v" title="Resize sidebar"></div>
       <section class="workspace">
         <div class="controls">
           <button id="btn-check">Check</button>
@@ -71,12 +80,17 @@ function renderLayout() {
             <input id="fuel" type="range" min="10000" max="50000000" step="10000" value="${DEFAULT_FUEL}" />
             <span id="fuel-label"></span>
           </label>
+          <label class="fuel-unlimited ${localUnlimited ? '' : 'fuel-unlimited-disabled'}" title="Only available on localhost">
+            <input id="fuel-unlimited" type="checkbox" ${localUnlimited ? '' : 'disabled'} />
+            Unlimited
+          </label>
         </div>
         <div id="editor" class="editor"></div>
         <div class="meta">
           <div id="stats"></div>
           <div id="status"></div>
         </div>
+        <div id="output-splitter" class="splitter splitter-h" title="Resize output"></div>
         <pre id="output" class="output"></pre>
       </section>
     </main>
@@ -98,14 +112,21 @@ function renderLayout() {
   state.outputEl = document.getElementById('output');
   state.fuelEl = document.getElementById('fuel');
   state.fuelLabelEl = document.getElementById('fuel-label');
+  state.fuelUnlimitedEl = document.getElementById('fuel-unlimited');
   state.statsEl = document.getElementById('stats');
   state.buildInfoEl = document.getElementById('build-info');
 
   const onFuel = () => {
-    state.fuelLabelEl.textContent = Number(state.fuelEl.value).toLocaleString();
+    const isUnlimited = !!state.fuelUnlimitedEl?.checked;
+    state.fuelLabelEl.textContent = isUnlimited ? '∞' : Number(state.fuelEl.value).toLocaleString();
   };
   onFuel();
   state.fuelEl.addEventListener('input', onFuel);
+  state.fuelUnlimitedEl.addEventListener('change', () => {
+    const isUnlimited = state.fuelUnlimitedEl.checked;
+    state.fuelEl.disabled = isUnlimited;
+    onFuel();
+  });
 
   state.editor.onDidChangeModelContent(() => updateStats());
 
@@ -116,7 +137,66 @@ function renderLayout() {
     await runProgram();
   });
 
-  populateStdlibTree();
+  populateLibraryTrees();
+  setupResizers();
+}
+
+function isLocalHost() {
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1';
+}
+
+function setupResizers() {
+  const layout = document.querySelector('.layout');
+  const workspace = document.querySelector('.workspace');
+  const sidebarSplitter = document.getElementById('sidebar-splitter');
+  const outputSplitter = document.getElementById('output-splitter');
+  if (!layout || !workspace || !sidebarSplitter || !outputSplitter) {
+    return;
+  }
+
+  sidebarSplitter.addEventListener('pointerdown', (event) => {
+    if (window.matchMedia('(max-width: 960px)').matches) {
+      return;
+    }
+    event.preventDefault();
+    document.body.classList.add('dragging');
+    const startX = event.clientX;
+    const startWidth = parseFloat(getComputedStyle(layout).getPropertyValue('--sidebar-width')) || 320;
+    const onMove = (moveEvent) => {
+      const next = startWidth + (moveEvent.clientX - startX);
+      const min = 220;
+      const max = Math.max(min, Math.floor(window.innerWidth * 0.7));
+      layout.style.setProperty('--sidebar-width', `${Math.min(max, Math.max(min, next))}px`);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.classList.remove('dragging');
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+
+  outputSplitter.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    document.body.classList.add('dragging');
+    const startY = event.clientY;
+    const startHeight = parseFloat(getComputedStyle(workspace).getPropertyValue('--output-height')) || 160;
+    const onMove = (moveEvent) => {
+      const next = startHeight - (moveEvent.clientY - startY);
+      const min = 100;
+      const max = Math.max(min, Math.floor(window.innerHeight * 0.6));
+      workspace.style.setProperty('--output-height', `${Math.min(max, Math.max(min, next))}px`);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.classList.remove('dragging');
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
 }
 
 async function loadBuildInfo() {
@@ -220,6 +300,8 @@ await micropip.install('lark')
   ensureDir('/runtime');
   ensureDir('/runtime/funk');
   ensureDir('/runtime/stdlib');
+  ensureDir('/runtime/examples');
+  ensureDir('/runtime/include');
 
   for (const rel of manifest.pythonFiles) {
     const target = `/runtime/funk/${rel}`;
@@ -232,6 +314,20 @@ await micropip.install('lark')
     const target = `/runtime/stdlib/${rel}`;
     ensureDir(target.split('/').slice(0, -1).join('/'));
     const content = await fetchTextOrThrow(`./runtime/stdlib/${rel}`);
+    pyodide.FS.writeFile(target, content, { encoding: 'utf8' });
+  }
+
+  for (const rel of (manifest.exampleFiles || [])) {
+    const target = `/runtime/examples/${rel}`;
+    ensureDir(target.split('/').slice(0, -1).join('/'));
+    const content = await fetchTextOrThrow(`./runtime/examples/${rel}`);
+    pyodide.FS.writeFile(target, content, { encoding: 'utf8' });
+  }
+
+  for (const rel of (manifest.includeFiles || [])) {
+    const target = `/runtime/include/${rel}`;
+    ensureDir(target.split('/').slice(0, -1).join('/'));
+    const content = await fetchTextOrThrow(`./runtime/include/${rel}`);
     pyodide.FS.writeFile(target, content, { encoding: 'utf8' });
   }
 
@@ -248,17 +344,28 @@ sys.path.insert(0, '/runtime')
 from funk.backends.bytecode import BytecodeBackend
 
 
-def __compile_funk_to_fkb(source):
+def __compile_funk_to_fkb(source, src_path='/workspace/main.f'):
     os.makedirs('/workspace', exist_ok=True)
     os.makedirs('/workspace/build', exist_ok=True)
+    src_dir = os.path.dirname(src_path) or '/workspace'
+    os.makedirs(src_dir, exist_ok=True)
+    with open(src_path, 'w') as f:
+        f.write(source)
+    include_paths = ['/runtime/stdlib', '/workspace']
+    if os.path.isdir('/runtime/examples'):
+        include_paths.append('/runtime/examples')
+    if os.path.isdir('/runtime/include'):
+        include_paths.append('/runtime/include')
+    if src_dir not in include_paths:
+        include_paths.insert(0, src_dir)
     backend = BytecodeBackend()
     artifact = backend.compile_source(
-        src_path='/workspace/main.f',
+        src_path=src_path,
         src_text=source,
         build_path='/workspace/build',
         debug=False,
         exe_command=lambda cmd: None,
-        include_paths=['/runtime/stdlib', '/workspace'],
+        include_paths=include_paths,
     )
     binary_path = artifact[:-5] if artifact.endswith('.json') else artifact + '.fkb'
     with open(binary_path, 'rb') as f:
@@ -271,7 +378,7 @@ def __compile_funk_to_fkb(source):
 async function compileToBytecode(source) {
   const pyFn = state.pyodide.globals.get('__compile_funk_to_fkb');
   try {
-    const encoded = pyFn(source);
+    const encoded = pyFn(source, state.sourcePath);
     return base64ToBytes(encoded);
   } finally {
     pyFn.destroy();
@@ -321,7 +428,7 @@ async function runProgram() {
     setStatus('Compiling and running...');
     const source = state.editor.getValue();
     const bytecode = await compileToBytecode(source);
-    const fuel = Number(state.fuelEl.value);
+    const fuel = state.fuelUnlimitedEl?.checked ? UNLIMITED_FUEL : Number(state.fuelEl.value);
     const result = run_bytecode(bytecode, fuel, OUTPUT_LIMIT_BYTES);
     if (result.ok) {
       const lines = [];
@@ -350,8 +457,9 @@ function formatError(error) {
   return `${error.code}: ${error.message}`;
 }
 
-async function populateStdlibTree() {
+async function populateLibraryTrees() {
   const tree = document.getElementById('stdlib-tree');
+  const examplesTree = document.getElementById('examples-tree');
   const preview = document.getElementById('stdlib-preview');
   const manifest = await fetch('./runtime/manifest.json').then((r) => r.json());
 
@@ -366,6 +474,35 @@ async function populateStdlibTree() {
     });
     li.appendChild(btn);
     tree.appendChild(li);
+  }
+
+  const examples = manifest.exampleFiles || [];
+  if (examples.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'No examples bundled';
+    examplesTree.appendChild(li);
+    return;
+  }
+
+  for (const rel of examples) {
+    if (!rel.endsWith('.f')) {
+      continue;
+    }
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = rel;
+    btn.title = 'Load into editor';
+    btn.addEventListener('click', async () => {
+      const text = await fetch(`./runtime/examples/${rel}`).then((r) => r.text());
+      preview.textContent = text;
+      state.editor.setValue(text);
+      state.sourcePath = `/runtime/examples/${rel}`;
+      setStatus(`Loaded example: ${rel}`);
+      updateStats();
+    });
+    li.appendChild(btn);
+    examplesTree.appendChild(li);
   }
 }
 

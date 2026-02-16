@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +25,15 @@ async function listFiles(root) {
   await walk(root);
   out.sort();
   return out;
+}
+
+async function isDirectory(pathLike) {
+  try {
+    const s = await stat(pathLike);
+    return s.isDirectory();
+  } catch (_) {
+    return false;
+  }
 }
 
 function gitValue(args, cwd) {
@@ -58,9 +67,30 @@ await cp(path.join(repoRoot, 'funk'), path.join(runtimeRoot, 'funk'), { recursiv
 await cp(path.join(repoRoot, 'stdlib'), path.join(runtimeRoot, 'stdlib'), { recursive: true });
 await cp(path.join(repoRoot, 'funky.py'), path.join(runtimeRoot, 'funky.py'));
 
+const externalExamplesRoot = path.resolve(repoRoot, '..', 'funky_example_files', 'root');
+const externalExamplesDir = path.join(externalExamplesRoot, 'examples');
+const externalIncludeDir = path.join(externalExamplesRoot, 'include');
+const runtimeExamplesDir = path.join(runtimeRoot, 'examples');
+const runtimeIncludeDir = path.join(runtimeRoot, 'include');
+
+let exampleFiles = [];
+let includeFiles = [];
+
+if (await isDirectory(externalExamplesDir)) {
+  await cp(externalExamplesDir, runtimeExamplesDir, { recursive: true });
+  exampleFiles = await listFiles(runtimeExamplesDir);
+}
+
+if (await isDirectory(externalIncludeDir)) {
+  await cp(externalIncludeDir, runtimeIncludeDir, { recursive: true });
+  includeFiles = await listFiles(runtimeIncludeDir);
+}
+
 const manifest = {
   pythonFiles: await listFiles(path.join(runtimeRoot, 'funk')),
   stdlibFiles: await listFiles(path.join(runtimeRoot, 'stdlib')),
+  exampleFiles,
+  includeFiles,
   topLevelFiles: ['funky.py'],
 };
 
