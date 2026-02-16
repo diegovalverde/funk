@@ -41,6 +41,7 @@ const state = {
   frameOkCount: 0,
   frameErrCount: 0,
   frameMsAvg: 0,
+  activeControlsTab: 'program',
 };
 
 void start();
@@ -96,37 +97,51 @@ function renderLayout() {
       <div id="sidebar-splitter" class="splitter splitter-v" title="Resize sidebar"></div>
       <section class="workspace">
         <div class="controls">
-          <button id="btn-demo">Graphics Demo</button>
-          <label class="frame-control">Preset
-            <select id="gfx-preset">
-              <option value="demo">inline demo</option>
-              <option value="random_walk">random_walk</option>
-              <option value="barnsly_fern">barnsly_fern</option>
-              <option value="game_of_life">game_of_life</option>
-            </select>
-          </label>
-          <button id="btn-run-preset">Run Preset</button>
-          <button id="btn-check">Check</button>
-          <button id="btn-run">Run</button>
-          <button id="btn-stop-loop">Stop Loop</button>
-          <label class="fuel-control">Fuel
-            <input id="fuel" type="range" min="10000" max="50000000" step="10000" value="${DEFAULT_FUEL}" />
-            <span id="fuel-label"></span>
-          </label>
-          <label class="frame-control">FPS
-            <input id="frame-fps" type="number" min="1" max="120" step="1" value="30" />
-          </label>
-          <label class="frame-control">Frame Fuel
-            <input id="frame-fuel" type="number" min="1000" max="50000000" step="1000" value="1000000" />
-          </label>
-          <label class="frame-control">
-            <input id="frame-log" type="checkbox" />
-            Frame Log
-          </label>
-          <label class="fuel-unlimited ${localUnlimited ? '' : 'fuel-unlimited-disabled'}" title="Only available on localhost">
-            <input id="fuel-unlimited" type="checkbox" ${localUnlimited ? '' : 'disabled'} />
-            Unlimited
-          </label>
+          <div class="controls-primary">
+            <button id="btn-check">Check</button>
+            <button id="btn-run">Run</button>
+            <button id="btn-stop-loop">Stop Loop</button>
+            <span class="mode-pill">Bytecode Safe Mode</span>
+          </div>
+          <div class="controls-tabs" role="tablist" aria-label="Control groups">
+            <button type="button" class="ctrl-tab is-active" data-tab="program" aria-selected="true">Program</button>
+            <button type="button" class="ctrl-tab" data-tab="graphics" aria-selected="false">Graphics</button>
+            <button type="button" class="ctrl-tab" data-tab="advanced" aria-selected="false">Advanced</button>
+          </div>
+          <div class="controls-panel is-active" data-panel="program">
+            <label class="fuel-control">Fuel
+              <input id="fuel" type="range" min="10000" max="50000000" step="10000" value="${DEFAULT_FUEL}" />
+              <span id="fuel-label"></span>
+            </label>
+            <label class="fuel-unlimited ${localUnlimited ? '' : 'fuel-unlimited-disabled'}" title="Only available on localhost">
+              <input id="fuel-unlimited" type="checkbox" ${localUnlimited ? '' : 'disabled'} />
+              Unlimited
+            </label>
+          </div>
+          <div class="controls-panel" data-panel="graphics">
+            <button id="btn-demo">Graphics Demo</button>
+            <label class="frame-control">Preset
+              <select id="gfx-preset">
+                <option value="demo">inline demo</option>
+                <option value="random_walk">random_walk</option>
+                <option value="barnsly_fern">barnsly_fern</option>
+                <option value="game_of_life">game_of_life</option>
+              </select>
+            </label>
+            <button id="btn-run-preset">Run Preset</button>
+            <label class="frame-control">FPS
+              <input id="frame-fps" type="number" min="1" max="120" step="1" value="30" />
+            </label>
+          </div>
+          <div class="controls-panel" data-panel="advanced">
+            <label class="frame-control">Frame Fuel
+              <input id="frame-fuel" type="number" min="1000" max="50000000" step="1000" value="1000000" />
+            </label>
+            <label class="frame-control">
+              <input id="frame-log" type="checkbox" />
+              Frame Log
+            </label>
+          </div>
         </div>
         <div id="editor" class="editor"></div>
         <div id="gfx-host" class="gfx-host hidden">
@@ -206,10 +221,28 @@ function renderLayout() {
     stopS2DLoop();
     setStatus('Graphics loop stopped.');
   });
+  for (const tabBtn of document.querySelectorAll('.ctrl-tab')) {
+    tabBtn.addEventListener('click', () => {
+      setActiveControlsTab(tabBtn.dataset.tab || 'program');
+    });
+  }
+  setActiveControlsTab('program');
 
   populateLibraryTrees();
   installBrowserHostBridge();
   setupResizers();
+}
+
+function setActiveControlsTab(tab) {
+  state.activeControlsTab = tab;
+  for (const tabBtn of document.querySelectorAll('.ctrl-tab')) {
+    const isActive = tabBtn.dataset.tab === tab;
+    tabBtn.classList.toggle('is-active', isActive);
+    tabBtn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  }
+  for (const panel of document.querySelectorAll('.controls-panel')) {
+    panel.classList.toggle('is-active', panel.dataset.panel === tab);
+  }
 }
 
 function isLocalHost() {

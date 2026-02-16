@@ -140,10 +140,63 @@ body {
 
 .controls {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px;
   border-bottom: 1px solid #263357;
+}
+
+.controls-primary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-pill {
+  margin-left: auto;
+  border: 1px solid #335085;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #b6c3ee;
+  background: #162443;
+}
+
+.controls-tabs {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctrl-tab {
+  border-radius: 999px;
+  background: #142343;
+  color: #b7c4ef;
+  padding: 6px 12px;
+}
+
+.ctrl-tab.is-active {
+  border-color: #4ad395;
+  color: #d9ffe8;
+  background: #19314c;
+}
+
+.controls-panel {
+  width: 100%;
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #263357;
+  border-radius: 8px;
+  background: #111b34;
+}
+
+.controls-panel.is-active {
+  display: flex;
 }
 
 button {
@@ -160,7 +213,6 @@ button:hover {
 }
 
 .fuel-control {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -199,6 +251,10 @@ button:hover {
   background: #142343;
   border-radius: 5px;
   padding: 4px 6px;
+}
+
+.fuel-control input[type='range'] {
+  width: min(360px, 55vw);
 }
 
 .fuel-unlimited-disabled {
@@ -282,6 +338,15 @@ button:hover {
   .workspace {
     grid-template-rows: auto minmax(220px, 1fr) auto auto 10px minmax(120px, 220px);
     height: auto;
+  }
+
+  .mode-pill {
+    margin-left: 0;
+  }
+
+  .fuel-control input[type='range'] {
+    width: 100%;
+    min-width: 220px;
   }
 }
 
