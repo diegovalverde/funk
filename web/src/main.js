@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor';
-import initWasm, { check_bytecode, run_bytecode, source_stats } from './pkg/funk_wasm.js';
+import initWasm, { call_function, check_bytecode, run_bytecode, source_stats } from './pkg/funk_wasm.js';
 
 const DEFAULT_SOURCE = `# Funk Playground\nmain():\n    say("hello from browser")\n    0.\n`;
 const DEFAULT_FUEL = 10_000_000;
@@ -25,6 +25,9 @@ const state = {
   gfxCtx: null,
   gfxColor: 'rgb(0,255,0)',
   gfxUserCtx: null,
+  lastBytecode: null,
+  s2dLoopActive: false,
+  s2dRafId: null,
 };
 
 void start();
@@ -438,8 +441,10 @@ async function runCheck() {
 async function runProgram() {
   try {
     setStatus('Compiling and running...');
+    stopS2DLoop();
     const source = state.editor.getValue();
     const bytecode = await compileToBytecode(source);
+    state.lastBytecode = bytecode;
     const fuel = state.fuelUnlimitedEl?.checked ? UNLIMITED_FUEL : Number(state.fuelEl.value);
     const result = run_bytecode(bytecode, fuel, OUTPUT_LIMIT_BYTES, ENABLE_HOST_EFFECTS);
     if (result.ok) {
@@ -493,15 +498,10 @@ function ensureGfxReady(width = 640, height = 480) {
 function handleS2DSimple(args) {
   const width = toInt(args?.[0], 640);
   const height = toInt(args?.[1], 480);
-  const ctx = ensureGfxReady(width, height);
+  ensureGfxReady(width, height);
   state.gfxUserCtx = args?.[2] ?? null;
-
-  ctx.fillStyle = '#10182c';
-  ctx.fillRect(0, 0, state.gfxCanvasEl.width, state.gfxCanvasEl.height);
-  ctx.strokeStyle = '#2f4778';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(0.5, 0.5, state.gfxCanvasEl.width - 1, state.gfxCanvasEl.height - 1);
-  setStatus(`Graphics surface ready: ${width}x${height}`);
+  startS2DLoop();
+  setStatus(`Graphics loop started: ${width}x${height}`);
   return 1;
 }
 
@@ -551,6 +551,52 @@ function handleS2DRect(args) {
 function handleS2DSetUserCtx(args) {
   state.gfxUserCtx = args?.[0] ?? null;
   return 1;
+}
+
+function startS2DLoop() {
+  if (state.s2dLoopActive) {
+    return;
+  }
+  if (!state.lastBytecode) {
+    throw new Error('no compiled bytecode available for s2d render loop');
+  }
+  state.s2dLoopActive = true;
+  const step = () => {
+    if (!state.s2dLoopActive) {
+      return;
+    }
+    const ctx = ensureGfxReady();
+    ctx.fillStyle = '#10182c';
+    ctx.fillRect(0, 0, state.gfxCanvasEl.width, state.gfxCanvasEl.height);
+    ctx.strokeStyle = '#2f4778';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, state.gfxCanvasEl.width - 1, state.gfxCanvasEl.height - 1);
+
+    const renderResult = call_function(
+      state.lastBytecode,
+      's2d_render',
+      [state.gfxUserCtx],
+      1_000_000,
+      OUTPUT_LIMIT_BYTES,
+      ENABLE_HOST_EFFECTS,
+    );
+    if (!renderResult.ok) {
+      setOutput(formatError(renderResult.error));
+      setStatus('Run failed.');
+      stopS2DLoop();
+      return;
+    }
+    state.s2dRafId = requestAnimationFrame(step);
+  };
+  state.s2dRafId = requestAnimationFrame(step);
+}
+
+function stopS2DLoop() {
+  state.s2dLoopActive = false;
+  if (state.s2dRafId !== null) {
+    cancelAnimationFrame(state.s2dRafId);
+    state.s2dRafId = null;
+  }
 }
 
 function toInt(value, fallback) {

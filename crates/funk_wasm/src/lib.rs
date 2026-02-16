@@ -1,6 +1,6 @@
 use funk_vm::bytecode::OpCode;
 use funk_vm::vm::Value;
-use funk_vm::{load_bytecode_from_bytes, run_with_host, Bytecode, VmError, VmHost};
+use funk_vm::{load_bytecode_from_bytes, run_function_with_host, run_with_host, Bytecode, VmError, VmHost};
 use js_sys::Array;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -132,6 +132,84 @@ pub fn run_bytecode(
 
     let mut host = BufferHost::new(output_cap as usize);
     match run_with_host(&bytecode, fuel_budget as u64, &mut host) {
+        Ok(result) => serialize_payload(RunResultPayload {
+            ok: true,
+            output: host.out,
+            return_value: Some(render_value(&result.return_value)),
+            error: None,
+        }),
+        Err(e) => {
+            let mapped = map_vm_error(e);
+            serialize_payload(RunResultPayload {
+                ok: false,
+                output: host.out,
+                return_value: None,
+                error: Some(mapped),
+            })
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub fn call_function(
+    bytecode_bytes: &[u8],
+    function_name: &str,
+    args: JsValue,
+    fuel: Option<u32>,
+    max_output_bytes: Option<u32>,
+    allow_host_effects: Option<bool>,
+) -> JsValue {
+    let fuel_budget = fuel.unwrap_or(DEFAULT_FUEL);
+    let output_cap = max_output_bytes.unwrap_or(DEFAULT_OUTPUT_LIMIT);
+    let host_effects_allowed = allow_host_effects.unwrap_or(false);
+
+    let bytecode = match load_bytecode_from_bytes(bytecode_bytes) {
+        Ok(v) => v,
+        Err(e) => {
+            return serialize_payload(RunResultPayload {
+                ok: false,
+                output: String::new(),
+                return_value: None,
+                error: Some(RunnerError {
+                    code: e.code.to_string(),
+                    message: e.message,
+                }),
+            })
+        }
+    };
+
+    if let Some(err) = reject_disallowed_effects(&bytecode, host_effects_allowed) {
+        return serialize_payload(RunResultPayload {
+            ok: false,
+            output: String::new(),
+            return_value: None,
+            error: Some(err),
+        });
+    }
+
+    let call_args = match js_args_to_vm_values(&args) {
+        Ok(v) => v,
+        Err(msg) => {
+            return serialize_payload(RunResultPayload {
+                ok: false,
+                output: String::new(),
+                return_value: None,
+                error: Some(RunnerError {
+                    code: "E4305".to_string(),
+                    message: format!("invalid function arguments: {}", msg),
+                }),
+            })
+        }
+    };
+
+    let mut host = BufferHost::new(output_cap as usize);
+    match run_function_with_host(
+        &bytecode,
+        function_name,
+        call_args,
+        fuel_budget as u64,
+        &mut host,
+    ) {
         Ok(result) => serialize_payload(RunResultPayload {
             ok: true,
             output: host.out,
@@ -287,6 +365,21 @@ fn js_to_vm_value(value: &JsValue) -> Result<Value, &'static str> {
         return Ok(Value::List(std::rc::Rc::new(out)));
     }
     Err("only number/bool/string/list/undefined are supported")
+}
+
+fn js_args_to_vm_values(value: &JsValue) -> Result<Vec<Value>, &'static str> {
+    if value.is_undefined() || value.is_null() {
+        return Ok(Vec::new());
+    }
+    if !Array::is_array(value) {
+        return Err("args must be a JS array");
+    }
+    let arr = Array::from(value);
+    let mut out = Vec::with_capacity(arr.length() as usize);
+    for idx in 0..arr.length() {
+        out.push(js_to_vm_value(&arr.get(idx))?);
+    }
+    Ok(out)
 }
 
 fn render_value(value: &Value) -> String {

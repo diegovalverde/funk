@@ -101,6 +101,49 @@ pub fn run_with_host<H: VmHost>(
     host: &mut H,
 ) -> Result<VmResult, VmError> {
     bytecode.validate()?;
+    execute_with_entry(bytecode, fuel, host, bytecode.entry_fn as usize, Vec::new())
+}
+
+pub fn run_function_with_host<H: VmHost>(
+    bytecode: &Bytecode,
+    function_name: &str,
+    args: Vec<Value>,
+    fuel: u64,
+    host: &mut H,
+) -> Result<VmResult, VmError> {
+    bytecode.validate()?;
+    let target_arity = args.len();
+    let target_fn = bytecode
+        .functions
+        .iter()
+        .enumerate()
+        .find_map(|(idx, f)| {
+            let (name, arity) = parse_function_signature(&f.name)?;
+            if name == function_name && arity == target_arity {
+                Some(idx)
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| {
+            VmError::new(
+                "E4303",
+                format!(
+                    "function '{}/{}' not found in bytecode",
+                    function_name, target_arity
+                ),
+            )
+        })?;
+    execute_with_entry(bytecode, fuel, host, target_fn, args)
+}
+
+fn execute_with_entry<H: VmHost>(
+    bytecode: &Bytecode,
+    fuel: u64,
+    host: &mut H,
+    entry_fn_id: usize,
+    entry_locals: Vec<Value>,
+) -> Result<VmResult, VmError> {
     let mut function_lookup: HashMap<(String, usize), usize> = HashMap::new();
     for (idx, f) in bytecode.functions.iter().enumerate() {
         if let Some((name, arity)) = parse_function_signature(&f.name) {
@@ -109,9 +152,9 @@ pub fn run_with_host<H: VmHost>(
     }
     let mut stack: Vec<Value> = Vec::new();
     let mut frames = vec![Frame {
-        fn_id: bytecode.entry_fn as usize,
+        fn_id: entry_fn_id,
         ip: 0,
-        locals: Vec::new(),
+        locals: entry_locals,
     }];
     let mut fuel_left = fuel;
 
