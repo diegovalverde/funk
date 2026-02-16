@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
@@ -10,6 +11,10 @@ use crate::bytecode::{
 };
 
 pub const DEFAULT_FUEL: u64 = 10_000_000;
+
+thread_local! {
+    static RNG_STATE: Cell<u64> = const { Cell::new(0x9E37_79B9_7F4A_7C15) };
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -477,6 +482,32 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
             };
             Err(VmError::new("E4306", format!("exit({code})")))
         }
+        50 => {
+            let (a, b) = int2(args, "rand_int")?;
+            let lo = a.min(b);
+            let hi = a.max(b);
+            if lo == hi {
+                return Ok(Value::Int(lo));
+            }
+            let span = (hi as i128 - lo as i128 + 1) as u128;
+            let r = next_random_u64() as u128;
+            let sample = (r % span) as i128;
+            Ok(Value::Int((lo as i128 + sample) as i64))
+        }
+        51 => {
+            if args.len() != 2 {
+                return Err(VmError::new("E4305", "rand_float expects 2 numeric args"));
+            }
+            let a = to_f64(&args[0], "rand_float arg0")?;
+            let b = to_f64(&args[1], "rand_float arg1")?;
+            let lo = a.min(b);
+            let hi = a.max(b);
+            if (hi - lo).abs() < f64::EPSILON {
+                return Ok(Value::Float(lo));
+            }
+            let unit = next_random_unit_f64();
+            Ok(Value::Float(lo + (hi - lo) * unit))
+        }
         20 => {
             if args.len() != 2 {
                 return Err(VmError::new("E4305", "builtin + expects 2 args"));
@@ -766,10 +797,38 @@ fn normalize_index(raw: i64, len: usize) -> usize {
     raw.rem_euclid(len_i64) as usize
 }
 
+fn next_random_u64() -> u64 {
+    RNG_STATE.with(|state| {
+        let mut x = state.get();
+        // xorshift64* with a fixed non-zero seed.
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        if x == 0 {
+            x = 0xA409_3822_299F_31D0;
+        }
+        state.set(x);
+        x.wrapping_mul(0x2545_F491_4F6C_DD1D)
+    })
+}
+
+fn next_random_unit_f64() -> f64 {
+    let r = next_random_u64() >> 11;
+    (r as f64) * (1.0 / ((1u64 << 53) as f64))
+}
+
 fn parse_function_signature(name: &str) -> Option<(String, usize)> {
     let (base, arity_raw) = name.rsplit_once('#')?;
     let arity = arity_raw.parse::<usize>().ok()?;
     Some((base.to_string(), arity))
+}
+
+fn to_f64(value: &Value, label: &str) -> Result<f64, VmError> {
+    match value {
+        Value::Int(v) => Ok(*v as f64),
+        Value::Float(v) => Ok(*v),
+        _ => Err(VmError::new("E4305", format!("{label} must be numeric"))),
+    }
 }
 
 fn flatten_values(items: &[Value], out: &mut Vec<Value>) {
@@ -1538,5 +1597,67 @@ mod tests {
         let bc = load_bytecode_from_str(src).expect("bytecode parse");
         let result = run(&bc, DEFAULT_FUEL).expect("vm run");
         assert_eq!(result.return_value, Value::Int(20));
+    }
+
+    #[test]
+    fn run_rand_int_builtin_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":5},
+        {"op":"PUSH_INT","arg":7},
+        {"op":"CALL_BUILTIN","id":50,"argc":2},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        let v = match result.return_value {
+            Value::Int(v) => v,
+            other => panic!("expected int return, got {:?}", other),
+        };
+        assert!((5..=7).contains(&v));
+    }
+
+    #[test]
+    fn run_rand_float_builtin_program() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_FLOAT","arg":-1.0},
+        {"op":"PUSH_FLOAT","arg":1.0},
+        {"op":"CALL_BUILTIN","id":51,"argc":2},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        let v = match result.return_value {
+            Value::Float(v) => v,
+            other => panic!("expected float return, got {:?}", other),
+        };
+        assert!((-1.0..=1.0).contains(&v));
     }
 }
