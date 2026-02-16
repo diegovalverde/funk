@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v black >/dev/null 2>&1; then
+  echo "pre-push: black is not installed. Install it with: pip install black"
+  exit 1
+fi
+
+mapfile -t py_files < <(git ls-files '*.py')
+if [ "${#py_files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+black "${py_files[@]}"
+
+if ! git diff --quiet -- '*.py'; then
+  echo "pre-push: black reformatted Python files."
+  echo "pre-push: commit the formatting changes, then push again."
+  exit 1
+fi
