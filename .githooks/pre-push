@@ -6,12 +6,13 @@ if ! command -v black >/dev/null 2>&1; then
   exit 1
 fi
 
-mapfile -t py_files < <(git ls-files '*.py')
-if [ "${#py_files[@]}" -eq 0 ]; then
+py_files="$(git ls-files '*.py')"
+if [ -z "${py_files}" ]; then
   exit 0
 fi
 
-black "${py_files[@]}"
+# shellcheck disable=SC2086
+black ${py_files}
 
 if ! git diff --quiet -- '*.py'; then
   echo "pre-push: black reformatted Python files."
