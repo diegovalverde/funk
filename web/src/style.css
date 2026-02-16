@@ -193,6 +193,14 @@ button:hover {
   padding: 4px 6px;
 }
 
+.frame-control select {
+  border: 1px solid #335085;
+  color: var(--text);
+  background: #142343;
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+
 .fuel-unlimited-disabled {
   opacity: 0.5;
 }

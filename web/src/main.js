@@ -34,6 +34,7 @@ const state = {
   frameLogEl: null,
   fpsEl: null,
   framePerfEl: null,
+  gfxPresetEl: null,
   lastFrameAtMs: 0,
   fpsLastMarkMs: 0,
   fpsFrames: 0,
@@ -96,6 +97,15 @@ function renderLayout() {
       <section class="workspace">
         <div class="controls">
           <button id="btn-demo">Graphics Demo</button>
+          <label class="frame-control">Preset
+            <select id="gfx-preset">
+              <option value="demo">inline demo</option>
+              <option value="random_walk">random_walk</option>
+              <option value="barnsly_fern">barnsly_fern</option>
+              <option value="game_of_life">game_of_life</option>
+            </select>
+          </label>
+          <button id="btn-run-preset">Run Preset</button>
           <button id="btn-check">Check</button>
           <button id="btn-run">Run</button>
           <button id="btn-stop-loop">Stop Loop</button>
@@ -160,6 +170,7 @@ function renderLayout() {
   state.frameLogEl = document.getElementById('frame-log');
   state.fpsEl = document.getElementById('fps');
   state.framePerfEl = document.getElementById('frame-perf');
+  state.gfxPresetEl = document.getElementById('gfx-preset');
 
   const onFuel = () => {
     const isUnlimited = !!state.fuelUnlimitedEl?.checked;
@@ -183,6 +194,10 @@ function renderLayout() {
     state.sourcePath = '/workspace/graphics_demo.f';
     updateStats();
     await runProgram();
+  });
+  document.getElementById('btn-run-preset').addEventListener('click', async () => {
+    const preset = state.gfxPresetEl?.value || 'demo';
+    await runGraphicsPreset(preset);
   });
   document.getElementById('btn-run').addEventListener('click', async () => {
     await runProgram();
@@ -712,6 +727,38 @@ function clampByte(n) {
 
 function clampInt(v, min, max) {
   return Math.max(min, Math.min(max, Math.floor(v)));
+}
+
+async function runGraphicsPreset(preset) {
+  if (preset === 'demo') {
+    state.editor.setValue(DEFAULT_GRAPHICS_DEMO);
+    state.sourcePath = '/workspace/graphics_demo.f';
+    updateStats();
+    await runProgram();
+    return;
+  }
+
+  const mapping = {
+    random_walk: 'graphics/random_walk.f',
+    barnsly_fern: 'graphics/barnsly_fern.f',
+    game_of_life: 'graphics/game_of_life.f',
+  };
+  const rel = mapping[preset];
+  if (!rel) {
+    setStatus(`Unknown preset: ${preset}`);
+    return;
+  }
+  const url = `./runtime/examples/${rel}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    setStatus(`Preset not available locally: ${rel}`);
+    return;
+  }
+  const source = await response.text();
+  state.editor.setValue(source);
+  state.sourcePath = `/runtime/examples/${rel}`;
+  updateStats();
+  await runProgram();
 }
 
 function formatError(error) {
