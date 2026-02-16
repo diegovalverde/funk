@@ -44,6 +44,9 @@ jobs:
         working-directory: web
         run: npm run build
 
+      - name: Disable Jekyll processing
+        run: touch web/dist/.nojekyll
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

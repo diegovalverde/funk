@@ -164,7 +164,23 @@ import micropip
 await micropip.install('lark')
 `);
 
-  const manifest = await fetch('./runtime/manifest.json').then((r) => r.json());
+  const fetchTextOrThrow = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url} (${response.status} ${response.statusText})`);
+    }
+    return response.text();
+  };
+
+  const fetchJsonOrThrow = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url} (${response.status} ${response.statusText})`);
+    }
+    return response.json();
+  };
+
+  const manifest = await fetchJsonOrThrow('./runtime/manifest.json');
 
   const ensureDir = (fullPath) => {
     const parts = fullPath.split('/').filter(Boolean);
@@ -185,18 +201,18 @@ await micropip.install('lark')
   for (const rel of manifest.pythonFiles) {
     const target = `/runtime/funk/${rel}`;
     ensureDir(target.split('/').slice(0, -1).join('/'));
-    const content = await fetch(`./runtime/funk/${rel}`).then((r) => r.text());
+    const content = await fetchTextOrThrow(`./runtime/funk/${rel}`);
     pyodide.FS.writeFile(target, content, { encoding: 'utf8' });
   }
 
   for (const rel of manifest.stdlibFiles) {
     const target = `/runtime/stdlib/${rel}`;
     ensureDir(target.split('/').slice(0, -1).join('/'));
-    const content = await fetch(`./runtime/stdlib/${rel}`).then((r) => r.text());
+    const content = await fetchTextOrThrow(`./runtime/stdlib/${rel}`);
     pyodide.FS.writeFile(target, content, { encoding: 'utf8' });
   }
 
-  const top = await fetch('./runtime/funky.py').then((r) => r.text());
+  const top = await fetchTextOrThrow('./runtime/funky.py');
   pyodide.FS.writeFile('/runtime/funky.py', top, { encoding: 'utf8' });
 
   pyodide.runPython(`
