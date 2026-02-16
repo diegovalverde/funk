@@ -32,7 +32,10 @@ const state = {
   frameFpsEl: null,
   frameFuelEl: null,
   frameLogEl: null,
+  fpsEl: null,
   lastFrameAtMs: 0,
+  fpsLastMarkMs: 0,
+  fpsFrames: 0,
 };
 
 void start();
@@ -91,6 +94,7 @@ function renderLayout() {
           <button id="btn-demo">Graphics Demo</button>
           <button id="btn-check">Check</button>
           <button id="btn-run">Run</button>
+          <button id="btn-stop-loop">Stop Loop</button>
           <label class="fuel-control">Fuel
             <input id="fuel" type="range" min="10000" max="50000000" step="10000" value="${DEFAULT_FUEL}" />
             <span id="fuel-label"></span>
@@ -116,6 +120,7 @@ function renderLayout() {
         </div>
         <div class="meta">
           <div id="stats"></div>
+          <div id="fps">fps: -</div>
           <div id="status"></div>
         </div>
         <div id="output-splitter" class="splitter splitter-h" title="Resize output"></div>
@@ -148,6 +153,7 @@ function renderLayout() {
   state.frameFpsEl = document.getElementById('frame-fps');
   state.frameFuelEl = document.getElementById('frame-fuel');
   state.frameLogEl = document.getElementById('frame-log');
+  state.fpsEl = document.getElementById('fps');
 
   const onFuel = () => {
     const isUnlimited = !!state.fuelUnlimitedEl?.checked;
@@ -174,6 +180,10 @@ function renderLayout() {
   });
   document.getElementById('btn-run').addEventListener('click', async () => {
     await runProgram();
+  });
+  document.getElementById('btn-stop-loop').addEventListener('click', () => {
+    stopS2DLoop();
+    setStatus('Graphics loop stopped.');
   });
 
   populateLibraryTrees();
@@ -587,6 +597,11 @@ function startS2DLoop() {
   }
   state.s2dLoopActive = true;
   state.lastFrameAtMs = 0;
+  state.fpsLastMarkMs = 0;
+  state.fpsFrames = 0;
+  if (state.fpsEl) {
+    state.fpsEl.textContent = 'fps: ...';
+  }
   const step = (tsMs) => {
     if (!state.s2dLoopActive) {
       return;
@@ -598,6 +613,10 @@ function startS2DLoop() {
       return;
     }
     state.lastFrameAtMs = tsMs;
+    if (state.fpsLastMarkMs === 0) {
+      state.fpsLastMarkMs = tsMs;
+      state.fpsFrames = 0;
+    }
     const ctx = ensureGfxReady();
     ctx.fillStyle = '#10182c';
     ctx.fillRect(0, 0, state.gfxCanvasEl.width, state.gfxCanvasEl.height);
@@ -623,6 +642,16 @@ function startS2DLoop() {
       const prev = state.outputEl.textContent || '';
       state.outputEl.textContent = `${prev}${renderResult.output}`.slice(-OUTPUT_LIMIT_BYTES);
     }
+    state.fpsFrames += 1;
+    const elapsed = tsMs - state.fpsLastMarkMs;
+    if (elapsed >= 1000) {
+      const fps = (state.fpsFrames * 1000) / elapsed;
+      if (state.fpsEl) {
+        state.fpsEl.textContent = `fps: ${fps.toFixed(1)}`;
+      }
+      state.fpsLastMarkMs = tsMs;
+      state.fpsFrames = 0;
+    }
     state.s2dRafId = requestAnimationFrame(step);
   };
   state.s2dRafId = requestAnimationFrame(step);
@@ -633,6 +662,9 @@ function stopS2DLoop() {
   if (state.s2dRafId !== null) {
     cancelAnimationFrame(state.s2dRafId);
     state.s2dRafId = null;
+  }
+  if (state.fpsEl) {
+    state.fpsEl.textContent = 'fps: -';
   }
 }
 
