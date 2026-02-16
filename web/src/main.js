@@ -2,6 +2,7 @@ import * as monaco from 'monaco-editor';
 import initWasm, { call_function, check_bytecode, run_bytecode, source_stats } from './pkg/funk_wasm.js';
 
 const DEFAULT_SOURCE = `# Funk Playground\nmain():\n    say("hello from browser")\n    0.\n`;
+const DEFAULT_GRAPHICS_DEMO = `use s2d\n\nspin(t):\n    x <- 255.0 + 120.0 * rand_float(-1.0, 1.0)\n    y <- 255.0 + 120.0 * rand_float(-1.0, 1.0)\n    s2d_set_color(50 + (t%200), 200, 120)\n    s2d_line(255, 255, x, y)\n    s2d_set_user_ctx(t + 1).\n\ns2d_render(ctx):\n    t <- ctx\n    spin(t)\n    1.\n\nmain():\n    s2d(510, 510, 0).\n`;
 const DEFAULT_FUEL = 10_000_000;
 const OUTPUT_LIMIT_BYTES = 64 * 1024;
 const UNLIMITED_FUEL = Number.MAX_SAFE_INTEGER;
@@ -28,6 +29,10 @@ const state = {
   lastBytecode: null,
   s2dLoopActive: false,
   s2dRafId: null,
+  frameFpsEl: null,
+  frameFuelEl: null,
+  frameLogEl: null,
+  lastFrameAtMs: 0,
 };
 
 void start();
@@ -83,11 +88,22 @@ function renderLayout() {
       <div id="sidebar-splitter" class="splitter splitter-v" title="Resize sidebar"></div>
       <section class="workspace">
         <div class="controls">
+          <button id="btn-demo">Graphics Demo</button>
           <button id="btn-check">Check</button>
           <button id="btn-run">Run</button>
           <label class="fuel-control">Fuel
             <input id="fuel" type="range" min="10000" max="50000000" step="10000" value="${DEFAULT_FUEL}" />
             <span id="fuel-label"></span>
+          </label>
+          <label class="frame-control">FPS
+            <input id="frame-fps" type="number" min="1" max="120" step="1" value="30" />
+          </label>
+          <label class="frame-control">Frame Fuel
+            <input id="frame-fuel" type="number" min="1000" max="50000000" step="1000" value="1000000" />
+          </label>
+          <label class="frame-control">
+            <input id="frame-log" type="checkbox" />
+            Frame Log
           </label>
           <label class="fuel-unlimited ${localUnlimited ? '' : 'fuel-unlimited-disabled'}" title="Only available on localhost">
             <input id="fuel-unlimited" type="checkbox" ${localUnlimited ? '' : 'disabled'} />
@@ -129,6 +145,9 @@ function renderLayout() {
   state.buildInfoEl = document.getElementById('build-info');
   state.gfxWrapEl = document.getElementById('gfx-host');
   state.gfxCanvasEl = document.getElementById('gfx-canvas');
+  state.frameFpsEl = document.getElementById('frame-fps');
+  state.frameFuelEl = document.getElementById('frame-fuel');
+  state.frameLogEl = document.getElementById('frame-log');
 
   const onFuel = () => {
     const isUnlimited = !!state.fuelUnlimitedEl?.checked;
@@ -146,6 +165,12 @@ function renderLayout() {
 
   document.getElementById('btn-check').addEventListener('click', async () => {
     await runCheck();
+  });
+  document.getElementById('btn-demo').addEventListener('click', async () => {
+    state.editor.setValue(DEFAULT_GRAPHICS_DEMO);
+    state.sourcePath = '/workspace/graphics_demo.f';
+    updateStats();
+    await runProgram();
   });
   document.getElementById('btn-run').addEventListener('click', async () => {
     await runProgram();
@@ -561,10 +586,18 @@ function startS2DLoop() {
     throw new Error('no compiled bytecode available for s2d render loop');
   }
   state.s2dLoopActive = true;
-  const step = () => {
+  state.lastFrameAtMs = 0;
+  const step = (tsMs) => {
     if (!state.s2dLoopActive) {
       return;
     }
+    const fps = clampInt(toInt(state.frameFpsEl?.value, 30), 1, 120);
+    const intervalMs = Math.floor(1000 / fps);
+    if (state.lastFrameAtMs !== 0 && tsMs - state.lastFrameAtMs < intervalMs) {
+      state.s2dRafId = requestAnimationFrame(step);
+      return;
+    }
+    state.lastFrameAtMs = tsMs;
     const ctx = ensureGfxReady();
     ctx.fillStyle = '#10182c';
     ctx.fillRect(0, 0, state.gfxCanvasEl.width, state.gfxCanvasEl.height);
@@ -576,7 +609,7 @@ function startS2DLoop() {
       state.lastBytecode,
       's2d_render',
       [state.gfxUserCtx],
-      1_000_000,
+      clampInt(toInt(state.frameFuelEl?.value, 1_000_000), 1000, 50_000_000),
       OUTPUT_LIMIT_BYTES,
       ENABLE_HOST_EFFECTS,
     );
@@ -585,6 +618,10 @@ function startS2DLoop() {
       setStatus('Run failed.');
       stopS2DLoop();
       return;
+    }
+    if (state.frameLogEl?.checked && renderResult.output) {
+      const prev = state.outputEl.textContent || '';
+      state.outputEl.textContent = `${prev}${renderResult.output}`.slice(-OUTPUT_LIMIT_BYTES);
     }
     state.s2dRafId = requestAnimationFrame(step);
   };
@@ -609,6 +646,10 @@ function toInt(value, fallback) {
 
 function clampByte(n) {
   return Math.max(0, Math.min(255, n));
+}
+
+function clampInt(v, min, max) {
+  return Math.max(min, Math.min(max, Math.floor(v)));
 }
 
 function formatError(error) {

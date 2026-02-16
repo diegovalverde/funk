@@ -176,6 +176,23 @@ button:hover {
   font-size: 13px;
 }
 
+.frame-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.frame-control input[type='number'] {
+  width: 92px;
+  border: 1px solid #335085;
+  color: var(--text);
+  background: #142343;
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+
 .fuel-unlimited-disabled {
   opacity: 0.5;
 }
