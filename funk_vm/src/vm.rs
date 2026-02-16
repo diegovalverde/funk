@@ -70,6 +70,12 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
 pub trait VmHost {
     fn write(&mut self, text: &str) -> Result<(), VmError>;
     fn writeln(&mut self, text: &str) -> Result<(), VmError>;
+    fn call_host(&mut self, name: &str, _args: &[Value]) -> Result<Value, VmError> {
+        Err(VmError::new(
+            "E_EFFECT",
+            format!("disallowed host effect: '{}'", name),
+        ))
+    }
 }
 
 struct StdoutHost {}
@@ -299,6 +305,26 @@ pub fn run_with_host<H: VmHost>(
                         locals: args,
                     });
                 }
+            }
+            OpCode::CallHost => {
+                let host_name_idx = require_u32_arg(ins, "CALL_HOST")? as usize;
+                let argc = ins
+                    .argc
+                    .ok_or_else(|| VmError::new("E4305", "CALL_HOST missing argc"))?
+                    as usize;
+                let host_name = bytecode.strings.get(host_name_idx).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("CALL_HOST string index {} out of bounds", host_name_idx),
+                    )
+                })?;
+                if stack.len() < argc {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_HOST"));
+                }
+                let args_start = stack.len() - argc;
+                let result = host.call_host(host_name, &stack[args_start..])?;
+                stack.truncate(args_start);
+                stack.push(result);
             }
             OpCode::Return => {
                 let ret = stack

@@ -160,20 +160,26 @@ pub fn source_stats(src: &str) -> JsValue {
 fn reject_disallowed_effects(bytecode: &Bytecode) -> Option<RunnerError> {
     for func in &bytecode.functions {
         for ins in &func.code {
-            if ins.op != OpCode::CallBuiltin {
-                continue;
-            }
-            match ins.id {
-                Some(3) => {
+            match ins.op {
+                OpCode::CallBuiltin => match ins.id {
+                    Some(3) => {
+                        return Some(RunnerError {
+                            code: "E_EFFECT".to_string(),
+                            message: "disallowed effect: process exit builtin is not available in browser".to_string(),
+                        })
+                    }
+                    Some(46) => {
+                        return Some(RunnerError {
+                            code: "E_EFFECT".to_string(),
+                            message: "disallowed effect: filesystem builtin is not available in browser".to_string(),
+                        })
+                    }
+                    _ => {}
+                },
+                OpCode::CallHost => {
                     return Some(RunnerError {
                         code: "E_EFFECT".to_string(),
-                        message: "disallowed effect: process exit builtin is not available in browser".to_string(),
-                    })
-                }
-                Some(46) => {
-                    return Some(RunnerError {
-                        code: "E_EFFECT".to_string(),
-                        message: "disallowed effect: filesystem builtin is not available in browser".to_string(),
+                        message: "disallowed effect: host graphics/runtime effects are not available in browser safe mode".to_string(),
                     })
                 }
                 _ => {}

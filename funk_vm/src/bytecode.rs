@@ -47,6 +47,7 @@ pub enum OpCode {
     CallBuiltin,
     CallFn,
     CallIndirect,
+    CallHost,
     Return,
     Trap,
     MkList,
@@ -219,6 +220,24 @@ fn validate_instruction(
                 ));
             }
         }
+        OpCode::CallHost => {
+            let idx = require_u32_arg(ins, "CALL_HOST")?;
+            if idx as usize >= bytecode.strings.len() {
+                return Err(BytecodeError::new(
+                    "E4204",
+                    format!(
+                        "CALL_HOST string index out of bounds at function {}, ip {}",
+                        fn_idx, ip
+                    ),
+                ));
+            }
+            if ins.argc.is_none() {
+                return Err(BytecodeError::new(
+                    "E4202",
+                    format!("CALL_HOST missing argc at function {}, ip {}", fn_idx, ip),
+                ));
+            }
+        }
         OpCode::MkList => {
             if ins.argc.is_none() {
                 return Err(BytecodeError::new(
@@ -320,6 +339,7 @@ fn decode_op(raw: u8) -> Result<OpCode, BytecodeError> {
         10 => Ok(OpCode::CallBuiltin),
         11 => Ok(OpCode::CallFn),
         12 => Ok(OpCode::CallIndirect),
+        18 => Ok(OpCode::CallHost),
         13 => Ok(OpCode::Return),
         14 => Ok(OpCode::Trap),
         15 => Ok(OpCode::MkList),
@@ -450,6 +470,7 @@ pub fn op_name(op: OpCode) -> &'static str {
         OpCode::CallBuiltin => "CALL_BUILTIN",
         OpCode::CallFn => "CALL_FN",
         OpCode::CallIndirect => "CALL_INDIRECT",
+        OpCode::CallHost => "CALL_HOST",
         OpCode::Return => "RETURN",
         OpCode::Trap => "TRAP",
         OpCode::MkList => "MK_LIST",
