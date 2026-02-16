@@ -42,6 +42,7 @@ const state = {
   frameErrCount: 0,
   frameMsAvg: 0,
   activeControlsTab: 'program',
+  runtimeAssets: new Map(),
 };
 
 void start();
@@ -426,6 +427,9 @@ await micropip.install('lark')
     ensureDir(target.split('/').slice(0, -1).join('/'));
     const content = await fetchTextOrThrow(`./runtime/examples/${rel}`);
     pyodide.FS.writeFile(target, content, { encoding: 'utf8' });
+    if (rel.startsWith('resources/')) {
+      state.runtimeAssets.set(rel, content);
+    }
   }
 
   for (const rel of (manifest.includeFiles || [])) {
@@ -557,6 +561,17 @@ async function runProgram() {
 }
 
 function installBrowserHostBridge() {
+  globalThis.__funk_read_asset = (path) => {
+    const norm = normalizeAssetPath(path);
+    if (!norm.startsWith('resources/')) {
+      throw new Error(`asset path not allowed: ${path}`);
+    }
+    const text = state.runtimeAssets.get(norm);
+    if (typeof text !== 'string') {
+      throw new Error(`asset not bundled: ${norm}`);
+    }
+    return text;
+  };
   globalThis.__funk_host_call = (name, args) => {
     if (name === 's2d.sdl_simple') return handleS2DSimple(args);
     if (name === 's2d.sdl_set_color') return handleS2DSetColor(args);
@@ -566,6 +581,19 @@ function installBrowserHostBridge() {
     if (name === 's2d.sdl_set_user_ctx') return handleS2DSetUserCtx(args);
     throw new Error(`unsupported browser host call: ${name}`);
   };
+}
+
+function normalizeAssetPath(path) {
+  let p = String(path || '').trim();
+  p = p.replaceAll('\\', '/');
+  if (p.startsWith('/runtime/examples/')) p = p.slice('/runtime/examples/'.length);
+  if (p.startsWith('runtime/examples/')) p = p.slice('runtime/examples/'.length);
+  if (p.startsWith('/')) p = p.slice(1);
+  while (p.startsWith('./')) p = p.slice(2);
+  if (p.includes('..')) {
+    throw new Error(`asset path traversal rejected: ${path}`);
+  }
+  return p;
 }
 
 function ensureGfxReady(width = 640, height = 480) {
