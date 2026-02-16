@@ -33,9 +33,13 @@ const state = {
   frameFuelEl: null,
   frameLogEl: null,
   fpsEl: null,
+  framePerfEl: null,
   lastFrameAtMs: 0,
   fpsLastMarkMs: 0,
   fpsFrames: 0,
+  frameOkCount: 0,
+  frameErrCount: 0,
+  frameMsAvg: 0,
 };
 
 void start();
@@ -121,6 +125,7 @@ function renderLayout() {
         <div class="meta">
           <div id="stats"></div>
           <div id="fps">fps: -</div>
+          <div id="frame-perf">frame: -</div>
           <div id="status"></div>
         </div>
         <div id="output-splitter" class="splitter splitter-h" title="Resize output"></div>
@@ -154,6 +159,7 @@ function renderLayout() {
   state.frameFuelEl = document.getElementById('frame-fuel');
   state.frameLogEl = document.getElementById('frame-log');
   state.fpsEl = document.getElementById('fps');
+  state.framePerfEl = document.getElementById('frame-perf');
 
   const onFuel = () => {
     const isUnlimited = !!state.fuelUnlimitedEl?.checked;
@@ -599,8 +605,14 @@ function startS2DLoop() {
   state.lastFrameAtMs = 0;
   state.fpsLastMarkMs = 0;
   state.fpsFrames = 0;
+  state.frameOkCount = 0;
+  state.frameErrCount = 0;
+  state.frameMsAvg = 0;
   if (state.fpsEl) {
     state.fpsEl.textContent = 'fps: ...';
+  }
+  if (state.framePerfEl) {
+    state.framePerfEl.textContent = 'frame: ...';
   }
   const step = (tsMs) => {
     if (!state.s2dLoopActive) {
@@ -624,6 +636,7 @@ function startS2DLoop() {
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, state.gfxCanvasEl.width - 1, state.gfxCanvasEl.height - 1);
 
+    const frameStart = performance.now();
     const renderResult = call_function(
       state.lastBytecode,
       's2d_render',
@@ -632,12 +645,23 @@ function startS2DLoop() {
       OUTPUT_LIMIT_BYTES,
       ENABLE_HOST_EFFECTS,
     );
+    const frameMs = performance.now() - frameStart;
+    if (state.frameMsAvg === 0) {
+      state.frameMsAvg = frameMs;
+    } else {
+      state.frameMsAvg = state.frameMsAvg * 0.9 + frameMs * 0.1;
+    }
     if (!renderResult.ok) {
+      state.frameErrCount += 1;
+      if (state.framePerfEl) {
+        state.framePerfEl.textContent = `frame: ${frameMs.toFixed(2)}ms (avg ${state.frameMsAvg.toFixed(2)}ms) ok ${state.frameOkCount} err ${state.frameErrCount}`;
+      }
       setOutput(formatError(renderResult.error));
       setStatus('Run failed.');
       stopS2DLoop();
       return;
     }
+    state.frameOkCount += 1;
     if (state.frameLogEl?.checked && renderResult.output) {
       const prev = state.outputEl.textContent || '';
       state.outputEl.textContent = `${prev}${renderResult.output}`.slice(-OUTPUT_LIMIT_BYTES);
@@ -648,6 +672,9 @@ function startS2DLoop() {
       const fps = (state.fpsFrames * 1000) / elapsed;
       if (state.fpsEl) {
         state.fpsEl.textContent = `fps: ${fps.toFixed(1)}`;
+      }
+      if (state.framePerfEl) {
+        state.framePerfEl.textContent = `frame: ${frameMs.toFixed(2)}ms (avg ${state.frameMsAvg.toFixed(2)}ms) ok ${state.frameOkCount} err ${state.frameErrCount}`;
       }
       state.fpsLastMarkMs = tsMs;
       state.fpsFrames = 0;
@@ -665,6 +692,9 @@ function stopS2DLoop() {
   }
   if (state.fpsEl) {
     state.fpsEl.textContent = 'fps: -';
+  }
+  if (state.framePerfEl) {
+    state.framePerfEl.textContent = 'frame: -';
   }
 }
 
