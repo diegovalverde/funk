@@ -836,6 +836,9 @@ async function populateLibraryTrees() {
   const manifest = await fetch('./runtime/manifest.json').then((r) => r.json());
 
   for (const rel of manifest.stdlibFiles) {
+    if (!rel.endsWith('.f')) {
+      continue;
+    }
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
