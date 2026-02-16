@@ -22,6 +22,9 @@ const state = {
   sourcePath: '/workspace/main.f',
   gfxWrapEl: null,
   gfxCanvasEl: null,
+  gfxCtx: null,
+  gfxColor: 'rgb(0,255,0)',
+  gfxUserCtx: null,
 };
 
 void start();
@@ -461,40 +464,92 @@ async function runProgram() {
 
 function installBrowserHostBridge() {
   globalThis.__funk_host_call = (name, args) => {
-    if (name === 's2d.sdl_simple') {
-      return handleS2DSimple(args);
-    }
+    if (name === 's2d.sdl_simple') return handleS2DSimple(args);
+    if (name === 's2d.sdl_set_color') return handleS2DSetColor(args);
+    if (name === 's2d.sdl_point') return handleS2DPoint(args);
+    if (name === 's2d.sdl_line') return handleS2DLine(args);
+    if (name === 's2d.sdl_rect') return handleS2DRect(args);
+    if (name === 's2d.sdl_set_user_ctx') return handleS2DSetUserCtx(args);
     throw new Error(`unsupported browser host call: ${name}`);
   };
+}
+
+function ensureGfxReady(width = 640, height = 480) {
+  if (!state.gfxWrapEl || !state.gfxCanvasEl) {
+    throw new Error('graphics canvas is not initialized');
+  }
+  state.gfxWrapEl.classList.remove('hidden');
+  if (!state.gfxCtx || state.gfxCanvasEl.width !== width || state.gfxCanvasEl.height !== height) {
+    state.gfxCanvasEl.width = Math.max(1, width);
+    state.gfxCanvasEl.height = Math.max(1, height);
+    state.gfxCtx = state.gfxCanvasEl.getContext('2d');
+    if (!state.gfxCtx) {
+      throw new Error('2d canvas context unavailable');
+    }
+  }
+  return state.gfxCtx;
 }
 
 function handleS2DSimple(args) {
   const width = toInt(args?.[0], 640);
   const height = toInt(args?.[1], 480);
-  if (!state.gfxWrapEl || !state.gfxCanvasEl) {
-    throw new Error('graphics canvas is not initialized');
-  }
-
-  state.gfxWrapEl.classList.remove('hidden');
-  state.gfxCanvasEl.width = Math.max(1, width);
-  state.gfxCanvasEl.height = Math.max(1, height);
-  const ctx = state.gfxCanvasEl.getContext('2d');
-  if (!ctx) {
-    throw new Error('2d canvas context unavailable');
-  }
+  const ctx = ensureGfxReady(width, height);
+  state.gfxUserCtx = args?.[2] ?? null;
 
   ctx.fillStyle = '#10182c';
   ctx.fillRect(0, 0, state.gfxCanvasEl.width, state.gfxCanvasEl.height);
-  ctx.strokeStyle = '#4ad395';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(10, 10, state.gfxCanvasEl.width - 20, state.gfxCanvasEl.height - 20);
-  ctx.fillStyle = '#d9e2ff';
-  ctx.font = '16px IBM Plex Mono, monospace';
-  ctx.fillText('s2d host bridge active (browser)', 18, 34);
-  ctx.fillStyle = '#9ca8cf';
-  ctx.font = '12px IBM Plex Mono, monospace';
-  ctx.fillText('Rendering callback loop is next step', 18, 56);
-  setStatus(`Host effect invoked: s2d.sdl_simple(${width}, ${height}, ...)`);
+  ctx.strokeStyle = '#2f4778';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, state.gfxCanvasEl.width - 1, state.gfxCanvasEl.height - 1);
+  setStatus(`Graphics surface ready: ${width}x${height}`);
+  return 1;
+}
+
+function handleS2DSetColor(args) {
+  const r = clampByte(toInt(args?.[0], 0));
+  const g = clampByte(toInt(args?.[1], 255));
+  const b = clampByte(toInt(args?.[2], 0));
+  state.gfxColor = `rgb(${r},${g},${b})`;
+  return 1;
+}
+
+function handleS2DPoint(args) {
+  const ctx = ensureGfxReady();
+  const x = toInt(args?.[0], 0);
+  const y = toInt(args?.[1], 0);
+  ctx.fillStyle = state.gfxColor;
+  ctx.fillRect(x, y, 1, 1);
+  return 1;
+}
+
+function handleS2DLine(args) {
+  const ctx = ensureGfxReady();
+  const x1 = toInt(args?.[0], 0);
+  const y1 = toInt(args?.[1], 0);
+  const x2 = toInt(args?.[2], 0);
+  const y2 = toInt(args?.[3], 0);
+  ctx.strokeStyle = state.gfxColor;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x1 + 0.5, y1 + 0.5);
+  ctx.lineTo(x2 + 0.5, y2 + 0.5);
+  ctx.stroke();
+  return 1;
+}
+
+function handleS2DRect(args) {
+  const ctx = ensureGfxReady();
+  const x = toInt(args?.[0], 0);
+  const y = toInt(args?.[1], 0);
+  const w = Math.max(0, toInt(args?.[2], 0));
+  const h = Math.max(0, toInt(args?.[3], 0));
+  ctx.fillStyle = state.gfxColor;
+  ctx.fillRect(x, y, w, h);
+  return 1;
+}
+
+function handleS2DSetUserCtx(args) {
+  state.gfxUserCtx = args?.[0] ?? null;
   return 1;
 }
 
@@ -504,6 +559,10 @@ function toInt(value, fallback) {
     return fallback;
   }
   return Math.floor(n);
+}
+
+function clampByte(n) {
+  return Math.max(0, Math.min(255, n));
 }
 
 function formatError(error) {
