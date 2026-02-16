@@ -49,6 +49,14 @@ body {
   font-size: 13px;
 }
 
+.build-info {
+  margin-top: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: #b7c4ef;
+  word-break: break-word;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 320px 1fr;

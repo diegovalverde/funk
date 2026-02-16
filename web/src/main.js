@@ -15,6 +15,7 @@ const state = {
   fuelEl: null,
   fuelLabelEl: null,
   statsEl: null,
+  buildInfoEl: null,
 };
 
 void start();
@@ -30,6 +31,7 @@ async function start() {
 }
 
 async function boot() {
+  await loadBuildInfo();
   setStatus('Initializing WASM runtime...');
   await initWasm();
   state.wasmReady = true;
@@ -48,6 +50,7 @@ function renderLayout() {
     <header class="topbar">
       <h1>Funk Playground</h1>
       <p>Browser-only compiler + bytecode VM (safe mode)</p>
+      <p id="build-info" class="build-info">build: loading...</p>
     </header>
     <main class="layout">
       <aside class="sidebar">
@@ -96,6 +99,7 @@ function renderLayout() {
   state.fuelEl = document.getElementById('fuel');
   state.fuelLabelEl = document.getElementById('fuel-label');
   state.statsEl = document.getElementById('stats');
+  state.buildInfoEl = document.getElementById('build-info');
 
   const onFuel = () => {
     state.fuelLabelEl.textContent = Number(state.fuelEl.value).toLocaleString();
@@ -113,6 +117,25 @@ function renderLayout() {
   });
 
   populateStdlibTree();
+}
+
+async function loadBuildInfo() {
+  if (!state.buildInfoEl) return;
+  try {
+    const response = await fetch('./runtime/build-info.json');
+    if (!response.ok) {
+      state.buildInfoEl.textContent = `build: unavailable (${response.status})`;
+      return;
+    }
+    const info = await response.json();
+    const main = info?.git?.superproject?.short ?? 'unknown';
+    const funk = info?.git?.submodules?.funk?.short ?? 'missing';
+    const stdlib = info?.git?.submodules?.stdlib?.short ?? 'missing';
+    const when = info?.builtAtUtc ?? 'unknown-time';
+    state.buildInfoEl.textContent = `build: main ${main} | funk ${funk} | stdlib ${stdlib} | ${when}`;
+  } catch (_) {
+    state.buildInfoEl.textContent = 'build: unavailable';
+  }
 }
 
 function registerFunkLanguage() {

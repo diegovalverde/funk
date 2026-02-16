@@ -1,4 +1,5 @@
 import { cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,6 +27,30 @@ async function listFiles(root) {
   return out;
 }
 
+function gitValue(args, cwd) {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch (_) {
+    return null;
+  }
+}
+
+function commitInfo(repoPath) {
+  const full = gitValue(['rev-parse', 'HEAD'], repoPath);
+  const short = gitValue(['rev-parse', '--short=12', 'HEAD'], repoPath);
+  const dirty = !!gitValue(['status', '--porcelain'], repoPath);
+  return {
+    full,
+    short,
+    dirty,
+    present: !!full,
+  };
+}
+
 await rm(runtimeRoot, { recursive: true, force: true });
 await mkdir(runtimeRoot, { recursive: true });
 
@@ -40,5 +65,18 @@ const manifest = {
 };
 
 await writeFile(path.join(runtimeRoot, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+
+const buildInfo = {
+  builtAtUtc: new Date().toISOString(),
+  git: {
+    superproject: commitInfo(repoRoot),
+    submodules: {
+      funk: commitInfo(path.join(repoRoot, 'funk')),
+      stdlib: commitInfo(path.join(repoRoot, 'stdlib')),
+    },
+  },
+};
+
+await writeFile(path.join(runtimeRoot, 'build-info.json'), JSON.stringify(buildInfo, null, 2) + '\n', 'utf8');
 await writeFile(path.join(runtimeRoot, '.gitkeep'), '', 'utf8');
 console.log('runtime synced:', runtimeRoot);

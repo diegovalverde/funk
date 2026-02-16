@@ -47,7 +47,9 @@ jobs:
         run: npm run build
 
       - name: Validate runtime payload
-        run: test -f web/dist/runtime/funk/backends/bytecode.py
+        run: |
+          test -f web/dist/runtime/funk/backends/bytecode.py
+          test -f web/dist/runtime/build-info.json
 
       - name: Disable Jekyll processing
         run: touch web/dist/.nojekyll
