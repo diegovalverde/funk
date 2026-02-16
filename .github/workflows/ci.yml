@@ -92,6 +92,9 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Prefetch Rust dependencies for offline VM tests
+        run: cargo fetch --manifest-path funk_vm/Cargo.toml --locked
+
       - name: Install Python dependencies
         run: |
           python -m venv venv_3.11
@@ -198,6 +201,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Prefetch Rust dependencies for offline VM tests
+        run: cargo fetch --manifest-path funk_vm/Cargo.toml --locked
 
       - name: Install Python dependencies
         run: |
