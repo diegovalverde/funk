@@ -13,6 +13,9 @@ async function listFiles(root) {
   async function walk(current, relBase = '') {
     const entries = await readdir(current, { withFileTypes: true });
     for (const entry of entries) {
+      if (entry.name.startsWith('.')) {
+        continue;
+      }
       const abs = path.join(current, entry.name);
       const rel = path.join(relBase, entry.name);
       if (entry.isDirectory()) {
