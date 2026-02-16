@@ -12,6 +12,8 @@ const state = {
   wasmReady: false,
   pyodideReady: false,
   pyodide: null,
+  bootPromise: null,
+  bootError: null,
   editor: null,
   statusEl: null,
   outputEl: null,
@@ -49,9 +51,11 @@ void start();
 
 async function start() {
   renderLayout();
+  state.bootPromise = boot();
   try {
-    await boot();
+    await state.bootPromise;
   } catch (err) {
+    state.bootError = err;
     setStatus('Initialization failed.');
     setOutput(String(err));
   }
@@ -66,9 +70,25 @@ async function boot() {
   setStatus('Initializing browser compiler (Pyodide)...');
   state.pyodide = await initPyodideRuntime();
   state.pyodideReady = true;
+  setRuntimeControlsEnabled(true);
 
   setStatus('Ready.');
   updateStats();
+}
+
+async function ensureRuntimeReady() {
+  if (state.pyodideReady && state.pyodide) {
+    return;
+  }
+  if (state.bootPromise) {
+    await state.bootPromise;
+  }
+  if (!state.pyodideReady || !state.pyodide) {
+    if (state.bootError) {
+      throw state.bootError;
+    }
+    throw new Error('Runtime is not ready yet. Wait for initialization to finish and retry.');
+  }
 }
 
 function renderLayout() {
@@ -232,6 +252,17 @@ function renderLayout() {
   populateLibraryTrees();
   installBrowserHostBridge();
   setupResizers();
+  setRuntimeControlsEnabled(false);
+}
+
+function setRuntimeControlsEnabled(enabled) {
+  const ids = ['btn-check', 'btn-run', 'btn-demo', 'btn-run-preset', 'btn-stop-loop'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.disabled = !enabled;
+    }
+  }
 }
 
 function setActiveControlsTab(tab) {
@@ -484,6 +515,7 @@ def __compile_funk_to_fkb(source, src_path='/workspace/main.f'):
 }
 
 async function compileToBytecode(source) {
+  await ensureRuntimeReady();
   const pyFn = state.pyodide.globals.get('__compile_funk_to_fkb');
   try {
     const encoded = pyFn(source, state.sourcePath);
