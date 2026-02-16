@@ -5,6 +5,7 @@ const DEFAULT_SOURCE = `# Funk Playground\nmain():\n    say("hello from browser"
 const DEFAULT_FUEL = 10_000_000;
 const OUTPUT_LIMIT_BYTES = 64 * 1024;
 const UNLIMITED_FUEL = Number.MAX_SAFE_INTEGER;
+const ENABLE_HOST_EFFECTS = true;
 
 const state = {
   wasmReady: false,
@@ -19,6 +20,8 @@ const state = {
   statsEl: null,
   buildInfoEl: null,
   sourcePath: '/workspace/main.f',
+  gfxWrapEl: null,
+  gfxCanvasEl: null,
 };
 
 void start();
@@ -86,6 +89,9 @@ function renderLayout() {
           </label>
         </div>
         <div id="editor" class="editor"></div>
+        <div id="gfx-host" class="gfx-host hidden">
+          <canvas id="gfx-canvas"></canvas>
+        </div>
         <div class="meta">
           <div id="stats"></div>
           <div id="status"></div>
@@ -115,6 +121,8 @@ function renderLayout() {
   state.fuelUnlimitedEl = document.getElementById('fuel-unlimited');
   state.statsEl = document.getElementById('stats');
   state.buildInfoEl = document.getElementById('build-info');
+  state.gfxWrapEl = document.getElementById('gfx-host');
+  state.gfxCanvasEl = document.getElementById('gfx-canvas');
 
   const onFuel = () => {
     const isUnlimited = !!state.fuelUnlimitedEl?.checked;
@@ -138,6 +146,7 @@ function renderLayout() {
   });
 
   populateLibraryTrees();
+  installBrowserHostBridge();
   setupResizers();
 }
 
@@ -409,7 +418,7 @@ async function runCheck() {
     setStatus('Checking...');
     const source = state.editor.getValue();
     const bytecode = await compileToBytecode(source);
-    const result = check_bytecode(bytecode);
+    const result = check_bytecode(bytecode, ENABLE_HOST_EFFECTS);
     if (result.ok) {
       setOutput('check: ok');
       setStatus('Check passed.');
@@ -429,7 +438,7 @@ async function runProgram() {
     const source = state.editor.getValue();
     const bytecode = await compileToBytecode(source);
     const fuel = state.fuelUnlimitedEl?.checked ? UNLIMITED_FUEL : Number(state.fuelEl.value);
-    const result = run_bytecode(bytecode, fuel, OUTPUT_LIMIT_BYTES);
+    const result = run_bytecode(bytecode, fuel, OUTPUT_LIMIT_BYTES, ENABLE_HOST_EFFECTS);
     if (result.ok) {
       const lines = [];
       if (result.output && result.output.length > 0) {
@@ -448,6 +457,53 @@ async function runProgram() {
     setOutput(String(err));
     setStatus('Run failed.');
   }
+}
+
+function installBrowserHostBridge() {
+  globalThis.__funk_host_call = (name, args) => {
+    if (name === 's2d.sdl_simple') {
+      return handleS2DSimple(args);
+    }
+    throw new Error(`unsupported browser host call: ${name}`);
+  };
+}
+
+function handleS2DSimple(args) {
+  const width = toInt(args?.[0], 640);
+  const height = toInt(args?.[1], 480);
+  if (!state.gfxWrapEl || !state.gfxCanvasEl) {
+    throw new Error('graphics canvas is not initialized');
+  }
+
+  state.gfxWrapEl.classList.remove('hidden');
+  state.gfxCanvasEl.width = Math.max(1, width);
+  state.gfxCanvasEl.height = Math.max(1, height);
+  const ctx = state.gfxCanvasEl.getContext('2d');
+  if (!ctx) {
+    throw new Error('2d canvas context unavailable');
+  }
+
+  ctx.fillStyle = '#10182c';
+  ctx.fillRect(0, 0, state.gfxCanvasEl.width, state.gfxCanvasEl.height);
+  ctx.strokeStyle = '#4ad395';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(10, 10, state.gfxCanvasEl.width - 20, state.gfxCanvasEl.height - 20);
+  ctx.fillStyle = '#d9e2ff';
+  ctx.font = '16px IBM Plex Mono, monospace';
+  ctx.fillText('s2d host bridge active (browser)', 18, 34);
+  ctx.fillStyle = '#9ca8cf';
+  ctx.font = '12px IBM Plex Mono, monospace';
+  ctx.fillText('Rendering callback loop is next step', 18, 56);
+  setStatus(`Host effect invoked: s2d.sdl_simple(${width}, ${height}, ...)`);
+  return 1;
+}
+
+function toInt(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return Math.floor(n);
 }
 
 function formatError(error) {

@@ -1,6 +1,7 @@
 use funk_vm::bytecode::OpCode;
 use funk_vm::vm::Value;
 use funk_vm::{load_bytecode_from_bytes, run_with_host, Bytecode, VmError, VmHost};
+use js_sys::Array;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
@@ -32,6 +33,12 @@ struct SourceStats {
 struct BufferHost {
     out: String,
     max_output_bytes: usize,
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = globalThis, js_name = __funk_host_call, catch)]
+    fn js_host_call(name: &str, args: JsValue) -> Result<JsValue, JsValue>;
 }
 
 impl BufferHost {
@@ -67,12 +74,37 @@ impl VmHost for BufferHost {
         self.push_text(text)?;
         self.push_text("\n")
     }
+
+    fn call_host(&mut self, name: &str, args: &[Value]) -> Result<Value, VmError> {
+        let js_args = Array::new();
+        for arg in args {
+            js_args.push(&vm_value_to_js(arg));
+        }
+        let js_result = js_host_call(name, js_args.into()).map_err(|err| {
+            VmError::new(
+                "E_EFFECT",
+                format!("host effect '{}' failed: {}", name, js_error_to_string(&err)),
+            )
+        })?;
+        js_to_vm_value(&js_result).map_err(|msg| {
+            VmError::new(
+                "E_EFFECT",
+                format!("host effect '{}' returned unsupported value: {}", name, msg),
+            )
+        })
+    }
 }
 
 #[wasm_bindgen]
-pub fn run_bytecode(bytecode_bytes: &[u8], fuel: Option<u32>, max_output_bytes: Option<u32>) -> JsValue {
+pub fn run_bytecode(
+    bytecode_bytes: &[u8],
+    fuel: Option<u32>,
+    max_output_bytes: Option<u32>,
+    allow_host_effects: Option<bool>,
+) -> JsValue {
     let fuel_budget = fuel.unwrap_or(DEFAULT_FUEL);
     let output_cap = max_output_bytes.unwrap_or(DEFAULT_OUTPUT_LIMIT);
+    let host_effects_allowed = allow_host_effects.unwrap_or(false);
 
     let bytecode = match load_bytecode_from_bytes(bytecode_bytes) {
         Ok(v) => v,
@@ -89,7 +121,7 @@ pub fn run_bytecode(bytecode_bytes: &[u8], fuel: Option<u32>, max_output_bytes: 
         }
     };
 
-    if let Some(err) = reject_disallowed_effects(&bytecode) {
+    if let Some(err) = reject_disallowed_effects(&bytecode, host_effects_allowed) {
         return serialize_payload(RunResultPayload {
             ok: false,
             output: String::new(),
@@ -119,7 +151,8 @@ pub fn run_bytecode(bytecode_bytes: &[u8], fuel: Option<u32>, max_output_bytes: 
 }
 
 #[wasm_bindgen]
-pub fn check_bytecode(bytecode_bytes: &[u8]) -> JsValue {
+pub fn check_bytecode(bytecode_bytes: &[u8], allow_host_effects: Option<bool>) -> JsValue {
+    let host_effects_allowed = allow_host_effects.unwrap_or(false);
     let bytecode = match load_bytecode_from_bytes(bytecode_bytes) {
         Ok(v) => v,
         Err(e) => {
@@ -135,7 +168,7 @@ pub fn check_bytecode(bytecode_bytes: &[u8]) -> JsValue {
         }
     };
 
-    if let Some(err) = reject_disallowed_effects(&bytecode) {
+    if let Some(err) = reject_disallowed_effects(&bytecode, host_effects_allowed) {
         return serialize_payload(RunResultPayload {
             ok: false,
             output: String::new(),
@@ -157,7 +190,7 @@ pub fn source_stats(src: &str) -> JsValue {
     serialize_payload(scan_source_stats(src))
 }
 
-fn reject_disallowed_effects(bytecode: &Bytecode) -> Option<RunnerError> {
+fn reject_disallowed_effects(bytecode: &Bytecode, allow_host_effects: bool) -> Option<RunnerError> {
     for func in &bytecode.functions {
         for ins in &func.code {
             match ins.op {
@@ -177,10 +210,12 @@ fn reject_disallowed_effects(bytecode: &Bytecode) -> Option<RunnerError> {
                     _ => {}
                 },
                 OpCode::CallHost => {
-                    return Some(RunnerError {
-                        code: "E_EFFECT".to_string(),
-                        message: "disallowed effect: host graphics/runtime effects are not available in browser safe mode".to_string(),
-                    })
+                    if !allow_host_effects {
+                        return Some(RunnerError {
+                            code: "E_EFFECT".to_string(),
+                            message: "disallowed effect: host graphics/runtime effects are not available in browser safe mode".to_string(),
+                        });
+                    }
                 }
                 _ => {}
             }
@@ -199,6 +234,59 @@ fn map_vm_error(err: VmError) -> RunnerError {
         code: code.to_string(),
         message: err.message,
     }
+}
+
+fn js_error_to_string(err: &JsValue) -> String {
+    if let Some(s) = err.as_string() {
+        return s;
+    }
+    "unknown JS host error".to_string()
+}
+
+fn vm_value_to_js(value: &Value) -> JsValue {
+    match value {
+        Value::Int(v) => JsValue::from_f64(*v as f64),
+        Value::Float(v) => JsValue::from_f64(*v),
+        Value::Bool(v) => JsValue::from_bool(*v),
+        Value::String(s) => JsValue::from_str(s),
+        Value::List(items) => {
+            let array = Array::new();
+            for item in items.iter() {
+                array.push(&vm_value_to_js(item));
+            }
+            array.into()
+        }
+        Value::Unit => JsValue::UNDEFINED,
+    }
+}
+
+fn js_to_vm_value(value: &JsValue) -> Result<Value, &'static str> {
+    if value.is_undefined() || value.is_null() {
+        return Ok(Value::Unit);
+    }
+    if let Some(v) = value.as_bool() {
+        return Ok(Value::Bool(v));
+    }
+    if let Some(v) = value.as_string() {
+        return Ok(Value::String(v));
+    }
+    if let Some(v) = value.as_f64() {
+        let int_v = v as i64;
+        if (int_v as f64 - v).abs() < f64::EPSILON {
+            return Ok(Value::Int(int_v));
+        }
+        return Ok(Value::Float(v));
+    }
+    if Array::is_array(value) {
+        let arr = Array::from(value);
+        let mut out = Vec::with_capacity(arr.length() as usize);
+        for idx in 0..arr.length() {
+            let entry = arr.get(idx);
+            out.push(js_to_vm_value(&entry)?);
+        }
+        return Ok(Value::List(std::rc::Rc::new(out)));
+    }
+    Err("only number/bool/string/list/undefined are supported")
 }
 
 fn render_value(value: &Value) -> String {
