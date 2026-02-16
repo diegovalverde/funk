@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 # Tail-recursive style Fibonacci.
 # Python does not optimize tail calls, so this is mostly for algorithmic parity.
 def fib_tr(n: int, a: int = 0, b: int = 1) -> int:

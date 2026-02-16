@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 def row(n: int):
     return [1 for _ in range(n)]
 

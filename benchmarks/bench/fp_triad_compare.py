@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 def make_b(n: int):
     return [i * 0.5 + 1.1 for i in range(n)]
 
