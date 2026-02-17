@@ -70,21 +70,33 @@ await cp(path.join(repoRoot, 'funk'), path.join(runtimeRoot, 'funk'), { recursiv
 await cp(path.join(repoRoot, 'stdlib'), path.join(runtimeRoot, 'stdlib'), { recursive: true });
 await cp(path.join(repoRoot, 'funky.py'), path.join(runtimeRoot, 'funky.py'));
 
-const externalExamplesRoot = path.resolve(repoRoot, '..', 'funky_example_files', 'root');
-const externalExamplesDir = path.join(externalExamplesRoot, 'examples');
-const externalIncludeDir = path.join(externalExamplesRoot, 'include');
+const examplesRootCandidates = [
+  path.join(repoRoot, 'funky_example_files', 'root'),
+  path.resolve(repoRoot, '..', 'funky_example_files', 'root'),
+];
+
+let externalExamplesRoot = null;
+for (const candidate of examplesRootCandidates) {
+  if (await isDirectory(candidate)) {
+    externalExamplesRoot = candidate;
+    break;
+  }
+}
+
+const externalExamplesDir = externalExamplesRoot ? path.join(externalExamplesRoot, 'examples') : null;
+const externalIncludeDir = externalExamplesRoot ? path.join(externalExamplesRoot, 'include') : null;
 const runtimeExamplesDir = path.join(runtimeRoot, 'examples');
 const runtimeIncludeDir = path.join(runtimeRoot, 'include');
 
 let exampleFiles = [];
 let includeFiles = [];
 
-if (await isDirectory(externalExamplesDir)) {
+if (externalExamplesDir && await isDirectory(externalExamplesDir)) {
   await cp(externalExamplesDir, runtimeExamplesDir, { recursive: true });
   exampleFiles = await listFiles(runtimeExamplesDir);
 }
 
-if (await isDirectory(externalIncludeDir)) {
+if (externalIncludeDir && await isDirectory(externalIncludeDir)) {
   await cp(externalIncludeDir, runtimeIncludeDir, { recursive: true });
   includeFiles = await listFiles(runtimeIncludeDir);
 }
