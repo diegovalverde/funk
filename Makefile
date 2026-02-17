@@ -210,6 +210,7 @@ bench-fp-triad: build-root
 	FUNK_BUILD_ROOT="$(BUILD_ROOT)" ./venv_3.11/bin/python ./scripts/benchmark_fp_triad_compare.py --runs 5 --backend cpp20
 
 bench-report: build-root
+	cd ./funk_vm && cargo build --release --offline
 	FUNK_BUILD_ROOT="$(BUILD_ROOT)" ./venv_3.11/bin/python ./benchmarks/generate_report.py --runs $(BENCH_RUNS) --warmup $(BENCH_WARMUP)
 
 bench-all: bench-report
