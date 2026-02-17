@@ -75,6 +75,12 @@ pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
 pub trait VmHost {
     fn write(&mut self, text: &str) -> Result<(), VmError>;
     fn writeln(&mut self, text: &str) -> Result<(), VmError>;
+    fn write_byte(&mut self, byte: u8) -> Result<(), VmError> {
+        let ch = char::from(byte);
+        let mut out = String::new();
+        out.push(ch);
+        self.write(&out)
+    }
     fn read_text_file(&mut self, path: &str) -> Result<String, VmError> {
         Err(VmError::new(
             "E_EFFECT",
@@ -102,6 +108,16 @@ impl VmHost for StdoutHost {
 
     fn writeln(&mut self, text: &str) -> Result<(), VmError> {
         println!("{text}");
+        Ok(())
+    }
+
+    fn write_byte(&mut self, byte: u8) -> Result<(), VmError> {
+        io::stdout()
+            .write_all(&[byte])
+            .map_err(|e| VmError::new("E4305", format!("print write failed: {e}")))?;
+        io::stdout()
+            .flush()
+            .map_err(|e| VmError::new("E4305", format!("print flush failed: {e}")))?;
         Ok(())
     }
 
@@ -487,6 +503,23 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 out.push_str(&render_value(arg));
             }
             host.writeln(&out)?;
+            Ok(Value::Unit)
+        }
+        52 => {
+            if args.len() != 1 {
+                return Err(VmError::new("E4305", "putc expects 1 integer arg"));
+            }
+            let byte = match args[0] {
+                Value::Int(v) => v,
+                _ => return Err(VmError::new("E4305", "putc arg must be int")),
+            };
+            if !(0..=255).contains(&byte) {
+                return Err(VmError::new(
+                    "E4305",
+                    format!("putc arg out of byte range [0,255]: {byte}"),
+                ));
+            }
+            host.write_byte(byte as u8)?;
             Ok(Value::Unit)
         }
         3 => {
