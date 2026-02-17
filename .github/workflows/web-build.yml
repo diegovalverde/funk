@@ -13,6 +13,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Checkout examples repo
+        uses: actions/checkout@v4
+        with:
+          repository: diegovalverde/funky_example_files
+          ref: 77bd37bfbdf64a72df2ae70a35812affb3806d80
+          path: funky_example_files
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
