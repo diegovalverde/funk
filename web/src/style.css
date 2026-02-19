@@ -301,6 +301,28 @@ button:hover {
   background: #0b1226;
 }
 
+.gfx-host-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.gfx-close-btn {
+  border: 1px solid #335085;
+  background: #162443;
+  color: #b7c4ef;
+  padding: 2px 8px;
+  border-radius: 6px;
+  line-height: 1.2;
+}
+
+.gfx-close-btn:hover {
+  background: #223764;
+}
+
 .gfx-host canvas {
   display: block;
   max-width: 100%;

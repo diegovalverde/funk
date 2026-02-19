@@ -25,6 +25,7 @@ const state = {
   sourcePath: '/workspace/main.f',
   gfxWrapEl: null,
   gfxCanvasEl: null,
+  gfxCloseEl: null,
   gfxCtx: null,
   gfxColor: 'rgb(0,255,0)',
   gfxUserCtx: null,
@@ -168,6 +169,10 @@ function renderLayout() {
         </div>
         <div id="editor" class="editor"></div>
         <div id="gfx-host" class="gfx-host hidden">
+          <div class="gfx-host-head">
+            <span>Graphics Output</span>
+            <button id="btn-gfx-close" type="button" class="gfx-close-btn" aria-label="Close graphics output">X</button>
+          </div>
           <canvas id="gfx-canvas"></canvas>
         </div>
         <div class="meta">
@@ -203,6 +208,7 @@ function renderLayout() {
   state.buildInfoEl = document.getElementById('build-info');
   state.gfxWrapEl = document.getElementById('gfx-host');
   state.gfxCanvasEl = document.getElementById('gfx-canvas');
+  state.gfxCloseEl = document.getElementById('btn-gfx-close');
   state.frameFpsEl = document.getElementById('frame-fps');
   state.frameFuelEl = document.getElementById('frame-fuel');
   state.frameLogEl = document.getElementById('frame-log');
@@ -244,6 +250,9 @@ function renderLayout() {
     stopS2DLoop();
     setStatus('Graphics loop stopped.');
   });
+  state.gfxCloseEl?.addEventListener('click', () => {
+    closeGraphicsOutput(true);
+  });
   for (const tabBtn of document.querySelectorAll('.ctrl-tab')) {
     tabBtn.addEventListener('click', () => {
       setActiveControlsTab(tabBtn.dataset.tab || 'program');
@@ -276,6 +285,19 @@ function setActiveControlsTab(tab) {
   }
   for (const panel of document.querySelectorAll('.controls-panel')) {
     panel.classList.toggle('is-active', panel.dataset.panel === tab);
+  }
+  if (tab !== 'graphics') {
+    closeGraphicsOutput(false);
+  }
+}
+
+function closeGraphicsOutput(announce) {
+  stopS2DLoop();
+  if (state.gfxWrapEl) {
+    state.gfxWrapEl.classList.add('hidden');
+  }
+  if (announce) {
+    setStatus('Graphics output closed.');
   }
 }
 
