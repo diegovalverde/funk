@@ -184,7 +184,9 @@ function renderLayout() {
           <div id="status"></div>
         </div>
         <div id="output-splitter" class="splitter splitter-h" title="Resize output"></div>
-        <pre id="output" class="output"></pre>
+        <div class="output-shell">
+          <pre id="output" class="output"></pre>
+        </div>
       </section>
     </main>
   `;
