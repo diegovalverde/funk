@@ -43,6 +43,7 @@ const state = {
   frameOkCount: 0,
   frameErrCount: 0,
   frameMsAvg: 0,
+  s2dRenderArity: null,
   activeControlsTab: 'program',
   runtimeAssets: new Map(),
 };
@@ -146,6 +147,7 @@ function renderLayout() {
                 <option value="demo">inline demo</option>
                 <option value="random_walk">random_walk</option>
                 <option value="barnsly_fern">barnsly_fern</option>
+                <option value="cantor_set">cantor_set</option>
                 <option value="game_of_life">game_of_life</option>
               </select>
             </label>
@@ -716,6 +718,7 @@ function startS2DLoop() {
   state.frameOkCount = 0;
   state.frameErrCount = 0;
   state.frameMsAvg = 0;
+  state.s2dRenderArity = null;
   if (state.fpsEl) {
     state.fpsEl.textContent = 'fps: ...';
   }
@@ -745,14 +748,8 @@ function startS2DLoop() {
     ctx.strokeRect(0.5, 0.5, state.gfxCanvasEl.width - 1, state.gfxCanvasEl.height - 1);
 
     const frameStart = performance.now();
-    const renderResult = call_function(
-      state.lastBytecode,
-      's2d_render',
-      [state.gfxUserCtx],
-      clampInt(toInt(state.frameFuelEl?.value, 1_000_000), 1000, 50_000_000),
-      OUTPUT_LIMIT_BYTES,
-      ENABLE_HOST_EFFECTS,
-    );
+    const frameFuel = clampInt(toInt(state.frameFuelEl?.value, 1_000_000), 1000, 50_000_000);
+    const renderResult = callS2DRender(frameFuel);
     const frameMs = performance.now() - frameStart;
     if (state.frameMsAvg === 0) {
       state.frameMsAvg = frameMs;
@@ -790,6 +787,46 @@ function startS2DLoop() {
     state.s2dRafId = requestAnimationFrame(step);
   };
   state.s2dRafId = requestAnimationFrame(step);
+}
+
+function isMissingS2DRenderArity(error, arity) {
+  if (!error || error.code !== 'E4303') {
+    return false;
+  }
+  return String(error.message || '').includes(`function 's2d_render/${arity}' not found in bytecode`);
+}
+
+function callS2DRender(frameFuel) {
+  if (state.s2dRenderArity === null || state.s2dRenderArity === 1) {
+    const withCtx = call_function(
+      state.lastBytecode,
+      's2d_render',
+      [state.gfxUserCtx],
+      frameFuel,
+      OUTPUT_LIMIT_BYTES,
+      ENABLE_HOST_EFFECTS,
+    );
+    if (withCtx.ok) {
+      state.s2dRenderArity = 1;
+      return withCtx;
+    }
+    if (!isMissingS2DRenderArity(withCtx.error, 1)) {
+      return withCtx;
+    }
+  }
+
+  const noCtx = call_function(
+    state.lastBytecode,
+    's2d_render',
+    [],
+    frameFuel,
+    OUTPUT_LIMIT_BYTES,
+    ENABLE_HOST_EFFECTS,
+  );
+  if (noCtx.ok) {
+    state.s2dRenderArity = 0;
+  }
+  return noCtx;
 }
 
 function stopS2DLoop() {
@@ -834,6 +871,7 @@ async function runGraphicsPreset(preset) {
   const mapping = {
     random_walk: 'graphics/random_walk.f',
     barnsly_fern: 'graphics/barnsly_fern.f',
+    cantor_set: 'graphics/cantor_set.f',
     game_of_life: 'graphics/game_of_life.f',
   };
   const rel = mapping[preset];
