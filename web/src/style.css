@@ -146,6 +146,23 @@ body {
   border-bottom: 1px solid #263357;
 }
 
+.runtime-banner {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #4a6cb5;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #21396a, #172b52);
+  color: #e5eeff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.runtime-banner.runtime-banner-error {
+  border-color: #a94a4a;
+  background: linear-gradient(180deg, #5c2424, #3f1717);
+  color: #ffdede;
+}
+
 .controls-primary {
   width: 100%;
   display: flex;
@@ -210,6 +227,14 @@ button {
 
 button:hover {
   background: #2b4482;
+}
+
+button:disabled {
+  background: #1a2645;
+  border-color: #2a3b64;
+  color: #7f8cb2;
+  cursor: not-allowed;
+  opacity: 0.8;
 }
 
 .fuel-control {

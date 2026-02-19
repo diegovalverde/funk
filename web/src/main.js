@@ -16,6 +16,7 @@ const state = {
   bootError: null,
   editor: null,
   statusEl: null,
+  runtimeBannerEl: null,
   outputEl: null,
   fuelEl: null,
   fuelLabelEl: null,
@@ -120,6 +121,7 @@ function renderLayout() {
       <div id="sidebar-splitter" class="splitter splitter-v" title="Resize sidebar"></div>
       <section class="workspace">
         <div class="controls">
+          <div id="runtime-banner" class="runtime-banner">Initializing runtime...</div>
           <div class="controls-primary">
             <button id="btn-check">Check</button>
             <button id="btn-run">Run</button>
@@ -200,6 +202,7 @@ function renderLayout() {
   });
 
   state.statusEl = document.getElementById('status');
+  state.runtimeBannerEl = document.getElementById('runtime-banner');
   state.outputEl = document.getElementById('output');
   state.fuelEl = document.getElementById('fuel');
   state.fuelLabelEl = document.getElementById('fuel-label');
@@ -273,6 +276,9 @@ function setRuntimeControlsEnabled(enabled) {
     if (el) {
       el.disabled = !enabled;
     }
+  }
+  if (state.runtimeBannerEl) {
+    state.runtimeBannerEl.classList.toggle('hidden', enabled);
   }
 }
 
@@ -561,6 +567,10 @@ function base64ToBytes(base64) {
 function setStatus(message) {
   if (state.statusEl) {
     state.statusEl.textContent = message;
+  }
+  if (state.runtimeBannerEl && !state.pyodideReady) {
+    state.runtimeBannerEl.textContent = message || 'Initializing runtime...';
+    state.runtimeBannerEl.classList.toggle('runtime-banner-error', /failed|error/i.test(message || ''));
   }
 }
 
