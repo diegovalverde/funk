@@ -320,6 +320,12 @@ function setupResizers() {
   if (!layout || !workspace || !sidebarSplitter || !outputSplitter) {
     return;
   }
+  const clampOutputHeight = () => {
+    const current = parseFloat(getComputedStyle(workspace).getPropertyValue('--output-height')) || 160;
+    const min = 100;
+    const max = Math.max(min, Math.floor(workspace.clientHeight * 0.6));
+    workspace.style.setProperty('--output-height', `${Math.min(max, Math.max(min, current))}px`);
+  };
 
   sidebarSplitter.addEventListener('pointerdown', (event) => {
     if (window.matchMedia('(max-width: 960px)').matches) {
@@ -352,7 +358,7 @@ function setupResizers() {
     const onMove = (moveEvent) => {
       const next = startHeight - (moveEvent.clientY - startY);
       const min = 100;
-      const max = Math.max(min, Math.floor(window.innerHeight * 0.6));
+      const max = Math.max(min, Math.floor(workspace.clientHeight * 0.6));
       workspace.style.setProperty('--output-height', `${Math.min(max, Math.max(min, next))}px`);
     };
     const onUp = () => {
@@ -363,6 +369,8 @@ function setupResizers() {
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   });
+  window.addEventListener('resize', clampOutputHeight);
+  clampOutputHeight();
 }
 
 async function loadBuildInfo() {
