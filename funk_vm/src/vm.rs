@@ -61,8 +61,12 @@ impl ListValue {
         self.start == self.end
     }
 
-    fn get(&self, idx: usize) -> Option<&Value> {
-        self.as_slice().get(idx)
+    fn get_wrapped(&self, raw_idx: i64) -> Option<&Value> {
+        if self.is_empty() {
+            return None;
+        }
+        let idx = normalize_index_fast(raw_idx, self.len());
+        self.data.get(self.start + idx)
     }
 
     fn iter(&self) -> std::slice::Iter<'_, Value> {
@@ -765,14 +769,11 @@ fn execute_with_entry<H: VmHost>(
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
                 match list_val {
                     Value::List(items) => {
-                        if items.is_empty() {
-                            return Err(VmError::new("E4303", "GET_INDEX list index out of bounds"));
-                        }
-                        let idx = match idx_val {
-                            Value::Int(v) => normalize_index_fast(v, items.len()),
+                        let raw_idx = match idx_val {
+                            Value::Int(v) => v,
                             _ => return Err(VmError::new("E4305", "GET_INDEX expects integer index")),
                         };
-                        let item = items.get(idx).ok_or_else(|| {
+                        let item = items.get_wrapped(raw_idx).ok_or_else(|| {
                             VmError::new("E4303", "GET_INDEX list index out of bounds")
                         })?;
                         stack.push(item.clone());
@@ -786,11 +787,7 @@ fn execute_with_entry<H: VmHost>(
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
                 match list_val {
                     Value::List(items) => {
-                        if items.is_empty() {
-                            return Err(VmError::new("E4303", "GET_INDEX list index out of bounds"));
-                        }
-                        let idx = normalize_index_fast(*raw_idx, items.len());
-                        let item = items.get(idx).ok_or_else(|| {
+                        let item = items.get_wrapped(*raw_idx).ok_or_else(|| {
                             VmError::new("E4303", "GET_INDEX list index out of bounds")
                         })?;
                         stack.push(item.clone());
