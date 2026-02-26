@@ -178,6 +178,7 @@ enum CompiledInstruction {
     Return,
     Trap(String),
     MkList { argc: usize },
+    GetIndexConst(i64),
     GetIndex,
     Len,
 }
@@ -688,9 +689,27 @@ fn execute_with_entry<H: VmHost>(
                             return Err(VmError::new("E4303", "GET_INDEX list index out of bounds"));
                         }
                         let idx = match idx_val {
-                            Value::Int(v) => normalize_index(v, items.len()),
+                            Value::Int(v) => normalize_index_fast(v, items.len()),
                             _ => return Err(VmError::new("E4305", "GET_INDEX expects integer index")),
                         };
+                        let item = items.get(idx).ok_or_else(|| {
+                            VmError::new("E4303", "GET_INDEX list index out of bounds")
+                        })?;
+                        stack.push(item.clone());
+                    }
+                    _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
+                }
+            }
+            CompiledInstruction::GetIndexConst(raw_idx) => {
+                let list_val = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
+                match list_val {
+                    Value::List(items) => {
+                        if items.is_empty() {
+                            return Err(VmError::new("E4303", "GET_INDEX list index out of bounds"));
+                        }
+                        let idx = normalize_index_fast(*raw_idx, items.len());
                         let item = items.get(idx).ok_or_else(|| {
                             VmError::new("E4303", "GET_INDEX list index out of bounds")
                         })?;
@@ -719,9 +738,53 @@ fn execute_with_entry<H: VmHost>(
 fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmError> {
     let mut functions = Vec::with_capacity(bytecode.functions.len());
     for (fn_idx, f) in bytecode.functions.iter().enumerate() {
-        let mut code = Vec::with_capacity(f.code.len());
+        let jump_targets = collect_jump_targets(&f.code)?;
+        let mut skip_compile = vec![false; f.code.len()];
+        let mut get_index_const: Vec<Option<i64>> = vec![None; f.code.len()];
+        if f.code.len() >= 2 {
+            for ip in 0..(f.code.len() - 1) {
+                if !matches!(f.code[ip].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 1].op, OpCode::GetIndex)
+                {
+                    continue;
+                }
+                // If a jump can enter directly at GET_INDEX, preserve stack-based semantics.
+                if jump_targets[ip + 1] {
+                    continue;
+                }
+                let idx = require_i64_arg(&f.code[ip], "PUSH_INT")?;
+                skip_compile[ip] = true;
+                get_index_const[ip + 1] = Some(idx);
+            }
+        }
+
+        let mut old_to_new = vec![0usize; f.code.len() + 1];
+        let mut new_ip = 0usize;
+        for (old_ip, skip) in skip_compile.iter().enumerate() {
+            old_to_new[old_ip] = new_ip;
+            if !skip {
+                new_ip += 1;
+            }
+        }
+        old_to_new[f.code.len()] = new_ip;
+
+        let mut code = Vec::with_capacity(new_ip);
         for (ip, ins) in f.code.iter().enumerate() {
-            code.push(compile_instruction(bytecode, fn_idx, &f.code, ip, ins)?);
+            if skip_compile[ip] {
+                continue;
+            }
+            if let Some(idx) = get_index_const[ip] {
+                code.push(CompiledInstruction::GetIndexConst(idx));
+                continue;
+            }
+            code.push(compile_instruction(
+                bytecode,
+                fn_idx,
+                &f.code,
+                &old_to_new,
+                ip,
+                ins,
+            )?);
         }
         functions.push(CompiledFunction {
             name: f.name.clone(),
@@ -735,6 +798,7 @@ fn compile_instruction(
     bytecode: &Bytecode,
     fn_idx: usize,
     fn_code: &[Instruction],
+    old_to_new: &[usize],
     ip: usize,
     ins: &Instruction,
 ) -> Result<CompiledInstruction, VmError> {
@@ -770,14 +834,14 @@ fn compile_instruction(
             if target > fn_len {
                 return Err(VmError::new("E4303", "JUMP target out of bounds"));
             }
-            Ok(CompiledInstruction::Jump(target))
+            Ok(CompiledInstruction::Jump(old_to_new[target]))
         }
         OpCode::JumpIfFalse => {
             let target = require_u32_arg(ins, "JUMP_IF_FALSE")? as usize;
             if target > fn_len {
                 return Err(VmError::new("E4303", "JUMP_IF_FALSE target out of bounds"));
             }
-            Ok(CompiledInstruction::JumpIfFalse(target))
+            Ok(CompiledInstruction::JumpIfFalse(old_to_new[target]))
         }
         OpCode::CallBuiltin => {
             let id = ins
@@ -884,6 +948,22 @@ fn compile_instruction(
         OpCode::GetIndex => Ok(CompiledInstruction::GetIndex),
         OpCode::Len => Ok(CompiledInstruction::Len),
     }
+}
+
+fn collect_jump_targets(code: &[Instruction]) -> Result<Vec<bool>, VmError> {
+    let mut targets = vec![false; code.len()];
+    for ins in code {
+        match ins.op {
+            OpCode::Jump | OpCode::JumpIfFalse => {
+                let target = require_u32_arg(ins, op_name(ins.op))? as usize;
+                if target < code.len() {
+                    targets[target] = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(targets)
 }
 
 fn fast_numeric_binop(
@@ -1353,6 +1433,16 @@ fn normalize_index(raw: i64, len: usize) -> usize {
     }
     let len_i64 = len as i64;
     raw.rem_euclid(len_i64) as usize
+}
+
+fn normalize_index_fast(raw: i64, len: usize) -> usize {
+    if raw >= 0 {
+        let raw_u = raw as usize;
+        if raw_u < len {
+            return raw_u;
+        }
+    }
+    normalize_index(raw, len)
 }
 
 fn next_random_u64() -> u64 {
