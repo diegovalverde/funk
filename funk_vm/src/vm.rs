@@ -146,7 +146,15 @@ enum CompiledInstruction {
     PushBool(bool),
     PushString(String),
     PushUnit,
+    LoadLocal0,
+    LoadLocal1,
+    LoadLocal2,
+    LoadLocal3,
     LoadLocal(usize),
+    StoreLocal0,
+    StoreLocal1,
+    StoreLocal2,
+    StoreLocal3,
     StoreLocal(usize),
     Pop,
     Jump(usize),
@@ -339,6 +347,42 @@ fn execute_with_entry<H: VmHost>(
             CompiledInstruction::PushBool(v) => stack.push(Value::Bool(*v)),
             CompiledInstruction::PushString(s) => stack.push(Value::String(s.clone())),
             CompiledInstruction::PushUnit => stack.push(Value::Unit),
+            CompiledInstruction::LoadLocal0 => {
+                let v = frame.locals.first().ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 0 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal1 => {
+                let v = frame.locals.get(1).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 1 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal2 => {
+                let v = frame.locals.get(2).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 2 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal3 => {
+                let v = frame.locals.get(3).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 3 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
             CompiledInstruction::LoadLocal(idx) => {
                 let idx = *idx;
                 let v = frame.locals.get(idx).ok_or_else(|| {
@@ -348,6 +392,42 @@ fn execute_with_entry<H: VmHost>(
                     )
                 })?;
                 stack.push(v.clone());
+            }
+            CompiledInstruction::StoreLocal0 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.is_empty() {
+                    frame.locals.resize(1, Value::Unit);
+                }
+                frame.locals[0] = v;
+            }
+            CompiledInstruction::StoreLocal1 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 1 {
+                    frame.locals.resize(2, Value::Unit);
+                }
+                frame.locals[1] = v;
+            }
+            CompiledInstruction::StoreLocal2 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 2 {
+                    frame.locals.resize(3, Value::Unit);
+                }
+                frame.locals[2] = v;
+            }
+            CompiledInstruction::StoreLocal3 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 3 {
+                    frame.locals.resize(4, Value::Unit);
+                }
+                frame.locals[3] = v;
             }
             CompiledInstruction::StoreLocal(idx) => {
                 let idx = *idx;
@@ -822,12 +902,26 @@ fn compile_instruction(
             Ok(CompiledInstruction::PushString(s.clone()))
         }
         OpCode::PushUnit => Ok(CompiledInstruction::PushUnit),
-        OpCode::LoadLocal => Ok(CompiledInstruction::LoadLocal(
-            require_u32_arg(ins, "LOAD_LOCAL")? as usize,
-        )),
-        OpCode::StoreLocal => Ok(CompiledInstruction::StoreLocal(
-            require_u32_arg(ins, "STORE_LOCAL")? as usize,
-        )),
+        OpCode::LoadLocal => {
+            let idx = require_u32_arg(ins, "LOAD_LOCAL")? as usize;
+            match idx {
+                0 => Ok(CompiledInstruction::LoadLocal0),
+                1 => Ok(CompiledInstruction::LoadLocal1),
+                2 => Ok(CompiledInstruction::LoadLocal2),
+                3 => Ok(CompiledInstruction::LoadLocal3),
+                _ => Ok(CompiledInstruction::LoadLocal(idx)),
+            }
+        }
+        OpCode::StoreLocal => {
+            let idx = require_u32_arg(ins, "STORE_LOCAL")? as usize;
+            match idx {
+                0 => Ok(CompiledInstruction::StoreLocal0),
+                1 => Ok(CompiledInstruction::StoreLocal1),
+                2 => Ok(CompiledInstruction::StoreLocal2),
+                3 => Ok(CompiledInstruction::StoreLocal3),
+                _ => Ok(CompiledInstruction::StoreLocal(idx)),
+            }
+        }
         OpCode::Pop => Ok(CompiledInstruction::Pop),
         OpCode::Jump => {
             let target = require_u32_arg(ins, "JUMP")? as usize;
