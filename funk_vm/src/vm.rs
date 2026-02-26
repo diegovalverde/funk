@@ -369,9 +369,11 @@ fn execute_with_entry<H: VmHost>(
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
                 let args_start = stack.len() - argc;
-                let result = call_builtin(*id, &stack[args_start..], host)?;
-                stack.truncate(args_start);
-                stack.push(result);
+                if !try_call_builtin_fastpath(*id, argc, &mut stack)? {
+                    let result = call_builtin(*id, &stack[args_start..], host)?;
+                    stack.truncate(args_start);
+                    stack.push(result);
+                }
             }
             CompiledInstruction::CallFn { target_fn, argc } => {
                 let argc = *argc;
@@ -642,6 +644,173 @@ fn compile_instruction(
         OpCode::GetIndex => Ok(CompiledInstruction::GetIndex),
         OpCode::Len => Ok(CompiledInstruction::Len),
     }
+}
+
+fn try_call_builtin_fastpath(
+    id: u8,
+    argc: usize,
+    stack: &mut Vec<Value>,
+) -> Result<bool, VmError> {
+    match (id, argc) {
+        (20, 2) => fast_numeric_binop(stack, |a, b| a.checked_add(b), |a, b| a + b),
+        (21, 2) => fast_numeric_binop(stack, |a, b| a.checked_sub(b), |a, b| a - b),
+        (22, 2) => fast_numeric_binop(stack, |a, b| a.checked_mul(b), |a, b| a * b),
+        (23, 2) => fast_div(stack),
+        (24, 2) => fast_mod(stack),
+        (25, 2) => {
+            let n = stack.len();
+            let out = Value::Bool(stack[n - 2] == stack[n - 1]);
+            stack.truncate(n - 2);
+            stack.push(out);
+            Ok(true)
+        }
+        (26, 2) => {
+            let n = stack.len();
+            let out = Value::Bool(stack[n - 2] != stack[n - 1]);
+            stack.truncate(n - 2);
+            stack.push(out);
+            Ok(true)
+        }
+        (27, 2) => fast_cmp_num(stack, |a, b| a < b),
+        (28, 2) => fast_cmp_num(stack, |a, b| a <= b),
+        (29, 2) => fast_cmp_num(stack, |a, b| a > b),
+        (30, 2) => fast_cmp_num(stack, |a, b| a >= b),
+        (31, 2) => fast_bool2(stack, |a, b| a && b),
+        (32, 2) => fast_bool2(stack, |a, b| a || b),
+        (33, 1) => fast_not(stack),
+        (47, 1) => {
+            let n = stack.len();
+            let is_list = matches!(stack[n - 1], Value::List(_));
+            stack.truncate(n - 1);
+            stack.push(Value::Bool(is_list));
+            Ok(true)
+        }
+        (49, 1) => {
+            let n = stack.len();
+            if let Value::List(items) = &stack[n - 1] {
+                let len = items.len() as i64;
+                stack.truncate(n - 1);
+                stack.push(Value::Int(len));
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+        _ => Ok(false),
+    }
+}
+
+fn fast_numeric_binop(
+    stack: &mut Vec<Value>,
+    int_op: fn(i64, i64) -> Option<i64>,
+    float_op: fn(f64, f64) -> f64,
+) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => int_op(*a, *b)
+            .map(Value::Int)
+            .ok_or_else(|| VmError::new("E4305", "integer overflow in builtin arithmetic"))?,
+        (Value::Int(a), Value::Float(b)) => Value::Float(float_op(*a as f64, *b)),
+        (Value::Float(a), Value::Int(b)) => Value::Float(float_op(*a, *b as f64)),
+        (Value::Float(a), Value::Float(b)) => Value::Float(float_op(*a, *b)),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_div(stack: &mut Vec<Value>) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => {
+            if *b == 0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            a.checked_div(*b)
+                .map(Value::Int)
+                .ok_or_else(|| VmError::new("E4305", "integer overflow in /"))?
+        }
+        (Value::Int(a), Value::Float(b)) => {
+            if *b == 0.0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            Value::Float(*a as f64 / *b)
+        }
+        (Value::Float(a), Value::Int(b)) => {
+            if *b == 0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            Value::Float(*a / *b as f64)
+        }
+        (Value::Float(a), Value::Float(b)) => {
+            if *b == 0.0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            Value::Float(*a / *b)
+        }
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_mod(stack: &mut Vec<Value>) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => {
+            if *b == 0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            a.checked_rem(*b)
+                .map(Value::Int)
+                .ok_or_else(|| VmError::new("E4305", "integer overflow in %"))?
+        }
+        (Value::Float(_), _) | (_, Value::Float(_)) => {
+            return Err(VmError::new("E4305", "builtin % expects integer args"))
+        }
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_cmp_num(stack: &mut Vec<Value>, f: fn(f64, f64) -> bool) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => Value::Bool(f(*a as f64, *b as f64)),
+        (Value::Int(a), Value::Float(b)) => Value::Bool(f(*a as f64, *b)),
+        (Value::Float(a), Value::Int(b)) => Value::Bool(f(*a, *b as f64)),
+        (Value::Float(a), Value::Float(b)) => Value::Bool(f(*a, *b)),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_bool2(stack: &mut Vec<Value>, f: fn(bool, bool) -> bool) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Bool(a), Value::Bool(b)) => Value::Bool(f(*a, *b)),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_not(stack: &mut Vec<Value>) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match &stack[n - 1] {
+        Value::Bool(v) => Value::Bool(!v),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 1);
+    stack.push(out);
+    Ok(true)
 }
 
 fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value, VmError> {
