@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use crate::bytecode::{
     op_name, require_bool_arg, require_f64_arg, require_i64_arg, require_u32_arg, Bytecode,
-    BytecodeError, OpCode,
+    BytecodeError, Instruction, OpCode,
 };
 
 pub const DEFAULT_FUEL: u64 = 10_000_000;
@@ -133,6 +133,37 @@ struct Frame {
     locals: Vec<Value>,
 }
 
+#[derive(Debug, Clone)]
+struct CompiledFunction {
+    name: String,
+    arity: usize,
+    captures: u32,
+    code: Vec<CompiledInstruction>,
+}
+
+#[derive(Debug, Clone)]
+enum CompiledInstruction {
+    PushInt(i64),
+    PushFloat(f64),
+    PushBool(bool),
+    PushString(String),
+    PushUnit,
+    LoadLocal(usize),
+    StoreLocal(usize),
+    Pop,
+    Jump(usize),
+    JumpIfFalse(usize),
+    CallBuiltin { id: u8, argc: usize },
+    CallFn { target_fn: usize, argc: usize },
+    CallIndirect { argc: usize },
+    CallHost { host_name: String, argc: usize },
+    Return,
+    Trap(String),
+    MkList { argc: usize },
+    GetIndex,
+    Len,
+}
+
 pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
     let mut host = StdoutHost {};
     run_with_host(bytecode, fuel, &mut host)
@@ -252,8 +283,9 @@ fn execute_with_entry<H: VmHost>(
     entry_fn_id: usize,
     entry_locals: Vec<Value>,
 ) -> Result<VmResult, VmError> {
+    let compiled_functions = compile_functions(bytecode)?;
     let mut function_lookup: HashMap<(String, usize), usize> = HashMap::new();
-    for (idx, f) in bytecode.functions.iter().enumerate() {
+    for (idx, f) in compiled_functions.iter().enumerate() {
         if let Some((name, arity)) = parse_function_signature(&f.name) {
             function_lookup.insert((name, arity), idx);
         }
@@ -272,7 +304,7 @@ fn execute_with_entry<H: VmHost>(
         }
         fuel_left -= 1;
 
-        let func = &bytecode.functions[frame.fn_id];
+        let func = &compiled_functions[frame.fn_id];
         if frame.ip >= func.code.len() {
             return Err(VmError::new(
                 "E4302",
@@ -282,29 +314,14 @@ fn execute_with_entry<H: VmHost>(
 
         let ins = &func.code[frame.ip];
         frame.ip += 1;
-        match ins.op {
-            OpCode::PushInt => {
-                let v = require_i64_arg(ins, "PUSH_INT")?;
-                stack.push(Value::Int(v));
-            }
-            OpCode::PushFloat => {
-                let v = require_f64_arg(ins, "PUSH_FLOAT")?;
-                stack.push(Value::Float(v));
-            }
-            OpCode::PushBool => {
-                let v = require_bool_arg(ins, "PUSH_BOOL")?;
-                stack.push(Value::Bool(v));
-            }
-            OpCode::PushString => {
-                let idx = require_u32_arg(ins, "PUSH_STRING")? as usize;
-                let s = bytecode.strings.get(idx).ok_or_else(|| {
-                    VmError::new("E4303", format!("PUSH_STRING index {} out of bounds", idx))
-                })?;
-                stack.push(Value::String(s.clone()));
-            }
-            OpCode::PushUnit => stack.push(Value::Unit),
-            OpCode::LoadLocal => {
-                let idx = require_u32_arg(ins, "LOAD_LOCAL")? as usize;
+        match ins {
+            CompiledInstruction::PushInt(v) => stack.push(Value::Int(*v)),
+            CompiledInstruction::PushFloat(v) => stack.push(Value::Float(*v)),
+            CompiledInstruction::PushBool(v) => stack.push(Value::Bool(*v)),
+            CompiledInstruction::PushString(s) => stack.push(Value::String(s.clone())),
+            CompiledInstruction::PushUnit => stack.push(Value::Unit),
+            CompiledInstruction::LoadLocal(idx) => {
+                let idx = *idx;
                 let v = frame.locals.get(idx).ok_or_else(|| {
                     VmError::new(
                         "E4303",
@@ -313,8 +330,8 @@ fn execute_with_entry<H: VmHost>(
                 })?;
                 stack.push(v.clone());
             }
-            OpCode::StoreLocal => {
-                let idx = require_u32_arg(ins, "STORE_LOCAL")? as usize;
+            CompiledInstruction::StoreLocal(idx) => {
+                let idx = *idx;
                 let v = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
@@ -323,20 +340,13 @@ fn execute_with_entry<H: VmHost>(
                 }
                 frame.locals[idx] = v;
             }
-            OpCode::Pop => {
+            CompiledInstruction::Pop => {
                 stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in POP"))?;
             }
-            OpCode::Jump => {
-                let target = require_u32_arg(ins, "JUMP")? as usize;
-                if target > func.code.len() {
-                    return Err(VmError::new("E4303", "JUMP target out of bounds"));
-                }
-                frame.ip = target;
-            }
-            OpCode::JumpIfFalse => {
-                let target = require_u32_arg(ins, "JUMP_IF_FALSE")? as usize;
+            CompiledInstruction::Jump(target) => frame.ip = *target,
+            CompiledInstruction::JumpIfFalse(target) => {
                 let cond = stack.pop().ok_or_else(|| {
                     VmError::new("E4304", "stack underflow in JUMP_IF_FALSE condition")
                 })?;
@@ -350,35 +360,22 @@ fn execute_with_entry<H: VmHost>(
                     }
                 };
                 if should_jump {
-                    if target > func.code.len() {
-                        return Err(VmError::new("E4303", "JUMP_IF_FALSE target out of bounds"));
-                    }
-                    frame.ip = target;
+                    frame.ip = *target;
                 }
             }
-            OpCode::CallBuiltin => {
-                let id = ins
-                    .id
-                    .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing id"))?;
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing argc"))?
-                    as usize;
+            CompiledInstruction::CallBuiltin { id, argc } => {
+                let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
                 let args_start = stack.len() - argc;
-                let result = call_builtin(id, &stack[args_start..], host)?;
+                let result = call_builtin(*id, &stack[args_start..], host)?;
                 stack.truncate(args_start);
                 stack.push(result);
             }
-            OpCode::CallFn => {
-                let target_fn = require_u32_arg(ins, "CALL_FN")? as usize;
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_FN missing argc"))?
-                    as usize;
-                let target = bytecode.functions.get(target_fn).ok_or_else(|| {
+            CompiledInstruction::CallFn { target_fn, argc } => {
+                let argc = *argc;
+                let target = compiled_functions.get(*target_fn).ok_or_else(|| {
                     VmError::new("E4303", format!("CALL_FN function {} out of bounds", target_fn))
                 })?;
                 if target.captures != 0 {
@@ -400,27 +397,25 @@ fn execute_with_entry<H: VmHost>(
                     return Err(VmError::new("E4304", "stack underflow in CALL_FN"));
                 }
                 let args_start = stack.len() - argc;
-                let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
+                let tail_pos = frame.ip < func.code.len()
+                    && matches!(func.code[frame.ip], CompiledInstruction::Return);
                 if tail_pos {
                     frame.locals.clear();
                     frame.locals.extend(stack.drain(args_start..));
-                    frame.fn_id = target_fn;
+                    frame.fn_id = *target_fn;
                     frame.ip = 0;
                 } else {
                     let mut args = Vec::with_capacity(argc);
                     args.extend(stack.drain(args_start..));
                     frames.push(Frame {
-                        fn_id: target_fn,
+                        fn_id: *target_fn,
                         ip: 0,
                         locals: args,
                     });
                 }
             }
-            OpCode::CallIndirect => {
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_INDIRECT missing argc"))?
-                    as usize;
+            CompiledInstruction::CallIndirect { argc } => {
+                let argc = *argc;
                 if stack.len() < argc + 1 {
                     return Err(VmError::new("E4304", "stack underflow in CALL_INDIRECT"));
                 }
@@ -439,7 +434,8 @@ fn execute_with_entry<H: VmHost>(
                             format!("CALL_INDIRECT unresolved target '{}/{}'", callee_name, argc),
                         )
                     })?;
-                let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
+                let tail_pos = frame.ip < func.code.len()
+                    && matches!(func.code[frame.ip], CompiledInstruction::Return);
                 if tail_pos {
                     frame.locals.clear();
                     frame.locals.extend(stack.drain(args_start..));
@@ -457,18 +453,8 @@ fn execute_with_entry<H: VmHost>(
                     });
                 }
             }
-            OpCode::CallHost => {
-                let host_name_idx = require_u32_arg(ins, "CALL_HOST")? as usize;
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_HOST missing argc"))?
-                    as usize;
-                let host_name = bytecode.strings.get(host_name_idx).ok_or_else(|| {
-                    VmError::new(
-                        "E4303",
-                        format!("CALL_HOST string index {} out of bounds", host_name_idx),
-                    )
-                })?;
+            CompiledInstruction::CallHost { host_name, argc } => {
+                let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_HOST"));
                 }
@@ -477,7 +463,7 @@ fn execute_with_entry<H: VmHost>(
                 stack.truncate(args_start);
                 stack.push(result);
             }
-            OpCode::Return => {
+            CompiledInstruction::Return => {
                 let ret = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in RETURN"))?;
@@ -487,25 +473,18 @@ fn execute_with_entry<H: VmHost>(
                 }
                 stack.push(ret);
             }
-            OpCode::Trap => {
-                let idx = require_u32_arg(ins, "TRAP")? as usize;
-                let msg = bytecode.strings.get(idx).ok_or_else(|| {
-                    VmError::new("E4303", format!("TRAP string index {} out of bounds", idx))
-                })?;
+            CompiledInstruction::Trap(msg) => {
                 return Err(VmError::new("E4306", msg.clone()));
             }
-            OpCode::MkList => {
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "MK_LIST missing argc"))?
-                    as usize;
+            CompiledInstruction::MkList { argc } => {
+                let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in MK_LIST"));
                 }
                 let items = stack.split_off(stack.len() - argc);
                 stack.push(Value::List(ListValue::from_vec(items)));
             }
-            OpCode::GetIndex => {
+            CompiledInstruction::GetIndex => {
                 let idx_val = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
@@ -529,7 +508,7 @@ fn execute_with_entry<H: VmHost>(
                     _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
                 }
             }
-            OpCode::Len => {
+            CompiledInstruction::Len => {
                 let value = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in LEN"))?;
@@ -544,6 +523,125 @@ fn execute_with_entry<H: VmHost>(
     }
 
     Err(VmError::new("E4302", "program terminated without RETURN"))
+}
+
+fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmError> {
+    let mut functions = Vec::with_capacity(bytecode.functions.len());
+    for f in &bytecode.functions {
+        let mut code = Vec::with_capacity(f.code.len());
+        for ins in &f.code {
+            code.push(compile_instruction(bytecode, f.code.len(), ins)?);
+        }
+        functions.push(CompiledFunction {
+            name: f.name.clone(),
+            arity: f.arity as usize,
+            captures: f.captures,
+            code,
+        });
+    }
+    Ok(functions)
+}
+
+fn compile_instruction(
+    bytecode: &Bytecode,
+    fn_len: usize,
+    ins: &Instruction,
+) -> Result<CompiledInstruction, VmError> {
+    match ins.op {
+        OpCode::PushInt => Ok(CompiledInstruction::PushInt(require_i64_arg(ins, "PUSH_INT")?)),
+        OpCode::PushFloat => Ok(CompiledInstruction::PushFloat(require_f64_arg(
+            ins,
+            "PUSH_FLOAT",
+        )?)),
+        OpCode::PushBool => Ok(CompiledInstruction::PushBool(require_bool_arg(
+            ins,
+            "PUSH_BOOL",
+        )?)),
+        OpCode::PushString => {
+            let idx = require_u32_arg(ins, "PUSH_STRING")? as usize;
+            let s = bytecode.strings.get(idx).ok_or_else(|| {
+                VmError::new("E4303", format!("PUSH_STRING index {} out of bounds", idx))
+            })?;
+            Ok(CompiledInstruction::PushString(s.clone()))
+        }
+        OpCode::PushUnit => Ok(CompiledInstruction::PushUnit),
+        OpCode::LoadLocal => Ok(CompiledInstruction::LoadLocal(
+            require_u32_arg(ins, "LOAD_LOCAL")? as usize,
+        )),
+        OpCode::StoreLocal => Ok(CompiledInstruction::StoreLocal(
+            require_u32_arg(ins, "STORE_LOCAL")? as usize,
+        )),
+        OpCode::Pop => Ok(CompiledInstruction::Pop),
+        OpCode::Jump => {
+            let target = require_u32_arg(ins, "JUMP")? as usize;
+            if target > fn_len {
+                return Err(VmError::new("E4303", "JUMP target out of bounds"));
+            }
+            Ok(CompiledInstruction::Jump(target))
+        }
+        OpCode::JumpIfFalse => {
+            let target = require_u32_arg(ins, "JUMP_IF_FALSE")? as usize;
+            if target > fn_len {
+                return Err(VmError::new("E4303", "JUMP_IF_FALSE target out of bounds"));
+            }
+            Ok(CompiledInstruction::JumpIfFalse(target))
+        }
+        OpCode::CallBuiltin => Ok(CompiledInstruction::CallBuiltin {
+            id: ins
+                .id
+                .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing id"))?,
+            argc: ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing argc"))?
+                as usize,
+        }),
+        OpCode::CallFn => Ok(CompiledInstruction::CallFn {
+            target_fn: require_u32_arg(ins, "CALL_FN")? as usize,
+            argc: ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_FN missing argc"))?
+                as usize,
+        }),
+        OpCode::CallIndirect => Ok(CompiledInstruction::CallIndirect {
+            argc: ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_INDIRECT missing argc"))?
+                as usize,
+        }),
+        OpCode::CallHost => {
+            let host_name_idx = require_u32_arg(ins, "CALL_HOST")? as usize;
+            let host_name = bytecode.strings.get(host_name_idx).ok_or_else(|| {
+                VmError::new(
+                    "E4303",
+                    format!("CALL_HOST string index {} out of bounds", host_name_idx),
+                )
+            })?;
+            let argc = ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_HOST missing argc"))?
+                as usize;
+            Ok(CompiledInstruction::CallHost {
+                host_name: host_name.clone(),
+                argc,
+            })
+        }
+        OpCode::Return => Ok(CompiledInstruction::Return),
+        OpCode::Trap => {
+            let idx = require_u32_arg(ins, "TRAP")? as usize;
+            let msg = bytecode.strings.get(idx).ok_or_else(|| {
+                VmError::new("E4303", format!("TRAP string index {} out of bounds", idx))
+            })?;
+            Ok(CompiledInstruction::Trap(msg.clone()))
+        }
+        OpCode::MkList => Ok(CompiledInstruction::MkList {
+            argc: ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "MK_LIST missing argc"))?
+                as usize,
+        }),
+        OpCode::GetIndex => Ok(CompiledInstruction::GetIndex),
+        OpCode::Len => Ok(CompiledInstruction::Len),
+    }
 }
 
 fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value, VmError> {
