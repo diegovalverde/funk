@@ -136,8 +136,6 @@ struct Frame {
 #[derive(Debug, Clone)]
 struct CompiledFunction {
     name: String,
-    arity: usize,
-    captures: u32,
     code: Vec<CompiledInstruction>,
 }
 
@@ -170,8 +168,12 @@ enum CompiledInstruction {
     BuiltinIsList,
     BuiltinListSize,
     CallBuiltin { id: u8, argc: usize },
-    CallFn { target_fn: usize, argc: usize },
-    CallIndirect { argc: usize },
+    CallFn {
+        target_fn: usize,
+        argc: usize,
+        tail: bool,
+    },
+    CallIndirect { argc: usize, tail: bool },
     CallHost { host_name: String, argc: usize },
     Return,
     Trap(String),
@@ -566,40 +568,23 @@ fn execute_with_entry<H: VmHost>(
                 stack.truncate(args_start);
                 stack.push(result);
             }
-            CompiledInstruction::CallFn { target_fn, argc } => {
+            CompiledInstruction::CallFn {
+                target_fn,
+                argc,
+                tail,
+            } => {
                 let argc = *argc;
-                let target = compiled_functions.get(*target_fn).ok_or_else(|| {
-                    VmError::new("E4303", format!("CALL_FN function {} out of bounds", target_fn))
-                })?;
-                if target.captures != 0 {
-                    return Err(VmError::new(
-                        "E4305",
-                        "CALL_FN cannot target closure-compiled function",
-                    ));
-                }
-                if target.arity as usize != argc {
-                    return Err(VmError::new(
-                        "E4305",
-                        format!(
-                            "CALL_FN arity mismatch for '{}': expected {}, got {}",
-                            target.name, target.arity, argc
-                        ),
-                    ));
-                }
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_FN"));
                 }
                 let args_start = stack.len() - argc;
-                let tail_pos = frame.ip < func.code.len()
-                    && matches!(func.code[frame.ip], CompiledInstruction::Return);
-                if tail_pos {
+                if *tail {
                     frame.locals.clear();
                     frame.locals.extend(stack.drain(args_start..));
                     frame.fn_id = *target_fn;
                     frame.ip = 0;
                 } else {
-                    let mut args = Vec::with_capacity(argc);
-                    args.extend(stack.drain(args_start..));
+                    let args = stack.split_off(args_start);
                     frames.push(Frame {
                         fn_id: *target_fn,
                         ip: 0,
@@ -607,7 +592,7 @@ fn execute_with_entry<H: VmHost>(
                     });
                 }
             }
-            CompiledInstruction::CallIndirect { argc } => {
+            CompiledInstruction::CallIndirect { argc, tail } => {
                 let argc = *argc;
                 if stack.len() < argc + 1 {
                     return Err(VmError::new("E4304", "stack underflow in CALL_INDIRECT"));
@@ -627,17 +612,14 @@ fn execute_with_entry<H: VmHost>(
                             format!("CALL_INDIRECT unresolved target '{}/{}'", callee_name, argc),
                         )
                     })?;
-                let tail_pos = frame.ip < func.code.len()
-                    && matches!(func.code[frame.ip], CompiledInstruction::Return);
-                if tail_pos {
+                if *tail {
                     frame.locals.clear();
                     frame.locals.extend(stack.drain(args_start..));
                     stack.truncate(callee_idx);
                     frame.fn_id = *target_fn;
                     frame.ip = 0;
                 } else {
-                    let mut args = Vec::with_capacity(argc);
-                    args.extend(stack.drain(args_start..));
+                    let args = stack.split_off(args_start);
                     stack.truncate(callee_idx);
                     frames.push(Frame {
                         fn_id: *target_fn,
@@ -720,15 +702,13 @@ fn execute_with_entry<H: VmHost>(
 
 fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmError> {
     let mut functions = Vec::with_capacity(bytecode.functions.len());
-    for f in &bytecode.functions {
+    for (fn_idx, f) in bytecode.functions.iter().enumerate() {
         let mut code = Vec::with_capacity(f.code.len());
-        for ins in &f.code {
-            code.push(compile_instruction(bytecode, f.code.len(), ins)?);
+        for (ip, ins) in f.code.iter().enumerate() {
+            code.push(compile_instruction(bytecode, fn_idx, &f.code, ip, ins)?);
         }
         functions.push(CompiledFunction {
             name: f.name.clone(),
-            arity: f.arity as usize,
-            captures: f.captures,
             code,
         });
     }
@@ -737,9 +717,13 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
 
 fn compile_instruction(
     bytecode: &Bytecode,
-    fn_len: usize,
+    fn_idx: usize,
+    fn_code: &[Instruction],
+    ip: usize,
     ins: &Instruction,
 ) -> Result<CompiledInstruction, VmError> {
+    let fn_len = fn_code.len();
+    let tail_pos = ip + 1 < fn_len && matches!(fn_code[ip + 1].op, OpCode::Return);
     match ins.op {
         OpCode::PushInt => Ok(CompiledInstruction::PushInt(require_i64_arg(ins, "PUSH_INT")?)),
         OpCode::PushFloat => Ok(CompiledInstruction::PushFloat(require_f64_arg(
@@ -807,18 +791,48 @@ fn compile_instruction(
                 _ => Ok(CompiledInstruction::CallBuiltin { id, argc }),
             }
         }
-        OpCode::CallFn => Ok(CompiledInstruction::CallFn {
-            target_fn: require_u32_arg(ins, "CALL_FN")? as usize,
-            argc: ins
+        OpCode::CallFn => {
+            let target_fn = require_u32_arg(ins, "CALL_FN")? as usize;
+            let argc = ins
                 .argc
                 .ok_or_else(|| VmError::new("E4305", "CALL_FN missing argc"))?
-                as usize,
-        }),
+                as usize;
+            let target = bytecode.functions.get(target_fn).ok_or_else(|| {
+                VmError::new(
+                    "E4303",
+                    format!(
+                        "CALL_FN function {} out of bounds at function {}, ip {}",
+                        target_fn, fn_idx, ip
+                    ),
+                )
+            })?;
+            if target.captures != 0 {
+                return Err(VmError::new(
+                    "E4305",
+                    "CALL_FN cannot target closure-compiled function",
+                ));
+            }
+            if target.arity as usize != argc {
+                return Err(VmError::new(
+                    "E4305",
+                    format!(
+                        "CALL_FN arity mismatch for '{}': expected {}, got {}",
+                        target.name, target.arity, argc
+                    ),
+                ));
+            }
+            Ok(CompiledInstruction::CallFn {
+                target_fn,
+                argc,
+                tail: tail_pos,
+            })
+        }
         OpCode::CallIndirect => Ok(CompiledInstruction::CallIndirect {
             argc: ins
                 .argc
                 .ok_or_else(|| VmError::new("E4305", "CALL_INDIRECT missing argc"))?
                 as usize,
+            tail: tail_pos,
         }),
         OpCode::CallHost => {
             let host_name_idx = require_u32_arg(ins, "CALL_HOST")? as usize;
