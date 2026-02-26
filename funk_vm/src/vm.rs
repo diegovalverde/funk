@@ -190,6 +190,11 @@ enum CompiledInstruction {
     Return,
     Trap(String),
     MkList { argc: usize },
+    ListLenCmpZeroJump {
+        local: usize,
+        cmp_gt_zero: bool,
+        target: usize,
+    },
     GetIndexConst(i64),
     GetIndex,
     Len,
@@ -760,6 +765,26 @@ fn execute_with_entry<H: VmHost>(
                 let items = stack.split_off(stack.len() - argc);
                 stack.push(Value::List(ListValue::from_vec(items)));
             }
+            CompiledInstruction::ListLenCmpZeroJump {
+                local,
+                cmp_gt_zero,
+                target,
+            } => {
+                let len = match frame.locals.get(*local) {
+                    Some(Value::List(items)) => items.len() as i64,
+                    Some(_) => return Err(VmError::new("E4305", "list_size arg must be list")),
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!("LOAD_LOCAL index {} out of bounds in '{}'", local, func.name),
+                        ))
+                    }
+                };
+                let cond = if *cmp_gt_zero { len > 0 } else { len == 0 };
+                if !cond {
+                    frame.ip = *target;
+                }
+            }
             CompiledInstruction::GetIndex => {
                 let idx_val = stack
                     .pop()
@@ -818,6 +843,7 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
         let jump_targets = collect_jump_targets(&f.code)?;
         let mut skip_compile = vec![false; f.code.len()];
         let mut get_index_const: Vec<Option<i64>> = vec![None; f.code.len()];
+        let mut list_len_cmp_zero_jump: Vec<Option<(usize, bool, usize)>> = vec![None; f.code.len()];
         if f.code.len() >= 2 {
             for ip in 0..(f.code.len() - 1) {
                 if !matches!(f.code[ip].op, OpCode::PushInt)
@@ -832,6 +858,48 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                 let idx = require_i64_arg(&f.code[ip], "PUSH_INT")?;
                 skip_compile[ip] = true;
                 get_index_const[ip + 1] = Some(idx);
+            }
+        }
+        if f.code.len() >= 8 {
+            for ip in 0..=(f.code.len() - 8) {
+                let window_has_jump_target = (ip..=ip + 7).any(|k| jump_targets[k]);
+                if window_has_jump_target {
+                    continue;
+                }
+                if skip_compile[ip..=ip + 7].iter().any(|v| *v) {
+                    continue;
+                }
+                if !matches!(f.code[ip].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 1].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 2].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 3].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 4].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 5].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 6].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 7].op, OpCode::JumpIfFalse)
+                {
+                    continue;
+                }
+                let local0 = require_u32_arg(&f.code[ip], "LOAD_LOCAL")? as usize;
+                let local1 = require_u32_arg(&f.code[ip + 2], "LOAD_LOCAL")? as usize;
+                if local0 != local1 {
+                    continue;
+                }
+                let is_list_ok = f.code[ip + 1].id == Some(47) && f.code[ip + 1].argc == Some(1);
+                let list_size_ok = f.code[ip + 3].id == Some(49) && f.code[ip + 3].argc == Some(1);
+                let push_zero_ok = require_i64_arg(&f.code[ip + 4], "PUSH_INT")? == 0;
+                let cmp_id = f.code[ip + 5].id;
+                let cmp_ok = f.code[ip + 5].argc == Some(2) && matches!(cmp_id, Some(25) | Some(29));
+                let and_ok = f.code[ip + 6].id == Some(31) && f.code[ip + 6].argc == Some(2);
+                if !(is_list_ok && list_size_ok && push_zero_ok && cmp_ok && and_ok) {
+                    continue;
+                }
+                let target = require_u32_arg(&f.code[ip + 7], "JUMP_IF_FALSE")? as usize;
+                let cmp_gt_zero = cmp_id == Some(29);
+                for slot in skip_compile.iter_mut().take(ip + 7).skip(ip) {
+                    *slot = true;
+                }
+                list_len_cmp_zero_jump[ip + 7] = Some((local0, cmp_gt_zero, target));
             }
         }
 
@@ -852,6 +920,14 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
             }
             if let Some(idx) = get_index_const[ip] {
                 code.push(CompiledInstruction::GetIndexConst(idx));
+                continue;
+            }
+            if let Some((local, cmp_gt_zero, target)) = list_len_cmp_zero_jump[ip] {
+                code.push(CompiledInstruction::ListLenCmpZeroJump {
+                    local,
+                    cmp_gt_zero,
+                    target: old_to_new[target],
+                });
                 continue;
             }
             code.push(compile_instruction(
