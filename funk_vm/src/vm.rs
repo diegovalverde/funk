@@ -153,6 +153,22 @@ enum CompiledInstruction {
     Pop,
     Jump(usize),
     JumpIfFalse(usize),
+    BuiltinAdd,
+    BuiltinSub,
+    BuiltinMul,
+    BuiltinDiv,
+    BuiltinMod,
+    BuiltinEq,
+    BuiltinNe,
+    BuiltinLt,
+    BuiltinLe,
+    BuiltinGt,
+    BuiltinGe,
+    BuiltinAnd,
+    BuiltinOr,
+    BuiltinNot,
+    BuiltinIsList,
+    BuiltinListSize,
     CallBuiltin { id: u8, argc: usize },
     CallFn { target_fn: usize, argc: usize },
     CallIndirect { argc: usize },
@@ -363,17 +379,192 @@ fn execute_with_entry<H: VmHost>(
                     frame.ip = *target;
                 }
             }
+            CompiledInstruction::BuiltinAdd => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_numeric_binop(&mut stack, |a, b| a.checked_add(b), |a, b| a + b)? {
+                    let n = stack.len();
+                    let result = call_builtin(20, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinSub => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_numeric_binop(&mut stack, |a, b| a.checked_sub(b), |a, b| a - b)? {
+                    let n = stack.len();
+                    let result = call_builtin(21, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinMul => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_numeric_binop(&mut stack, |a, b| a.checked_mul(b), |a, b| a * b)? {
+                    let n = stack.len();
+                    let result = call_builtin(22, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinDiv => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_div(&mut stack)? {
+                    let n = stack.len();
+                    let result = call_builtin(23, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinMod => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_mod(&mut stack)? {
+                    let n = stack.len();
+                    let result = call_builtin(24, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinEq => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                let out = Value::Bool(stack[n - 2] == stack[n - 1]);
+                stack.truncate(n - 2);
+                stack.push(out);
+            }
+            CompiledInstruction::BuiltinNe => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                let out = Value::Bool(stack[n - 2] != stack[n - 1]);
+                stack.truncate(n - 2);
+                stack.push(out);
+            }
+            CompiledInstruction::BuiltinLt => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a < b)? {
+                    let n = stack.len();
+                    let result = call_builtin(27, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinLe => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a <= b)? {
+                    let n = stack.len();
+                    let result = call_builtin(28, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinGt => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a > b)? {
+                    let n = stack.len();
+                    let result = call_builtin(29, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinGe => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a >= b)? {
+                    let n = stack.len();
+                    let result = call_builtin(30, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinAnd => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_bool2(&mut stack, |a, b| a && b)? {
+                    let n = stack.len();
+                    let result = call_builtin(31, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinOr => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_bool2(&mut stack, |a, b| a || b)? {
+                    let n = stack.len();
+                    let result = call_builtin(32, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinNot => {
+                if stack.is_empty() {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_not(&mut stack)? {
+                    let n = stack.len();
+                    let result = call_builtin(33, &stack[n - 1..], host)?;
+                    stack.truncate(n - 1);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinIsList => {
+                if stack.is_empty() {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                let is_list = matches!(stack[n - 1], Value::List(_));
+                stack.truncate(n - 1);
+                stack.push(Value::Bool(is_list));
+            }
+            CompiledInstruction::BuiltinListSize => {
+                if stack.is_empty() {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                match &stack[n - 1] {
+                    Value::List(items) => {
+                        let len = items.len() as i64;
+                        stack.truncate(n - 1);
+                        stack.push(Value::Int(len));
+                    }
+                    _ => {
+                        let result = call_builtin(49, &stack[n - 1..], host)?;
+                        stack.truncate(n - 1);
+                        stack.push(result);
+                    }
+                }
+            }
             CompiledInstruction::CallBuiltin { id, argc } => {
                 let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
                 let args_start = stack.len() - argc;
-                if !try_call_builtin_fastpath(*id, argc, &mut stack)? {
-                    let result = call_builtin(*id, &stack[args_start..], host)?;
-                    stack.truncate(args_start);
-                    stack.push(result);
-                }
+                let result = call_builtin(*id, &stack[args_start..], host)?;
+                stack.truncate(args_start);
+                stack.push(result);
             }
             CompiledInstruction::CallFn { target_fn, argc } => {
                 let argc = *argc;
@@ -588,15 +779,34 @@ fn compile_instruction(
             }
             Ok(CompiledInstruction::JumpIfFalse(target))
         }
-        OpCode::CallBuiltin => Ok(CompiledInstruction::CallBuiltin {
-            id: ins
+        OpCode::CallBuiltin => {
+            let id = ins
                 .id
-                .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing id"))?,
-            argc: ins
+                .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing id"))?;
+            let argc = ins
                 .argc
                 .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing argc"))?
-                as usize,
-        }),
+                as usize;
+            match (id, argc) {
+                (20, 2) => Ok(CompiledInstruction::BuiltinAdd),
+                (21, 2) => Ok(CompiledInstruction::BuiltinSub),
+                (22, 2) => Ok(CompiledInstruction::BuiltinMul),
+                (23, 2) => Ok(CompiledInstruction::BuiltinDiv),
+                (24, 2) => Ok(CompiledInstruction::BuiltinMod),
+                (25, 2) => Ok(CompiledInstruction::BuiltinEq),
+                (26, 2) => Ok(CompiledInstruction::BuiltinNe),
+                (27, 2) => Ok(CompiledInstruction::BuiltinLt),
+                (28, 2) => Ok(CompiledInstruction::BuiltinLe),
+                (29, 2) => Ok(CompiledInstruction::BuiltinGt),
+                (30, 2) => Ok(CompiledInstruction::BuiltinGe),
+                (31, 2) => Ok(CompiledInstruction::BuiltinAnd),
+                (32, 2) => Ok(CompiledInstruction::BuiltinOr),
+                (33, 1) => Ok(CompiledInstruction::BuiltinNot),
+                (47, 1) => Ok(CompiledInstruction::BuiltinIsList),
+                (49, 1) => Ok(CompiledInstruction::BuiltinListSize),
+                _ => Ok(CompiledInstruction::CallBuiltin { id, argc }),
+            }
+        }
         OpCode::CallFn => Ok(CompiledInstruction::CallFn {
             target_fn: require_u32_arg(ins, "CALL_FN")? as usize,
             argc: ins
@@ -643,60 +853,6 @@ fn compile_instruction(
         }),
         OpCode::GetIndex => Ok(CompiledInstruction::GetIndex),
         OpCode::Len => Ok(CompiledInstruction::Len),
-    }
-}
-
-fn try_call_builtin_fastpath(
-    id: u8,
-    argc: usize,
-    stack: &mut Vec<Value>,
-) -> Result<bool, VmError> {
-    match (id, argc) {
-        (20, 2) => fast_numeric_binop(stack, |a, b| a.checked_add(b), |a, b| a + b),
-        (21, 2) => fast_numeric_binop(stack, |a, b| a.checked_sub(b), |a, b| a - b),
-        (22, 2) => fast_numeric_binop(stack, |a, b| a.checked_mul(b), |a, b| a * b),
-        (23, 2) => fast_div(stack),
-        (24, 2) => fast_mod(stack),
-        (25, 2) => {
-            let n = stack.len();
-            let out = Value::Bool(stack[n - 2] == stack[n - 1]);
-            stack.truncate(n - 2);
-            stack.push(out);
-            Ok(true)
-        }
-        (26, 2) => {
-            let n = stack.len();
-            let out = Value::Bool(stack[n - 2] != stack[n - 1]);
-            stack.truncate(n - 2);
-            stack.push(out);
-            Ok(true)
-        }
-        (27, 2) => fast_cmp_num(stack, |a, b| a < b),
-        (28, 2) => fast_cmp_num(stack, |a, b| a <= b),
-        (29, 2) => fast_cmp_num(stack, |a, b| a > b),
-        (30, 2) => fast_cmp_num(stack, |a, b| a >= b),
-        (31, 2) => fast_bool2(stack, |a, b| a && b),
-        (32, 2) => fast_bool2(stack, |a, b| a || b),
-        (33, 1) => fast_not(stack),
-        (47, 1) => {
-            let n = stack.len();
-            let is_list = matches!(stack[n - 1], Value::List(_));
-            stack.truncate(n - 1);
-            stack.push(Value::Bool(is_list));
-            Ok(true)
-        }
-        (49, 1) => {
-            let n = stack.len();
-            if let Value::List(items) = &stack[n - 1] {
-                let len = items.len() as i64;
-                stack.truncate(n - 1);
-                stack.push(Value::Int(len));
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        }
-        _ => Ok(false),
     }
 }
 
