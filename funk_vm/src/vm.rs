@@ -564,9 +564,25 @@ fn execute_with_entry<H: VmHost>(
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
                 let args_start = stack.len() - argc;
-                let result = call_builtin(*id, &stack[args_start..], host)?;
-                stack.truncate(args_start);
-                stack.push(result);
+                if *id == 48 && argc == 1 {
+                    let n = stack.len();
+                    match &stack[n - 1] {
+                        Value::List(items) => {
+                            let out = Value::List(items.tail());
+                            stack.truncate(n - 1);
+                            stack.push(out);
+                        }
+                        _ => {
+                            let result = call_builtin(*id, &stack[args_start..], host)?;
+                            stack.truncate(args_start);
+                            stack.push(result);
+                        }
+                    }
+                } else {
+                    let result = call_builtin(*id, &stack[args_start..], host)?;
+                    stack.truncate(args_start);
+                    stack.push(result);
+                }
             }
             CompiledInstruction::CallFn {
                 target_fn,
