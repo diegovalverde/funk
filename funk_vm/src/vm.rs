@@ -22,8 +22,74 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     String(String),
-    List(Rc<Vec<Value>>),
+    List(ListValue),
     Unit,
+}
+
+#[derive(Debug, Clone)]
+pub struct ListValue {
+    data: Rc<Vec<Value>>,
+    start: usize,
+    end: usize,
+}
+
+impl PartialEq for ListValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl ListValue {
+    fn from_vec(items: Vec<Value>) -> Self {
+        let end = items.len();
+        Self {
+            data: Rc::new(items),
+            start: 0,
+            end,
+        }
+    }
+
+    fn as_slice(&self) -> &[Value] {
+        &self.data[self.start..self.end]
+    }
+
+    fn len(&self) -> usize {
+        self.end - self.start
+    }
+
+    fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
+
+    fn get(&self, idx: usize) -> Option<&Value> {
+        self.as_slice().get(idx)
+    }
+
+    fn iter(&self) -> std::slice::Iter<'_, Value> {
+        self.as_slice().iter()
+    }
+
+    fn tail(&self) -> Self {
+        if self.len() <= 1 {
+            return Self::from_vec(Vec::new());
+        }
+        Self {
+            data: Rc::clone(&self.data),
+            start: self.start + 1,
+            end: self.end,
+        }
+    }
+
+    fn slice_inclusive(&self, start: usize, end: usize) -> Self {
+        if start > end || end >= self.len() {
+            return Self::from_vec(Vec::new());
+        }
+        Self {
+            data: Rc::clone(&self.data),
+            start: self.start + start,
+            end: self.start + end + 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -437,7 +503,7 @@ fn execute_with_entry<H: VmHost>(
                     return Err(VmError::new("E4304", "stack underflow in MK_LIST"));
                 }
                 let items = stack.split_off(stack.len() - argc);
-                stack.push(Value::List(Rc::new(items)));
+                stack.push(Value::List(ListValue::from_vec(items)));
             }
             OpCode::GetIndex => {
                 let idx_val = stack
@@ -468,7 +534,7 @@ fn execute_with_entry<H: VmHost>(
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in LEN"))?;
                 let len = match value {
-                    Value::List(items) => deep_len(&items) as i64,
+                    Value::List(items) => deep_len(items.as_slice()) as i64,
                     Value::String(s) => s.chars().count() as i64,
                     _ => 1,
                 };
@@ -627,7 +693,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 return Err(VmError::new("E4305", "len expects one arg"));
             }
             let len = match &args[0] {
-                Value::List(items) => deep_len(items) as i64,
+                Value::List(items) => deep_len(items.as_slice()) as i64,
                 Value::String(s) => s.chars().count() as i64,
                 _ => 1,
             };
@@ -662,8 +728,8 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 _ => return Err(VmError::new("E4305", "flatten expects list arg")),
             };
             let mut out = Vec::new();
-            flatten_values(items, &mut out);
-            Ok(Value::List(Rc::new(out)))
+            flatten_values(items.as_slice(), &mut out);
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         41 => {
             if args.len() != 2 {
@@ -679,7 +745,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 Value::List(items) => out.extend(items.iter().cloned()),
                 other => out.push(other.clone()),
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         42 => {
             if args.len() != 2 {
@@ -702,7 +768,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 Value::List(items) => out.extend(items.iter().cloned()),
                 other => out.push(other.clone()),
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         43 => {
             if args.len() != 2 {
@@ -711,7 +777,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
             let left = spread_list(&args[0], "list concat tail arg0")?;
             let mut out = left.to_vec();
             out.push(args[1].clone());
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         44 => {
             let (left, right) = spread_list2(args, "difference")?;
@@ -721,7 +787,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                     out.push(item.clone());
                 }
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         45 => {
             if args.len() != 3 {
@@ -745,10 +811,10 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
             let mut out = Vec::with_capacity(rows);
             for i in 0..rows {
                 let start = i * cols;
-                let end = start + cols;
-                out.push(Value::List(Rc::new(items[start..end].to_vec())));
+                let end = start + cols - 1;
+                out.push(Value::List(items.slice_inclusive(start, end)));
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         47 => {
             if args.len() != 1 {
@@ -764,11 +830,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 Value::List(items) => items,
                 _ => return Err(VmError::new("E4305", "tail arg must be list")),
             };
-            if items.len() <= 1 {
-                Ok(Value::List(Rc::new(Vec::new())))
-            } else {
-                Ok(Value::List(Rc::new(items[1..].to_vec())))
-            }
+            Ok(Value::List(items.tail()))
         }
         49 => {
             if args.len() != 1 {
@@ -799,7 +861,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 })?;
                 out.push(Value::Int(n));
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         40 => {
             if args.len() != 3 {
@@ -810,7 +872,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 _ => return Err(VmError::new("E4305", "slice arg0 expects list")),
             };
             if items.is_empty() {
-                return Ok(Value::List(Rc::new(Vec::new())));
+                return Ok(Value::List(ListValue::from_vec(Vec::new())));
             }
             let start = match args[1] {
                 Value::Int(v) => normalize_index(v, items.len()),
@@ -821,9 +883,9 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 _ => return Err(VmError::new("E4305", "slice arg2 expects int")),
             };
             if end < start {
-                return Ok(Value::List(Rc::new(Vec::new())));
+                return Ok(Value::List(ListValue::from_vec(Vec::new())));
             }
-            Ok(Value::List(Rc::new(items[start..=end].to_vec())))
+            Ok(Value::List(items.slice_inclusive(start, end)))
         }
         _ => Err(VmError::new(
             "E4305",
@@ -877,7 +939,7 @@ fn to_f64(value: &Value, label: &str) -> Result<f64, VmError> {
 fn flatten_values(items: &[Value], out: &mut Vec<Value>) {
     for item in items {
         match item {
-            Value::List(nested) => flatten_values(nested, out),
+            Value::List(nested) => flatten_values(nested.as_slice(), out),
             _ => out.push(item.clone()),
         }
     }
@@ -888,7 +950,7 @@ fn deep_len(items: &[Value]) -> usize {
     for item in items {
         match item {
             Value::List(nested) => {
-                total += deep_len(nested);
+                total += deep_len(nested.as_slice());
             }
             _ => total += 1,
         }
@@ -941,7 +1003,7 @@ fn neg_value(value: &Value) -> Result<Value, VmError> {
             for item in items.iter() {
                 out.push(neg_value(item)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         _ => Err(VmError::new("E4305", "neg expects numeric/bool/list arg")),
     }
@@ -959,7 +1021,7 @@ fn abs_value(value: &Value) -> Result<Value, VmError> {
             for item in items.iter() {
                 out.push(abs_value(item)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         _ => Err(VmError::new("E4305", "abs expects int or float arg")),
     }
@@ -1041,46 +1103,30 @@ where
             if lhs.len() != rhs.len() {
                 return Err(VmError::new("E4305", "list sizes must match for elementwise operation"));
             }
+            let lhs_items = lhs.as_slice();
+            let rhs_items = rhs.as_slice();
             let mut out = Vec::with_capacity(lhs.len());
             for i in 0..lhs.len() {
-                out.push(f(&lhs[i], &rhs[i])?);
+                out.push(f(&lhs_items[i], &rhs_items[i])?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         (Value::List(lhs), scalar) => {
             let mut out = Vec::with_capacity(lhs.len());
             for item in lhs.iter() {
                 out.push(f(item, scalar)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         (scalar, Value::List(rhs)) => {
             let mut out = Vec::with_capacity(rhs.len());
             for item in rhs.iter() {
                 out.push(f(scalar, item)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         _ => Err(VmError::new("E4305", "internal map_list2 misuse")),
     }
-}
-
-fn list2<'a>(args: &'a [Value], op: &str) -> Result<(&'a [Value], &'a [Value]), VmError> {
-    if args.len() != 2 {
-        return Err(VmError::new(
-            "E4305",
-            format!("builtin {} expects 2 list args", op),
-        ));
-    }
-    let left = match &args[0] {
-        Value::List(items) => items,
-        _ => return Err(VmError::new("E4305", format!("builtin {} arg0 must be list", op))),
-    };
-    let right = match &args[1] {
-        Value::List(items) => items,
-        _ => return Err(VmError::new("E4305", format!("builtin {} arg1 must be list", op))),
-    };
-    Ok((left, right))
 }
 
 fn spread_list<'a>(value: &'a Value, arg_name: &str) -> Result<&'a [Value], VmError> {
