@@ -73,6 +73,10 @@ impl ListValue {
         self.as_slice().iter()
     }
 
+    fn first(&self) -> Option<&Value> {
+        self.as_slice().first()
+    }
+
     fn tail(&self) -> Self {
         if self.len() <= 1 {
             return Self::from_vec(Vec::new());
@@ -776,20 +780,22 @@ fn execute_with_entry<H: VmHost>(
                 head_local,
             } => {
                 if src_local != tail_local {
-                    let src_value = frame.locals.get(*src_local).cloned().ok_or_else(|| {
-                        VmError::new(
-                            "E4303",
-                            format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
-                        )
-                    })?;
-                    let (tail_value, head_value) = match src_value {
-                        Value::List(items) => {
-                            let head = items.get_wrapped(0).cloned().ok_or_else(|| {
-                                VmError::new("E4303", "GET_INDEX list index out of bounds")
-                            })?;
-                            (Value::List(items.tail()), head)
+                    let (tail_value, head_value) = {
+                        let src_value = frame.locals.get(*src_local).ok_or_else(|| {
+                            VmError::new(
+                                "E4303",
+                                format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
+                            )
+                        })?;
+                        match src_value {
+                            Value::List(items) => {
+                                let head = items.first().cloned().ok_or_else(|| {
+                                    VmError::new("E4303", "GET_INDEX list index out of bounds")
+                                })?;
+                                (Value::List(items.tail()), head)
+                            }
+                            _ => return Err(VmError::new("E4305", "tail arg must be list")),
                         }
-                        _ => return Err(VmError::new("E4305", "tail arg must be list")),
                     };
                     if frame.locals.len() <= *tail_local {
                         frame.locals.resize(*tail_local + 1, Value::Unit);
@@ -824,7 +830,7 @@ fn execute_with_entry<H: VmHost>(
                         )
                     })?;
                     let head_value = match src_value {
-                        Value::List(items) => items.get_wrapped(0).cloned().ok_or_else(|| {
+                        Value::List(items) => items.first().cloned().ok_or_else(|| {
                             VmError::new("E4303", "GET_INDEX list index out of bounds")
                         })?,
                         _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
@@ -882,9 +888,15 @@ fn execute_with_entry<H: VmHost>(
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
                 match list_val {
                     Value::List(items) => {
-                        let item = items.get_wrapped(*raw_idx).ok_or_else(|| {
-                            VmError::new("E4303", "GET_INDEX list index out of bounds")
-                        })?;
+                        let item = if *raw_idx == 0 {
+                            items.first().ok_or_else(|| {
+                                VmError::new("E4303", "GET_INDEX list index out of bounds")
+                            })?
+                        } else {
+                            items.get_wrapped(*raw_idx).ok_or_else(|| {
+                                VmError::new("E4303", "GET_INDEX list index out of bounds")
+                            })?
+                        };
                         stack.push(item.clone());
                     }
                     _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
