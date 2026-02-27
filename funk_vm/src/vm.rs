@@ -190,6 +190,11 @@ enum CompiledInstruction {
     Return,
     Trap(String),
     MkList { argc: usize },
+    SplitHeadTailLocal {
+        src_local: usize,
+        tail_local: usize,
+        head_local: usize,
+    },
     ListLenCmpZeroJump {
         local: usize,
         cmp_gt_zero: bool,
@@ -765,6 +770,71 @@ fn execute_with_entry<H: VmHost>(
                 let items = stack.split_off(stack.len() - argc);
                 stack.push(Value::List(ListValue::from_vec(items)));
             }
+            CompiledInstruction::SplitHeadTailLocal {
+                src_local,
+                tail_local,
+                head_local,
+            } => {
+                if src_local != tail_local {
+                    let src_value = frame.locals.get(*src_local).cloned().ok_or_else(|| {
+                        VmError::new(
+                            "E4303",
+                            format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
+                        )
+                    })?;
+                    let (tail_value, head_value) = match src_value {
+                        Value::List(items) => {
+                            let head = items.get_wrapped(0).cloned().ok_or_else(|| {
+                                VmError::new("E4303", "GET_INDEX list index out of bounds")
+                            })?;
+                            (Value::List(items.tail()), head)
+                        }
+                        _ => return Err(VmError::new("E4305", "tail arg must be list")),
+                    };
+                    if frame.locals.len() <= *tail_local {
+                        frame.locals.resize(*tail_local + 1, Value::Unit);
+                    }
+                    frame.locals[*tail_local] = tail_value;
+                    if frame.locals.len() <= *head_local {
+                        frame.locals.resize(*head_local + 1, Value::Unit);
+                    }
+                    frame.locals[*head_local] = head_value;
+                } else {
+                    // Preserve original semantics for aliasing case:
+                    // store tail first, then reload source for head extraction.
+                    let src_value = frame.locals.get(*src_local).cloned().ok_or_else(|| {
+                        VmError::new(
+                            "E4303",
+                            format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
+                        )
+                    })?;
+                    let tail_value = match src_value {
+                        Value::List(items) => Value::List(items.tail()),
+                        _ => return Err(VmError::new("E4305", "tail arg must be list")),
+                    };
+                    if frame.locals.len() <= *tail_local {
+                        frame.locals.resize(*tail_local + 1, Value::Unit);
+                    }
+                    frame.locals[*tail_local] = tail_value;
+
+                    let src_value = frame.locals.get(*src_local).cloned().ok_or_else(|| {
+                        VmError::new(
+                            "E4303",
+                            format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
+                        )
+                    })?;
+                    let head_value = match src_value {
+                        Value::List(items) => items.get_wrapped(0).cloned().ok_or_else(|| {
+                            VmError::new("E4303", "GET_INDEX list index out of bounds")
+                        })?,
+                        _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
+                    };
+                    if frame.locals.len() <= *head_local {
+                        frame.locals.resize(*head_local + 1, Value::Unit);
+                    }
+                    frame.locals[*head_local] = head_value;
+                }
+            }
             CompiledInstruction::ListLenCmpZeroJump {
                 local,
                 cmp_gt_zero,
@@ -843,6 +913,7 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
         let jump_targets = collect_jump_targets(&f.code)?;
         let mut skip_compile = vec![false; f.code.len()];
         let mut get_index_const: Vec<Option<i64>> = vec![None; f.code.len()];
+        let mut split_head_tail_local: Vec<Option<(usize, usize, usize)>> = vec![None; f.code.len()];
         let mut list_len_cmp_zero_jump: Vec<Option<(usize, bool, usize)>> = vec![None; f.code.len()];
         if f.code.len() >= 2 {
             for ip in 0..(f.code.len() - 1) {
@@ -858,6 +929,45 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                 let idx = require_i64_arg(&f.code[ip], "PUSH_INT")?;
                 skip_compile[ip] = true;
                 get_index_const[ip + 1] = Some(idx);
+            }
+        }
+        if f.code.len() >= 7 {
+            for ip in 0..=(f.code.len() - 7) {
+                if !matches!(f.code[ip].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 1].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 2].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 3].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 4].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 5].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 6].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                if (ip + 1..=ip + 6).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                if skip_compile[ip..=ip + 6].iter().any(|v| *v) {
+                    continue;
+                }
+                let call_ok = f.code[ip + 1].id == Some(48) && f.code[ip + 1].argc == Some(1);
+                if !call_ok {
+                    continue;
+                }
+                let push_zero_ok = require_i64_arg(&f.code[ip + 4], "PUSH_INT")? == 0;
+                if !push_zero_ok {
+                    continue;
+                }
+                let src0 = require_u32_arg(&f.code[ip], "LOAD_LOCAL")? as usize;
+                let src1 = require_u32_arg(&f.code[ip + 3], "LOAD_LOCAL")? as usize;
+                if src0 != src1 {
+                    continue;
+                }
+                let tail_local = require_u32_arg(&f.code[ip + 2], "STORE_LOCAL")? as usize;
+                let head_local = require_u32_arg(&f.code[ip + 6], "STORE_LOCAL")? as usize;
+                for slot in skip_compile.iter_mut().take(ip + 7).skip(ip + 1) {
+                    *slot = true;
+                }
+                split_head_tail_local[ip] = Some((src0, tail_local, head_local));
             }
         }
         if f.code.len() >= 8 {
@@ -916,6 +1026,14 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
         let mut code = Vec::with_capacity(new_ip);
         for (ip, ins) in f.code.iter().enumerate() {
             if skip_compile[ip] {
+                continue;
+            }
+            if let Some((src_local, tail_local, head_local)) = split_head_tail_local[ip] {
+                code.push(CompiledInstruction::SplitHeadTailLocal {
+                    src_local,
+                    tail_local,
+                    head_local,
+                });
                 continue;
             }
             if let Some(idx) = get_index_const[ip] {
