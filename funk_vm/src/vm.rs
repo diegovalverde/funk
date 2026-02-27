@@ -189,6 +189,7 @@ enum CompiledInstruction {
         argc: usize,
         tail: bool,
     },
+    TailCallSelf { argc: usize },
     CallIndirect { argc: usize, tail: bool },
     CallHost { host_name: String, argc: usize },
     Return,
@@ -707,6 +708,21 @@ fn execute_with_entry<H: VmHost>(
                     });
                 }
             }
+            CompiledInstruction::TailCallSelf { argc } => {
+                let argc = *argc;
+                if stack.len() < argc {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_FN"));
+                }
+                let args_start = stack.len() - argc;
+                if args_start == 0 {
+                    std::mem::swap(&mut frame.locals, &mut stack);
+                    stack.clear();
+                } else {
+                    frame.locals.clear();
+                    frame.locals.extend(stack.drain(args_start..));
+                }
+                frame.ip = 0;
+            }
             CompiledInstruction::CallIndirect { argc, tail } => {
                 let argc = *argc;
                 if stack.len() < argc + 1 {
@@ -1198,11 +1214,15 @@ fn compile_instruction(
                     ),
                 ));
             }
-            Ok(CompiledInstruction::CallFn {
-                target_fn,
-                argc,
-                tail: tail_pos,
-            })
+            if tail_pos && target_fn == fn_idx {
+                Ok(CompiledInstruction::TailCallSelf { argc })
+            } else {
+                Ok(CompiledInstruction::CallFn {
+                    target_fn,
+                    argc,
+                    tail: tail_pos,
+                })
+            }
         }
         OpCode::CallIndirect => Ok(CompiledInstruction::CallIndirect {
             argc: ins
