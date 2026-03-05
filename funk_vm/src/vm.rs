@@ -158,11 +158,27 @@ enum CompiledInstruction {
     LoadLocal1,
     LoadLocal2,
     LoadLocal3,
+    LoadLocal4,
+    LoadLocal5,
+    LoadLocal6,
+    LoadLocal7,
+    LoadLocal8,
+    LoadLocal9,
+    LoadLocal10,
+    LoadLocal11,
     LoadLocal(usize),
     StoreLocal0,
     StoreLocal1,
     StoreLocal2,
     StoreLocal3,
+    StoreLocal4,
+    StoreLocal5,
+    StoreLocal6,
+    StoreLocal7,
+    StoreLocal8,
+    StoreLocal9,
+    StoreLocal10,
+    StoreLocal11,
     StoreLocal(usize),
     Pop,
     Jump(usize),
@@ -402,6 +418,78 @@ fn execute_with_entry<H: VmHost>(
                 })?;
                 stack.push(v.clone());
             }
+            CompiledInstruction::LoadLocal4 => {
+                let v = frame.locals.get(4).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 4 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal5 => {
+                let v = frame.locals.get(5).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 5 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal6 => {
+                let v = frame.locals.get(6).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 6 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal7 => {
+                let v = frame.locals.get(7).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 7 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal8 => {
+                let v = frame.locals.get(8).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 8 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal9 => {
+                let v = frame.locals.get(9).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 9 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal10 => {
+                let v = frame.locals.get(10).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 10 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal11 => {
+                let v = frame.locals.get(11).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 11 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
             CompiledInstruction::LoadLocal(idx) => {
                 let idx = *idx;
                 let v = frame.locals.get(idx).ok_or_else(|| {
@@ -447,6 +535,78 @@ fn execute_with_entry<H: VmHost>(
                     frame.locals.resize(4, Value::Unit);
                 }
                 frame.locals[3] = v;
+            }
+            CompiledInstruction::StoreLocal4 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 4 {
+                    frame.locals.resize(5, Value::Unit);
+                }
+                frame.locals[4] = v;
+            }
+            CompiledInstruction::StoreLocal5 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 5 {
+                    frame.locals.resize(6, Value::Unit);
+                }
+                frame.locals[5] = v;
+            }
+            CompiledInstruction::StoreLocal6 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 6 {
+                    frame.locals.resize(7, Value::Unit);
+                }
+                frame.locals[6] = v;
+            }
+            CompiledInstruction::StoreLocal7 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 7 {
+                    frame.locals.resize(8, Value::Unit);
+                }
+                frame.locals[7] = v;
+            }
+            CompiledInstruction::StoreLocal8 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 8 {
+                    frame.locals.resize(9, Value::Unit);
+                }
+                frame.locals[8] = v;
+            }
+            CompiledInstruction::StoreLocal9 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 9 {
+                    frame.locals.resize(10, Value::Unit);
+                }
+                frame.locals[9] = v;
+            }
+            CompiledInstruction::StoreLocal10 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 10 {
+                    frame.locals.resize(11, Value::Unit);
+                }
+                frame.locals[10] = v;
+            }
+            CompiledInstruction::StoreLocal11 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 11 {
+                    frame.locals.resize(12, Value::Unit);
+                }
+                frame.locals[11] = v;
             }
             CompiledInstruction::StoreLocal(idx) => {
                 let idx = *idx;
@@ -1128,6 +1288,14 @@ fn compile_instruction(
                 1 => Ok(CompiledInstruction::LoadLocal1),
                 2 => Ok(CompiledInstruction::LoadLocal2),
                 3 => Ok(CompiledInstruction::LoadLocal3),
+                4 => Ok(CompiledInstruction::LoadLocal4),
+                5 => Ok(CompiledInstruction::LoadLocal5),
+                6 => Ok(CompiledInstruction::LoadLocal6),
+                7 => Ok(CompiledInstruction::LoadLocal7),
+                8 => Ok(CompiledInstruction::LoadLocal8),
+                9 => Ok(CompiledInstruction::LoadLocal9),
+                10 => Ok(CompiledInstruction::LoadLocal10),
+                11 => Ok(CompiledInstruction::LoadLocal11),
                 _ => Ok(CompiledInstruction::LoadLocal(idx)),
             }
         }
@@ -1138,6 +1306,14 @@ fn compile_instruction(
                 1 => Ok(CompiledInstruction::StoreLocal1),
                 2 => Ok(CompiledInstruction::StoreLocal2),
                 3 => Ok(CompiledInstruction::StoreLocal3),
+                4 => Ok(CompiledInstruction::StoreLocal4),
+                5 => Ok(CompiledInstruction::StoreLocal5),
+                6 => Ok(CompiledInstruction::StoreLocal6),
+                7 => Ok(CompiledInstruction::StoreLocal7),
+                8 => Ok(CompiledInstruction::StoreLocal8),
+                9 => Ok(CompiledInstruction::StoreLocal9),
+                10 => Ok(CompiledInstruction::StoreLocal10),
+                11 => Ok(CompiledInstruction::StoreLocal11),
                 _ => Ok(CompiledInstruction::StoreLocal(idx)),
             }
         }
