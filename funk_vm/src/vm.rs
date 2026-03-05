@@ -199,6 +199,7 @@ enum CompiledInstruction {
     BuiltinNot,
     BuiltinIsList,
     BuiltinListSize,
+    BuiltinTail,
     CallBuiltin { id: u8, argc: usize },
     CallFn {
         target_fn: usize,
@@ -818,31 +819,29 @@ fn execute_with_entry<H: VmHost>(
                     }
                 }
             }
+            CompiledInstruction::BuiltinTail => {
+                let n = stack.len();
+                if n < 1 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let out = match &stack[n - 1] {
+                    Value::List(items) => Value::List(items.tail()),
+                    _ => {
+                        return Err(VmError::new("E4305", "tail arg must be list"));
+                    }
+                };
+                stack.truncate(n - 1);
+                stack.push(out);
+            }
             CompiledInstruction::CallBuiltin { id, argc } => {
                 let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
                 let args_start = stack.len() - argc;
-                if *id == 48 && argc == 1 {
-                    let n = stack.len();
-                    match &stack[n - 1] {
-                        Value::List(items) => {
-                            let out = Value::List(items.tail());
-                            stack.truncate(n - 1);
-                            stack.push(out);
-                        }
-                        _ => {
-                            let result = call_builtin(*id, &stack[args_start..], host)?;
-                            stack.truncate(args_start);
-                            stack.push(result);
-                        }
-                    }
-                } else {
-                    let result = call_builtin(*id, &stack[args_start..], host)?;
-                    stack.truncate(args_start);
-                    stack.push(result);
-                }
+                let result = call_builtin(*id, &stack[args_start..], host)?;
+                stack.truncate(args_start);
+                stack.push(result);
             }
             CompiledInstruction::CallFn {
                 target_fn,
@@ -1356,6 +1355,7 @@ fn compile_instruction(
                 (32, 2) => Ok(CompiledInstruction::BuiltinOr),
                 (33, 1) => Ok(CompiledInstruction::BuiltinNot),
                 (47, 1) => Ok(CompiledInstruction::BuiltinIsList),
+                (48, 1) => Ok(CompiledInstruction::BuiltinTail),
                 (49, 1) => Ok(CompiledInstruction::BuiltinListSize),
                 _ => Ok(CompiledInstruction::CallBuiltin { id, argc }),
             }
