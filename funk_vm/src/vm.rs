@@ -1,9 +1,9 @@
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
 use std::rc::Rc;
-use std::collections::HashMap;
 
 use crate::bytecode::{
     op_name, require_bool_arg, require_f64_arg, require_i64_arg, require_u32_arg, Bytecode,
@@ -200,25 +200,68 @@ enum CompiledInstruction {
     BuiltinIsList,
     BuiltinListSize,
     BuiltinTail,
-    CallBuiltin { id: u8, argc: usize },
+    CallBuiltin {
+        id: u8,
+        argc: usize,
+    },
     CallFn {
         target_fn: usize,
         argc: usize,
         tail: bool,
     },
-    TailCallSelf { argc: usize },
-    CallIndirect { argc: usize, tail: bool },
-    CallHost { host_name: String, argc: usize },
+    TailCallSelf {
+        argc: usize,
+    },
+    CallIndirect {
+        argc: usize,
+        tail: bool,
+    },
+    CallHost {
+        host_name: String,
+        argc: usize,
+    },
     Return,
     Trap(String),
-    MkList { argc: usize },
+    MkList {
+        argc: usize,
+    },
     SplitHeadTailLocal {
         src_local: usize,
         tail_local: usize,
         head_local: usize,
     },
+    SplitHeadTail3Local {
+        src0_local: usize,
+        src1_local: usize,
+        src2_local: usize,
+        tail0_local: usize,
+        tail1_local: usize,
+        tail2_local: usize,
+        head0_local: usize,
+        head1_local: usize,
+        head2_local: usize,
+    },
+    ListLen3GtSplitHeadTail3Local {
+        src0_local: usize,
+        src1_local: usize,
+        src2_local: usize,
+        tail0_local: usize,
+        tail1_local: usize,
+        tail2_local: usize,
+        head0_local: usize,
+        head1_local: usize,
+        head2_local: usize,
+        target: usize,
+    },
     ListLenCmpZeroJump {
         local: usize,
+        cmp_gt_zero: bool,
+        target: usize,
+    },
+    ListLen3CmpZeroJump {
+        local0: usize,
+        local1: usize,
+        local2: usize,
         cmp_gt_zero: bool,
         target: usize,
     },
@@ -954,67 +997,119 @@ fn execute_with_entry<H: VmHost>(
                 tail_local,
                 head_local,
             } => {
-                if src_local != tail_local {
-                    let (tail_value, head_value) = {
-                        let src_value = frame.locals.get(*src_local).ok_or_else(|| {
-                            VmError::new(
-                                "E4303",
-                                format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
-                            )
-                        })?;
-                        match src_value {
-                            Value::List(items) => {
-                                let head = items.first().cloned().ok_or_else(|| {
-                                    VmError::new("E4303", "GET_INDEX list index out of bounds")
-                                })?;
-                                (Value::List(items.tail()), head)
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src_local,
+                    *tail_local,
+                    *head_local,
+                    "SplitHeadTailLocal",
+                )?;
+            }
+            CompiledInstruction::ListLen3GtSplitHeadTail3Local {
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                target,
+            } => {
+                let max_local = *[
+                    *tail0_local,
+                    *head0_local,
+                    *tail1_local,
+                    *head1_local,
+                    *tail2_local,
+                    *head2_local,
+                ]
+                .iter()
+                .max()
+                .expect("destination locals are never empty");
+                if frame.locals.len() <= max_local {
+                    frame.locals.resize(max_local + 1, Value::Unit);
+                }
+                let mut keep_going = true;
+                let groups = [
+                    (src0_local, tail0_local, head0_local),
+                    (src1_local, tail1_local, head1_local),
+                    (src2_local, tail2_local, head2_local),
+                ];
+                for (src_local, tail_local, head_local) in groups {
+                    let (tail_value, head_value) = match frame.locals.get(*src_local) {
+                        Some(Value::List(items)) => {
+                            if items.is_empty() {
+                                frame.ip = *target;
+                                keep_going = false;
+                                break;
                             }
-                            _ => return Err(VmError::new("E4305", "tail arg must be list")),
+                            (
+                                Value::List(items.tail()),
+                                items.first().cloned().ok_or_else(|| {
+                                    VmError::new("E4303", "GET_INDEX list index out of bounds")
+                                })?,
+                            )
+                        }
+                        Some(_) => {
+                            frame.ip = *target;
+                            keep_going = false;
+                            break;
+                        }
+                        None => {
+                            return Err(VmError::new(
+                                "E4303",
+                                format!(
+                                    "LOAD_LOCAL index {} out of bounds in '{}'",
+                                    src_local, func.name
+                                ),
+                            ));
                         }
                     };
-                    if frame.locals.len() <= *tail_local {
-                        frame.locals.resize(*tail_local + 1, Value::Unit);
-                    }
                     frame.locals[*tail_local] = tail_value;
-                    if frame.locals.len() <= *head_local {
-                        frame.locals.resize(*head_local + 1, Value::Unit);
-                    }
-                    frame.locals[*head_local] = head_value;
-                } else {
-                    // Preserve original semantics for aliasing case:
-                    // store tail first, then reload source for head extraction.
-                    let src_value = frame.locals.get(*src_local).cloned().ok_or_else(|| {
-                        VmError::new(
-                            "E4303",
-                            format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
-                        )
-                    })?;
-                    let tail_value = match src_value {
-                        Value::List(items) => Value::List(items.tail()),
-                        _ => return Err(VmError::new("E4305", "tail arg must be list")),
-                    };
-                    if frame.locals.len() <= *tail_local {
-                        frame.locals.resize(*tail_local + 1, Value::Unit);
-                    }
-                    frame.locals[*tail_local] = tail_value;
-
-                    let src_value = frame.locals.get(*src_local).cloned().ok_or_else(|| {
-                        VmError::new(
-                            "E4303",
-                            format!("LOAD_LOCAL index {} out of bounds in '{}'", src_local, func.name),
-                        )
-                    })?;
-                    let head_value = match src_value {
-                        Value::List(items) => items.first().cloned().ok_or_else(|| {
-                            VmError::new("E4303", "GET_INDEX list index out of bounds")
-                        })?,
-                        _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
-                    };
-                    if frame.locals.len() <= *head_local {
-                        frame.locals.resize(*head_local + 1, Value::Unit);
-                    }
                     frame.locals[*head_local] = head_value;
                 }
+                if !keep_going {
+                    continue;
+                }
+            }
+            CompiledInstruction::SplitHeadTail3Local {
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+            } => {
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src0_local,
+                    *tail0_local,
+                    *head0_local,
+                    "SplitHeadTail3Local",
+                )?;
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src1_local,
+                    *tail1_local,
+                    *head1_local,
+                    "SplitHeadTail3Local",
+                )?;
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src2_local,
+                    *tail2_local,
+                    *head2_local,
+                    "SplitHeadTail3Local",
+                )?;
             }
             CompiledInstruction::ListLenCmpZeroJump {
                 local,
@@ -1027,13 +1122,44 @@ fn execute_with_entry<H: VmHost>(
                     None => {
                         return Err(VmError::new(
                             "E4303",
-                            format!("LOAD_LOCAL index {} out of bounds in '{}'", local, func.name),
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                local, func.name
+                            ),
                         ))
                     }
                 };
                 let cond = if *cmp_gt_zero { len > 0 } else { len == 0 };
                 if !cond {
                     frame.ip = *target;
+                }
+            }
+            CompiledInstruction::ListLen3CmpZeroJump {
+                local0,
+                local1,
+                local2,
+                cmp_gt_zero,
+                target,
+            } => {
+                let locals = [*local0, *local1, *local2];
+                for local in locals {
+                    match frame.locals.get(local) {
+                        Some(Value::List(items)) => {
+                            let cond = if *cmp_gt_zero {
+                                !items.is_empty()
+                            } else {
+                                items.is_empty()
+                            };
+                            if !cond {
+                                frame.ip = *target;
+                                break;
+                            }
+                        }
+                        _ => {
+                            frame.ip = *target;
+                            break;
+                        }
+                    }
                 }
             }
             CompiledInstruction::GetIndex => {
@@ -1047,7 +1173,12 @@ fn execute_with_entry<H: VmHost>(
                     Value::List(items) => {
                         let raw_idx = match idx_val {
                             Value::Int(v) => v,
-                            _ => return Err(VmError::new("E4305", "GET_INDEX expects integer index")),
+                            _ => {
+                                return Err(VmError::new(
+                                    "E4305",
+                                    "GET_INDEX expects integer index",
+                                ))
+                            }
                         };
                         let item = items.get_wrapped(raw_idx).ok_or_else(|| {
                             VmError::new("E4303", "GET_INDEX list index out of bounds")
@@ -1094,14 +1225,108 @@ fn execute_with_entry<H: VmHost>(
     Err(VmError::new("E4302", "program terminated without RETURN"))
 }
 
+fn split_head_tail_local(
+    frame: &mut Frame,
+    func: &CompiledFunction,
+    src_local: usize,
+    tail_local: usize,
+    head_local: usize,
+    context: &str,
+) -> Result<(), VmError> {
+    let src_value = frame.locals.get(src_local).ok_or_else(|| {
+        VmError::new(
+            "E4303",
+            format!(
+                "LOAD_LOCAL index {} out of bounds in '{}'",
+                src_local, func.name
+            ),
+        )
+    })?;
+    let (tail_value, head_value) = match src_value {
+        Value::List(items) => (
+            Value::List(items.tail()),
+            items
+                .first()
+                .cloned()
+                .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?,
+        ),
+        _ => return Err(VmError::new("E4305", context)),
+    };
+
+    if frame.locals.len() <= tail_local {
+        frame.locals.resize(tail_local + 1, Value::Unit);
+    }
+    frame.locals[tail_local] = tail_value;
+
+    if src_local == tail_local {
+        let head_value = match frame.locals.get(src_local).ok_or_else(|| {
+            VmError::new(
+                "E4303",
+                format!(
+                    "LOAD_LOCAL index {} out of bounds in '{}'",
+                    src_local, func.name
+                ),
+            )
+        })? {
+            Value::List(items) => items
+                .first()
+                .cloned()
+                .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?,
+            _ => return Err(VmError::new("E4305", context)),
+        };
+        if frame.locals.len() <= head_local {
+            frame.locals.resize(head_local + 1, Value::Unit);
+        }
+        frame.locals[head_local] = head_value;
+        Ok(())
+    } else {
+        if frame.locals.len() <= head_local {
+            frame.locals.resize(head_local + 1, Value::Unit);
+        }
+        frame.locals[head_local] = head_value;
+        Ok(())
+    }
+}
+
 fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmError> {
     let mut functions = Vec::with_capacity(bytecode.functions.len());
     for (fn_idx, f) in bytecode.functions.iter().enumerate() {
         let jump_targets = collect_jump_targets(&f.code)?;
         let mut skip_compile = vec![false; f.code.len()];
         let mut get_index_const: Vec<Option<i64>> = vec![None; f.code.len()];
-        let mut split_head_tail_local: Vec<Option<(usize, usize, usize)>> = vec![None; f.code.len()];
-        let mut list_len_cmp_zero_jump: Vec<Option<(usize, bool, usize)>> = vec![None; f.code.len()];
+        let mut split_head_tail_local: Vec<Option<(usize, usize, usize)>> =
+            vec![None; f.code.len()];
+        let mut split_head_tail_3_local: Vec<
+            Option<(
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+            )>,
+        > = vec![None; f.code.len()];
+        let mut list_len_cmp_zero_jump: Vec<Option<(usize, bool, usize)>> =
+            vec![None; f.code.len()];
+        let mut list_len_3_cmp_zero_jump: Vec<Option<(usize, usize, usize, bool, usize)>> =
+            vec![None; f.code.len()];
+        let mut list_len3_split3_local: Vec<
+            Option<(
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+            )>,
+        > = vec![None; f.code.len()];
         if f.code.len() >= 2 {
             for ip in 0..(f.code.len() - 1) {
                 if !matches!(f.code[ip].op, OpCode::PushInt)
@@ -1116,6 +1341,181 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                 let idx = require_i64_arg(&f.code[ip], "PUSH_INT")?;
                 skip_compile[ip] = true;
                 get_index_const[ip + 1] = Some(idx);
+            }
+        }
+        if f.code.len() >= 21 {
+            for ip in 0..=(f.code.len() - 21) {
+                if (ip..=ip + 20).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                if (ip..=ip + 20).any(|k| skip_compile[k]) {
+                    continue;
+                }
+                if !matches!(f.code[ip].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 1].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 2].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 3].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 4].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 5].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 6].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                if !matches!(f.code[ip + 7].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 8].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 9].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 10].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 11].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 12].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 13].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                if !matches!(f.code[ip + 14].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 15].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 16].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 17].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 18].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 19].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 20].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                let call_ok = f.code[ip + 1].id == Some(48)
+                    && f.code[ip + 1].argc == Some(1)
+                    && f.code[ip + 8].id == Some(48)
+                    && f.code[ip + 8].argc == Some(1)
+                    && f.code[ip + 15].id == Some(48)
+                    && f.code[ip + 15].argc == Some(1);
+                if !call_ok {
+                    continue;
+                }
+                if require_i64_arg(&f.code[ip + 4], "PUSH_INT")? != 0
+                    || require_i64_arg(&f.code[ip + 11], "PUSH_INT")? != 0
+                    || require_i64_arg(&f.code[ip + 18], "PUSH_INT")? != 0
+                {
+                    continue;
+                }
+                let src0 = require_u32_arg(&f.code[ip], "LOAD_LOCAL")? as usize;
+                let src1 = require_u32_arg(&f.code[ip + 7], "LOAD_LOCAL")? as usize;
+                let src2 = require_u32_arg(&f.code[ip + 14], "LOAD_LOCAL")? as usize;
+                if src0 == src1 || src0 == src2 || src1 == src2 {
+                    continue;
+                }
+                let tail0 = require_u32_arg(&f.code[ip + 2], "STORE_LOCAL")? as usize;
+                let head0 = require_u32_arg(&f.code[ip + 6], "STORE_LOCAL")? as usize;
+                let tail1 = require_u32_arg(&f.code[ip + 9], "STORE_LOCAL")? as usize;
+                let head1 = require_u32_arg(&f.code[ip + 13], "STORE_LOCAL")? as usize;
+                let tail2 = require_u32_arg(&f.code[ip + 16], "STORE_LOCAL")? as usize;
+                let head2 = require_u32_arg(&f.code[ip + 20], "STORE_LOCAL")? as usize;
+                for slot in skip_compile.iter_mut().take(ip + 21).skip(ip + 1) {
+                    *slot = true;
+                }
+                split_head_tail_3_local[ip] =
+                    Some((src0, src1, src2, tail0, tail1, tail2, head0, head1, head2));
+            }
+        }
+        if f.code.len() >= 45 {
+            for ip in 0..=(f.code.len() - 45) {
+                if (ip..=ip + 44).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                let mut triplets = [(0usize, 0usize, 0usize); 3];
+                let mut pattern_ok = true;
+                for group in 0..3 {
+                    let base = ip + group * 15;
+                    let split_base = base + 8;
+                    if !matches!(f.code[base].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 1].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 2].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 3].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 4].op, OpCode::PushInt)
+                        || !matches!(f.code[base + 5].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 6].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 7].op, OpCode::JumpIfFalse)
+                        || !matches!(f.code[split_base].op, OpCode::LoadLocal)
+                        || !matches!(f.code[split_base + 1].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[split_base + 2].op, OpCode::StoreLocal)
+                        || !matches!(f.code[split_base + 3].op, OpCode::LoadLocal)
+                        || !matches!(f.code[split_base + 4].op, OpCode::PushInt)
+                        || !matches!(f.code[split_base + 5].op, OpCode::GetIndex)
+                        || !matches!(f.code[split_base + 6].op, OpCode::StoreLocal)
+                    {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let is_list_ok =
+                        f.code[base + 1].id == Some(47) && f.code[base + 1].argc == Some(1);
+                    let list_size_ok =
+                        f.code[base + 3].id == Some(49) && f.code[base + 3].argc == Some(1);
+                    let push_zero_ok = require_i64_arg(&f.code[base + 4], "PUSH_INT")? == 0;
+                    let cmp_ok = matches!(f.code[base + 5].id, Some(25) | Some(29))
+                        && f.code[base + 5].argc == Some(2);
+                    let and_ok =
+                        f.code[base + 6].id == Some(31) && f.code[base + 6].argc == Some(2);
+                    if !(is_list_ok && list_size_ok && push_zero_ok && cmp_ok && and_ok) {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let check_src_local = require_u32_arg(&f.code[base], "LOAD_LOCAL")? as usize;
+                    let split_src_local =
+                        require_u32_arg(&f.code[split_base], "LOAD_LOCAL")? as usize;
+                    if check_src_local != split_src_local {
+                        pattern_ok = false;
+                        break;
+                    }
+                    if require_i64_arg(&f.code[split_base + 4], "PUSH_INT")? != 0 {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let tail_local =
+                        require_u32_arg(&f.code[split_base + 2], "STORE_LOCAL")? as usize;
+                    let head_local =
+                        require_u32_arg(&f.code[split_base + 6], "STORE_LOCAL")? as usize;
+                    triplets[group] = (check_src_local, tail_local, head_local);
+                }
+                if !pattern_ok {
+                    continue;
+                }
+                let target0 = require_u32_arg(&f.code[ip + 7], "JUMP_IF_FALSE")? as usize;
+                let target1 = require_u32_arg(&f.code[ip + 22], "JUMP_IF_FALSE")? as usize;
+                let target2 = require_u32_arg(&f.code[ip + 37], "JUMP_IF_FALSE")? as usize;
+                if target0 != target1 || target0 != target2 {
+                    continue;
+                }
+                let (src0_local, tail0_local, head0_local) = triplets[0];
+                let (src1_local, tail1_local, head1_local) = triplets[1];
+                let (src2_local, tail2_local, head2_local) = triplets[2];
+                if src0_local == src1_local
+                    || src0_local == src2_local
+                    || src1_local == src2_local
+                    || src0_local == tail0_local
+                    || src1_local == tail1_local
+                    || src2_local == tail2_local
+                    || src0_local == head0_local
+                    || src1_local == head1_local
+                    || src2_local == head2_local
+                    || tail0_local == head0_local
+                    || tail1_local == head1_local
+                    || tail2_local == head2_local
+                {
+                    continue;
+                }
+                for slot in skip_compile.iter_mut().take(ip + 45).skip(ip + 1) {
+                    *slot = true;
+                }
+                list_len3_split3_local[ip] = Some((
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                    target0,
+                ));
             }
         }
         if f.code.len() >= 7 {
@@ -1157,6 +1557,85 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                 split_head_tail_local[ip] = Some((src0, tail_local, head_local));
             }
         }
+        if f.code.len() >= 24 {
+            for ip in 0..=(f.code.len() - 24) {
+                if (ip..=ip + 23).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                if (ip..=ip + 23).any(|k| skip_compile[k]) {
+                    continue;
+                }
+                let mut locals = [0usize; 3];
+                let mut cmp_id = None;
+                let mut pattern_ok = true;
+                for group in 0..3 {
+                    let base = ip + group * 8;
+                    if !matches!(f.code[base].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 1].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 2].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 3].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 4].op, OpCode::PushInt)
+                        || !matches!(f.code[base + 5].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 6].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 7].op, OpCode::JumpIfFalse)
+                    {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let local0 = require_u32_arg(&f.code[base], "LOAD_LOCAL")? as usize;
+                    let local1 = require_u32_arg(&f.code[base + 2], "LOAD_LOCAL")? as usize;
+                    if local0 != local1 {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let is_list_ok =
+                        f.code[base + 1].id == Some(47) && f.code[base + 1].argc == Some(1);
+                    let list_size_ok =
+                        f.code[base + 3].id == Some(49) && f.code[base + 3].argc == Some(1);
+                    let push_zero_ok = require_i64_arg(&f.code[base + 4], "PUSH_INT")? == 0;
+                    let cmp_id0 = f.code[base + 5].id;
+                    let cmp_ok =
+                        f.code[base + 5].argc == Some(2) && matches!(cmp_id0, Some(25) | Some(29));
+                    let and_ok =
+                        f.code[base + 6].id == Some(31) && f.code[base + 6].argc == Some(2);
+                    if !(is_list_ok && list_size_ok && push_zero_ok && cmp_ok && and_ok) {
+                        pattern_ok = false;
+                        break;
+                    }
+                    locals[group] = local0;
+                    if let Some(first_cmp_id) = cmp_id {
+                        if cmp_id0 != first_cmp_id {
+                            cmp_id = None;
+                            break;
+                        }
+                    } else {
+                        cmp_id = Some(cmp_id0);
+                    }
+                }
+                if !pattern_ok {
+                    continue;
+                }
+                if locals[0] == locals[1] || locals[0] == locals[2] || locals[1] == locals[2] {
+                    continue;
+                }
+                if cmp_id.is_none() {
+                    continue;
+                }
+                let target0 = require_u32_arg(&f.code[ip + 7], "JUMP_IF_FALSE")? as usize;
+                let target1 = require_u32_arg(&f.code[ip + 15], "JUMP_IF_FALSE")? as usize;
+                let target2 = require_u32_arg(&f.code[ip + 23], "JUMP_IF_FALSE")? as usize;
+                if target0 != target1 || target0 != target2 {
+                    continue;
+                }
+                let cmp_id = cmp_id.unwrap();
+                let cmp_gt_zero = cmp_id == Some(29);
+                for slot in skip_compile.iter_mut().take(ip + 24).skip(ip + 1) {
+                    *slot = true;
+                }
+                list_len_3_cmp_zero_jump[ip] =
+                    Some((locals[0], locals[1], locals[2], cmp_gt_zero, target0));
+            }
+        }
         if f.code.len() >= 8 {
             for ip in 0..=(f.code.len() - 8) {
                 let window_has_jump_target = (ip..=ip + 7).any(|k| jump_targets[k]);
@@ -1186,7 +1665,8 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                 let list_size_ok = f.code[ip + 3].id == Some(49) && f.code[ip + 3].argc == Some(1);
                 let push_zero_ok = require_i64_arg(&f.code[ip + 4], "PUSH_INT")? == 0;
                 let cmp_id = f.code[ip + 5].id;
-                let cmp_ok = f.code[ip + 5].argc == Some(2) && matches!(cmp_id, Some(25) | Some(29));
+                let cmp_ok =
+                    f.code[ip + 5].argc == Some(2) && matches!(cmp_id, Some(25) | Some(29));
                 let and_ok = f.code[ip + 6].id == Some(31) && f.code[ip + 6].argc == Some(2);
                 if !(is_list_ok && list_size_ok && push_zero_ok && cmp_ok && and_ok) {
                     continue;
@@ -1215,11 +1695,75 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
             if skip_compile[ip] {
                 continue;
             }
+            if let Some((
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                target,
+            )) = list_len3_split3_local[ip]
+            {
+                code.push(CompiledInstruction::ListLen3GtSplitHeadTail3Local {
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                    target: old_to_new[target],
+                });
+                continue;
+            }
+            if let Some((
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+            )) = split_head_tail_3_local[ip]
+            {
+                code.push(CompiledInstruction::SplitHeadTail3Local {
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                });
+                continue;
+            }
             if let Some((src_local, tail_local, head_local)) = split_head_tail_local[ip] {
                 code.push(CompiledInstruction::SplitHeadTailLocal {
                     src_local,
                     tail_local,
                     head_local,
+                });
+                continue;
+            }
+            if let Some((local0, local1, local2, cmp_gt_zero, target)) =
+                list_len_3_cmp_zero_jump[ip]
+            {
+                code.push(CompiledInstruction::ListLen3CmpZeroJump {
+                    local0,
+                    local1,
+                    local2,
+                    cmp_gt_zero,
+                    target: old_to_new[target],
                 });
                 continue;
             }
@@ -1263,7 +1807,9 @@ fn compile_instruction(
     let fn_len = fn_code.len();
     let tail_pos = ip + 1 < fn_len && matches!(fn_code[ip + 1].op, OpCode::Return);
     match ins.op {
-        OpCode::PushInt => Ok(CompiledInstruction::PushInt(require_i64_arg(ins, "PUSH_INT")?)),
+        OpCode::PushInt => Ok(CompiledInstruction::PushInt(require_i64_arg(
+            ins, "PUSH_INT",
+        )?)),
         OpCode::PushFloat => Ok(CompiledInstruction::PushFloat(require_f64_arg(
             ins,
             "PUSH_FLOAT",
@@ -1825,11 +2371,21 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
             };
             let rows = match args[1] {
                 Value::Int(v) if v >= 0 => v as usize,
-                _ => return Err(VmError::new("E4305", "reshape arg1 must be non-negative int")),
+                _ => {
+                    return Err(VmError::new(
+                        "E4305",
+                        "reshape arg1 must be non-negative int",
+                    ))
+                }
             };
             let cols = match args[2] {
                 Value::Int(v) if v >= 0 => v as usize,
-                _ => return Err(VmError::new("E4305", "reshape arg2 must be non-negative int")),
+                _ => {
+                    return Err(VmError::new(
+                        "E4305",
+                        "reshape arg2 must be non-negative int",
+                    ))
+                }
             };
             if rows == 0 || cols == 0 || rows * cols != items.len() {
                 return Ok(Value::List(items.clone()));
@@ -1870,7 +2426,10 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
         }
         46 => {
             if args.len() != 1 {
-                return Err(VmError::new("E4305", "fread_list expects one string path arg"));
+                return Err(VmError::new(
+                    "E4305",
+                    "fread_list expects one string path arg",
+                ));
             }
             let path = match &args[0] {
                 Value::String(s) => s,
@@ -2099,7 +2658,9 @@ fn mod_values(a: &Value, b: &Value) -> Result<Value, VmError> {
                         .map(Value::Int)
                         .ok_or_else(|| VmError::new("E4305", "integer overflow in %"))
                 }
-                NumPair::Float(_, _) => Err(VmError::new("E4305", "builtin % expects integer args")),
+                NumPair::Float(_, _) => {
+                    Err(VmError::new("E4305", "builtin % expects integer args"))
+                }
             }
         }
     }
@@ -2113,9 +2674,9 @@ fn map_numeric2(
     float_op: fn(f64, f64) -> f64,
 ) -> Result<Value, VmError> {
     match (a, b) {
-        (Value::List(_), _) | (_, Value::List(_)) => map_list2(a, b, |x, y| {
-            map_numeric2(x, y, op, int_op, float_op)
-        }),
+        (Value::List(_), _) | (_, Value::List(_)) => {
+            map_list2(a, b, |x, y| map_numeric2(x, y, op, int_op, float_op))
+        }
         _ => match num_pair(a, b, op)? {
             NumPair::Int(x, y) => int_op(x, y)
                 .map(Value::Int)
@@ -2137,7 +2698,10 @@ where
     match (a, b) {
         (Value::List(lhs), Value::List(rhs)) => {
             if lhs.len() != rhs.len() {
-                return Err(VmError::new("E4305", "list sizes must match for elementwise operation"));
+                return Err(VmError::new(
+                    "E4305",
+                    "list sizes must match for elementwise operation",
+                ));
             }
             let lhs_items = lhs.as_slice();
             let rhs_items = rhs.as_slice();
@@ -2339,7 +2903,185 @@ pub fn disassemble(bytecode: &Bytecode) -> String {
 mod tests {
     use crate::bytecode::load_bytecode_from_str;
 
-    use super::{run, Value, DEFAULT_FUEL};
+    use super::{compile_functions, run, CompiledInstruction, Value, DEFAULT_FUEL};
+
+    #[test]
+    fn compile_fuses_list_len3_and_split3() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":3},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"PUSH_INT","arg":0},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let compiled = compile_functions(&bc).expect("compile function pass");
+        let has_fused = compiled.iter().flat_map(|f| f.code.iter()).any(|ins| {
+            matches!(
+                ins,
+                CompiledInstruction::ListLen3GtSplitHeadTail3Local { .. }
+            )
+        });
+        assert!(has_fused, "expected list-len+split3 fused opcode");
+    }
+
+    #[test]
+    fn compile_fuses_list_len3_and_split3_eq_zero() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":3},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"PUSH_INT","arg":0},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let compiled = compile_functions(&bc).expect("compile function pass");
+        let has_fused = compiled.iter().flat_map(|f| f.code.iter()).any(|ins| {
+            matches!(
+                ins,
+                CompiledInstruction::ListLen3GtSplitHeadTail3Local { .. }
+            )
+        });
+        assert!(has_fused, "expected list-len+split3 fused opcode for eq-zero form");
+    }
 
     #[test]
     fn run_simple_add_program() {
