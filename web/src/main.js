@@ -322,11 +322,19 @@ function setupResizers() {
   if (!layout || !workspace || !sidebarSplitter || !outputSplitter) {
     return;
   }
-  const clampOutputHeight = () => {
-    const current = parseFloat(getComputedStyle(workspace).getPropertyValue('--output-height')) || 160;
-    const min = 100;
-    const max = Math.max(min, Math.floor(workspace.clientHeight * 0.6));
-    workspace.style.setProperty('--output-height', `${Math.min(max, Math.max(min, current))}px`);
+  const OUTPUT_MIN_HEIGHT = 160;
+  const outputMaxHeight = () => Math.max(OUTPUT_MIN_HEIGHT, Math.floor(workspace.clientHeight * 0.7));
+  let lastWorkspaceHeight = workspace.clientHeight || 1;
+  const clampOutputHeight = (preserveShare = false) => {
+    const stored = parseFloat(getComputedStyle(workspace).getPropertyValue('--output-height')) || 240;
+    const current = preserveShare
+      ? (stored / Math.max(1, lastWorkspaceHeight)) * Math.max(1, workspace.clientHeight)
+      : stored;
+    workspace.style.setProperty(
+      '--output-height',
+      `${Math.min(outputMaxHeight(), Math.max(OUTPUT_MIN_HEIGHT, current))}px`,
+    );
+    lastWorkspaceHeight = Math.max(1, workspace.clientHeight);
   };
 
   sidebarSplitter.addEventListener('pointerdown', (event) => {
@@ -347,6 +355,7 @@ function setupResizers() {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       document.body.classList.remove('dragging');
+      lastWorkspaceHeight = Math.max(1, workspace.clientHeight);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -356,12 +365,13 @@ function setupResizers() {
     event.preventDefault();
     document.body.classList.add('dragging');
     const startY = event.clientY;
-    const startHeight = parseFloat(getComputedStyle(workspace).getPropertyValue('--output-height')) || 160;
+    const startHeight = parseFloat(getComputedStyle(workspace).getPropertyValue('--output-height')) || 240;
     const onMove = (moveEvent) => {
       const next = startHeight - (moveEvent.clientY - startY);
-      const min = 100;
-      const max = Math.max(min, Math.floor(workspace.clientHeight * 0.6));
-      workspace.style.setProperty('--output-height', `${Math.min(max, Math.max(min, next))}px`);
+      workspace.style.setProperty(
+        '--output-height',
+        `${Math.min(outputMaxHeight(), Math.max(OUTPUT_MIN_HEIGHT, next))}px`,
+      );
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
@@ -371,7 +381,7 @@ function setupResizers() {
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   });
-  window.addEventListener('resize', clampOutputHeight);
+  window.addEventListener('resize', () => clampOutputHeight(true));
   clampOutputHeight();
 }
 

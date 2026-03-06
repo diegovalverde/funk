@@ -1,13 +1,13 @@
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
 use std::rc::Rc;
-use std::collections::HashMap;
 
 use crate::bytecode::{
     op_name, require_bool_arg, require_f64_arg, require_i64_arg, require_u32_arg, Bytecode,
-    BytecodeError, OpCode,
+    BytecodeError, Instruction, OpCode,
 };
 
 pub const DEFAULT_FUEL: u64 = 10_000_000;
@@ -22,8 +22,82 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     String(String),
-    List(Rc<Vec<Value>>),
+    List(ListValue),
     Unit,
+}
+
+#[derive(Debug, Clone)]
+pub struct ListValue {
+    data: Rc<Vec<Value>>,
+    start: usize,
+    end: usize,
+}
+
+impl PartialEq for ListValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl ListValue {
+    fn from_vec(items: Vec<Value>) -> Self {
+        let end = items.len();
+        Self {
+            data: Rc::new(items),
+            start: 0,
+            end,
+        }
+    }
+
+    fn as_slice(&self) -> &[Value] {
+        &self.data[self.start..self.end]
+    }
+
+    fn len(&self) -> usize {
+        self.end - self.start
+    }
+
+    fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
+
+    fn get_wrapped(&self, raw_idx: i64) -> Option<&Value> {
+        if self.is_empty() {
+            return None;
+        }
+        let idx = normalize_index_fast(raw_idx, self.len());
+        self.data.get(self.start + idx)
+    }
+
+    fn iter(&self) -> std::slice::Iter<'_, Value> {
+        self.as_slice().iter()
+    }
+
+    fn first(&self) -> Option<&Value> {
+        self.as_slice().first()
+    }
+
+    fn tail(&self) -> Self {
+        if self.len() <= 1 {
+            return Self::from_vec(Vec::new());
+        }
+        Self {
+            data: Rc::clone(&self.data),
+            start: self.start + 1,
+            end: self.end,
+        }
+    }
+
+    fn slice_inclusive(&self, start: usize, end: usize) -> Self {
+        if start > end || end >= self.len() {
+            return Self::from_vec(Vec::new());
+        }
+        Self {
+            data: Rc::clone(&self.data),
+            start: self.start + start,
+            end: self.start + end + 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +139,150 @@ struct Frame {
     fn_id: usize,
     ip: usize,
     locals: Vec<Value>,
+}
+
+#[derive(Debug, Clone)]
+struct CompiledFunction {
+    name: String,
+    code: Vec<CompiledInstruction>,
+}
+
+#[derive(Debug, Clone)]
+enum CompiledInstruction {
+    PushInt(i64),
+    PushFloat(f64),
+    PushBool(bool),
+    PushString(String),
+    PushUnit,
+    LoadLocal0,
+    LoadLocal1,
+    LoadLocal2,
+    LoadLocal3,
+    LoadLocal4,
+    LoadLocal5,
+    LoadLocal6,
+    LoadLocal7,
+    LoadLocal8,
+    LoadLocal9,
+    LoadLocal10,
+    LoadLocal11,
+    LoadLocal(usize),
+    StoreLocal0,
+    StoreLocal1,
+    StoreLocal2,
+    StoreLocal3,
+    StoreLocal4,
+    StoreLocal5,
+    StoreLocal6,
+    StoreLocal7,
+    StoreLocal8,
+    StoreLocal9,
+    StoreLocal10,
+    StoreLocal11,
+    StoreLocal(usize),
+    Pop,
+    Jump(usize),
+    JumpIfFalse(usize),
+    BuiltinAdd,
+    BuiltinSub,
+    BuiltinMul,
+    BuiltinDiv,
+    BuiltinMod,
+    BuiltinEq,
+    BuiltinNe,
+    BuiltinLt,
+    BuiltinLe,
+    BuiltinGt,
+    BuiltinGe,
+    BuiltinAnd,
+    BuiltinOr,
+    BuiltinNot,
+    BuiltinIsList,
+    BuiltinListSize,
+    BuiltinTail,
+    CallBuiltin {
+        id: u8,
+        argc: usize,
+    },
+    CallFn {
+        target_fn: usize,
+        argc: usize,
+        tail: bool,
+    },
+    TailCallSelf {
+        argc: usize,
+    },
+    CallIndirect {
+        argc: usize,
+        tail: bool,
+    },
+    CallHost {
+        host_name: String,
+        argc: usize,
+    },
+    Return,
+    Trap(String),
+    MkList {
+        argc: usize,
+    },
+    SplitHeadTailLocal {
+        src_local: usize,
+        tail_local: usize,
+        head_local: usize,
+    },
+    SplitHeadTail3Local {
+        src0_local: usize,
+        src1_local: usize,
+        src2_local: usize,
+        tail0_local: usize,
+        tail1_local: usize,
+        tail2_local: usize,
+        head0_local: usize,
+        head1_local: usize,
+        head2_local: usize,
+    },
+    ListLen3GtSplitHeadTail3Local {
+        src0_local: usize,
+        src1_local: usize,
+        src2_local: usize,
+        tail0_local: usize,
+        tail1_local: usize,
+        tail2_local: usize,
+        head0_local: usize,
+        head1_local: usize,
+        head2_local: usize,
+        target: usize,
+    },
+    ListLen3TriadIter {
+        src0_local: usize,
+        src1_local: usize,
+        src2_local: usize,
+        tail0_local: usize,
+        tail1_local: usize,
+        tail2_local: usize,
+        head0_local: usize,
+        head1_local: usize,
+        head2_local: usize,
+        coeff_local: usize,
+        acc_local: usize,
+        entry: usize,
+        exit: usize,
+    },
+    ListLenCmpZeroJump {
+        local: usize,
+        cmp_gt_zero: bool,
+        target: usize,
+    },
+    ListLen3CmpZeroJump {
+        local0: usize,
+        local1: usize,
+        local2: usize,
+        cmp_gt_zero: bool,
+        target: usize,
+    },
+    GetIndexConst(i64),
+    GetIndex,
+    Len,
 }
 
 pub fn run(bytecode: &Bytecode, fuel: u64) -> Result<VmResult, VmError> {
@@ -186,8 +404,9 @@ fn execute_with_entry<H: VmHost>(
     entry_fn_id: usize,
     entry_locals: Vec<Value>,
 ) -> Result<VmResult, VmError> {
+    let compiled_functions = compile_functions(bytecode)?;
     let mut function_lookup: HashMap<(String, usize), usize> = HashMap::new();
-    for (idx, f) in bytecode.functions.iter().enumerate() {
+    for (idx, f) in compiled_functions.iter().enumerate() {
         if let Some((name, arity)) = parse_function_signature(&f.name) {
             function_lookup.insert((name, arity), idx);
         }
@@ -206,7 +425,7 @@ fn execute_with_entry<H: VmHost>(
         }
         fuel_left -= 1;
 
-        let func = &bytecode.functions[frame.fn_id];
+        let func = &compiled_functions[frame.fn_id];
         if frame.ip >= func.code.len() {
             return Err(VmError::new(
                 "E4302",
@@ -216,29 +435,122 @@ fn execute_with_entry<H: VmHost>(
 
         let ins = &func.code[frame.ip];
         frame.ip += 1;
-        match ins.op {
-            OpCode::PushInt => {
-                let v = require_i64_arg(ins, "PUSH_INT")?;
-                stack.push(Value::Int(v));
-            }
-            OpCode::PushFloat => {
-                let v = require_f64_arg(ins, "PUSH_FLOAT")?;
-                stack.push(Value::Float(v));
-            }
-            OpCode::PushBool => {
-                let v = require_bool_arg(ins, "PUSH_BOOL")?;
-                stack.push(Value::Bool(v));
-            }
-            OpCode::PushString => {
-                let idx = require_u32_arg(ins, "PUSH_STRING")? as usize;
-                let s = bytecode.strings.get(idx).ok_or_else(|| {
-                    VmError::new("E4303", format!("PUSH_STRING index {} out of bounds", idx))
+        match ins {
+            CompiledInstruction::PushInt(v) => stack.push(Value::Int(*v)),
+            CompiledInstruction::PushFloat(v) => stack.push(Value::Float(*v)),
+            CompiledInstruction::PushBool(v) => stack.push(Value::Bool(*v)),
+            CompiledInstruction::PushString(s) => stack.push(Value::String(s.clone())),
+            CompiledInstruction::PushUnit => stack.push(Value::Unit),
+            CompiledInstruction::LoadLocal0 => {
+                let v = frame.locals.first().ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 0 out of bounds in '{}'", func.name),
+                    )
                 })?;
-                stack.push(Value::String(s.clone()));
+                stack.push(v.clone());
             }
-            OpCode::PushUnit => stack.push(Value::Unit),
-            OpCode::LoadLocal => {
-                let idx = require_u32_arg(ins, "LOAD_LOCAL")? as usize;
+            CompiledInstruction::LoadLocal1 => {
+                let v = frame.locals.get(1).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 1 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal2 => {
+                let v = frame.locals.get(2).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 2 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal3 => {
+                let v = frame.locals.get(3).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 3 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal4 => {
+                let v = frame.locals.get(4).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 4 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal5 => {
+                let v = frame.locals.get(5).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 5 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal6 => {
+                let v = frame.locals.get(6).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 6 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal7 => {
+                let v = frame.locals.get(7).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 7 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal8 => {
+                let v = frame.locals.get(8).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 8 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal9 => {
+                let v = frame.locals.get(9).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 9 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal10 => {
+                let v = frame.locals.get(10).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 10 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal11 => {
+                let v = frame.locals.get(11).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!("LOAD_LOCAL index 11 out of bounds in '{}'", func.name),
+                    )
+                })?;
+                stack.push(v.clone());
+            }
+            CompiledInstruction::LoadLocal(idx) => {
+                let idx = *idx;
                 let v = frame.locals.get(idx).ok_or_else(|| {
                     VmError::new(
                         "E4303",
@@ -247,8 +559,116 @@ fn execute_with_entry<H: VmHost>(
                 })?;
                 stack.push(v.clone());
             }
-            OpCode::StoreLocal => {
-                let idx = require_u32_arg(ins, "STORE_LOCAL")? as usize;
+            CompiledInstruction::StoreLocal0 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.is_empty() {
+                    frame.locals.resize(1, Value::Unit);
+                }
+                frame.locals[0] = v;
+            }
+            CompiledInstruction::StoreLocal1 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 1 {
+                    frame.locals.resize(2, Value::Unit);
+                }
+                frame.locals[1] = v;
+            }
+            CompiledInstruction::StoreLocal2 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 2 {
+                    frame.locals.resize(3, Value::Unit);
+                }
+                frame.locals[2] = v;
+            }
+            CompiledInstruction::StoreLocal3 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 3 {
+                    frame.locals.resize(4, Value::Unit);
+                }
+                frame.locals[3] = v;
+            }
+            CompiledInstruction::StoreLocal4 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 4 {
+                    frame.locals.resize(5, Value::Unit);
+                }
+                frame.locals[4] = v;
+            }
+            CompiledInstruction::StoreLocal5 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 5 {
+                    frame.locals.resize(6, Value::Unit);
+                }
+                frame.locals[5] = v;
+            }
+            CompiledInstruction::StoreLocal6 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 6 {
+                    frame.locals.resize(7, Value::Unit);
+                }
+                frame.locals[6] = v;
+            }
+            CompiledInstruction::StoreLocal7 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 7 {
+                    frame.locals.resize(8, Value::Unit);
+                }
+                frame.locals[7] = v;
+            }
+            CompiledInstruction::StoreLocal8 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 8 {
+                    frame.locals.resize(9, Value::Unit);
+                }
+                frame.locals[8] = v;
+            }
+            CompiledInstruction::StoreLocal9 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 9 {
+                    frame.locals.resize(10, Value::Unit);
+                }
+                frame.locals[9] = v;
+            }
+            CompiledInstruction::StoreLocal10 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 10 {
+                    frame.locals.resize(11, Value::Unit);
+                }
+                frame.locals[10] = v;
+            }
+            CompiledInstruction::StoreLocal11 => {
+                let v = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
+                if frame.locals.len() <= 11 {
+                    frame.locals.resize(12, Value::Unit);
+                }
+                frame.locals[11] = v;
+            }
+            CompiledInstruction::StoreLocal(idx) => {
+                let idx = *idx;
                 let v = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in STORE_LOCAL"))?;
@@ -257,20 +677,13 @@ fn execute_with_entry<H: VmHost>(
                 }
                 frame.locals[idx] = v;
             }
-            OpCode::Pop => {
+            CompiledInstruction::Pop => {
                 stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in POP"))?;
             }
-            OpCode::Jump => {
-                let target = require_u32_arg(ins, "JUMP")? as usize;
-                if target > func.code.len() {
-                    return Err(VmError::new("E4303", "JUMP target out of bounds"));
-                }
-                frame.ip = target;
-            }
-            OpCode::JumpIfFalse => {
-                let target = require_u32_arg(ins, "JUMP_IF_FALSE")? as usize;
+            CompiledInstruction::Jump(target) => frame.ip = *target,
+            CompiledInstruction::JumpIfFalse(target) => {
                 let cond = stack.pop().ok_or_else(|| {
                     VmError::new("E4304", "stack underflow in JUMP_IF_FALSE condition")
                 })?;
@@ -284,77 +697,251 @@ fn execute_with_entry<H: VmHost>(
                     }
                 };
                 if should_jump {
-                    if target > func.code.len() {
-                        return Err(VmError::new("E4303", "JUMP_IF_FALSE target out of bounds"));
-                    }
-                    frame.ip = target;
+                    frame.ip = *target;
                 }
             }
-            OpCode::CallBuiltin => {
-                let id = ins
-                    .id
-                    .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing id"))?;
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing argc"))?
-                    as usize;
+            CompiledInstruction::BuiltinAdd => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_numeric_binop(&mut stack, |a, b| a.checked_add(b), |a, b| a + b)? {
+                    let n = stack.len();
+                    let result = call_builtin(20, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinSub => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_numeric_binop(&mut stack, |a, b| a.checked_sub(b), |a, b| a - b)? {
+                    let n = stack.len();
+                    let result = call_builtin(21, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinMul => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_numeric_binop(&mut stack, |a, b| a.checked_mul(b), |a, b| a * b)? {
+                    let n = stack.len();
+                    let result = call_builtin(22, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinDiv => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_div(&mut stack)? {
+                    let n = stack.len();
+                    let result = call_builtin(23, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinMod => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_mod(&mut stack)? {
+                    let n = stack.len();
+                    let result = call_builtin(24, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinEq => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                let out = Value::Bool(stack[n - 2] == stack[n - 1]);
+                stack.truncate(n - 2);
+                stack.push(out);
+            }
+            CompiledInstruction::BuiltinNe => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                let out = Value::Bool(stack[n - 2] != stack[n - 1]);
+                stack.truncate(n - 2);
+                stack.push(out);
+            }
+            CompiledInstruction::BuiltinLt => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a < b)? {
+                    let n = stack.len();
+                    let result = call_builtin(27, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinLe => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a <= b)? {
+                    let n = stack.len();
+                    let result = call_builtin(28, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinGt => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a > b)? {
+                    let n = stack.len();
+                    let result = call_builtin(29, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinGe => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_cmp_num(&mut stack, |a, b| a >= b)? {
+                    let n = stack.len();
+                    let result = call_builtin(30, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinAnd => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_bool2(&mut stack, |a, b| a && b)? {
+                    let n = stack.len();
+                    let result = call_builtin(31, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinOr => {
+                if stack.len() < 2 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_bool2(&mut stack, |a, b| a || b)? {
+                    let n = stack.len();
+                    let result = call_builtin(32, &stack[n - 2..], host)?;
+                    stack.truncate(n - 2);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinNot => {
+                if stack.is_empty() {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                if !fast_not(&mut stack)? {
+                    let n = stack.len();
+                    let result = call_builtin(33, &stack[n - 1..], host)?;
+                    stack.truncate(n - 1);
+                    stack.push(result);
+                }
+            }
+            CompiledInstruction::BuiltinIsList => {
+                if stack.is_empty() {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                let is_list = matches!(stack[n - 1], Value::List(_));
+                stack.truncate(n - 1);
+                stack.push(Value::Bool(is_list));
+            }
+            CompiledInstruction::BuiltinListSize => {
+                if stack.is_empty() {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let n = stack.len();
+                match &stack[n - 1] {
+                    Value::List(items) => {
+                        let len = items.len() as i64;
+                        stack.truncate(n - 1);
+                        stack.push(Value::Int(len));
+                    }
+                    _ => {
+                        let result = call_builtin(49, &stack[n - 1..], host)?;
+                        stack.truncate(n - 1);
+                        stack.push(result);
+                    }
+                }
+            }
+            CompiledInstruction::BuiltinTail => {
+                let n = stack.len();
+                if n < 1 {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
+                }
+                let out = match &stack[n - 1] {
+                    Value::List(items) => Value::List(items.tail()),
+                    _ => {
+                        return Err(VmError::new("E4305", "tail arg must be list"));
+                    }
+                };
+                stack.truncate(n - 1);
+                stack.push(out);
+            }
+            CompiledInstruction::CallBuiltin { id, argc } => {
+                let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_BUILTIN"));
                 }
                 let args_start = stack.len() - argc;
-                let result = call_builtin(id, &stack[args_start..], host)?;
+                let result = call_builtin(*id, &stack[args_start..], host)?;
                 stack.truncate(args_start);
                 stack.push(result);
             }
-            OpCode::CallFn => {
-                let target_fn = require_u32_arg(ins, "CALL_FN")? as usize;
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_FN missing argc"))?
-                    as usize;
-                let target = bytecode.functions.get(target_fn).ok_or_else(|| {
-                    VmError::new("E4303", format!("CALL_FN function {} out of bounds", target_fn))
-                })?;
-                if target.captures != 0 {
-                    return Err(VmError::new(
-                        "E4305",
-                        "CALL_FN cannot target closure-compiled function",
-                    ));
-                }
-                if target.arity as usize != argc {
-                    return Err(VmError::new(
-                        "E4305",
-                        format!(
-                            "CALL_FN arity mismatch for '{}': expected {}, got {}",
-                            target.name, target.arity, argc
-                        ),
-                    ));
-                }
+            CompiledInstruction::CallFn {
+                target_fn,
+                argc,
+                tail,
+            } => {
+                let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_FN"));
                 }
                 let args_start = stack.len() - argc;
-                let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
-                if tail_pos {
+                if *tail {
                     frame.locals.clear();
                     frame.locals.extend(stack.drain(args_start..));
-                    frame.fn_id = target_fn;
+                    frame.fn_id = *target_fn;
                     frame.ip = 0;
                 } else {
-                    let mut args = Vec::with_capacity(argc);
-                    args.extend(stack.drain(args_start..));
+                    let args = stack.split_off(args_start);
                     frames.push(Frame {
-                        fn_id: target_fn,
+                        fn_id: *target_fn,
                         ip: 0,
                         locals: args,
                     });
                 }
             }
-            OpCode::CallIndirect => {
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_INDIRECT missing argc"))?
-                    as usize;
+            CompiledInstruction::TailCallSelf { argc } => {
+                let argc = *argc;
+                if stack.len() < argc {
+                    return Err(VmError::new("E4304", "stack underflow in CALL_FN"));
+                }
+                let args_start = stack.len() - argc;
+                if args_start == 0 {
+                    std::mem::swap(&mut frame.locals, &mut stack);
+                    stack.clear();
+                } else {
+                    frame.locals.clear();
+                    frame.locals.extend(stack.drain(args_start..));
+                }
+                frame.ip = 0;
+            }
+            CompiledInstruction::CallIndirect { argc, tail } => {
+                let argc = *argc;
                 if stack.len() < argc + 1 {
                     return Err(VmError::new("E4304", "stack underflow in CALL_INDIRECT"));
                 }
@@ -373,16 +960,14 @@ fn execute_with_entry<H: VmHost>(
                             format!("CALL_INDIRECT unresolved target '{}/{}'", callee_name, argc),
                         )
                     })?;
-                let tail_pos = frame.ip < func.code.len() && matches!(func.code[frame.ip].op, OpCode::Return);
-                if tail_pos {
+                if *tail {
                     frame.locals.clear();
                     frame.locals.extend(stack.drain(args_start..));
                     stack.truncate(callee_idx);
                     frame.fn_id = *target_fn;
                     frame.ip = 0;
                 } else {
-                    let mut args = Vec::with_capacity(argc);
-                    args.extend(stack.drain(args_start..));
+                    let args = stack.split_off(args_start);
                     stack.truncate(callee_idx);
                     frames.push(Frame {
                         fn_id: *target_fn,
@@ -391,18 +976,8 @@ fn execute_with_entry<H: VmHost>(
                     });
                 }
             }
-            OpCode::CallHost => {
-                let host_name_idx = require_u32_arg(ins, "CALL_HOST")? as usize;
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "CALL_HOST missing argc"))?
-                    as usize;
-                let host_name = bytecode.strings.get(host_name_idx).ok_or_else(|| {
-                    VmError::new(
-                        "E4303",
-                        format!("CALL_HOST string index {} out of bounds", host_name_idx),
-                    )
-                })?;
+            CompiledInstruction::CallHost { host_name, argc } => {
+                let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in CALL_HOST"));
                 }
@@ -411,7 +986,7 @@ fn execute_with_entry<H: VmHost>(
                 stack.truncate(args_start);
                 stack.push(result);
             }
-            OpCode::Return => {
+            CompiledInstruction::Return => {
                 let ret = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in RETURN"))?;
@@ -421,25 +996,344 @@ fn execute_with_entry<H: VmHost>(
                 }
                 stack.push(ret);
             }
-            OpCode::Trap => {
-                let idx = require_u32_arg(ins, "TRAP")? as usize;
-                let msg = bytecode.strings.get(idx).ok_or_else(|| {
-                    VmError::new("E4303", format!("TRAP string index {} out of bounds", idx))
-                })?;
+            CompiledInstruction::Trap(msg) => {
                 return Err(VmError::new("E4306", msg.clone()));
             }
-            OpCode::MkList => {
-                let argc = ins
-                    .argc
-                    .ok_or_else(|| VmError::new("E4305", "MK_LIST missing argc"))?
-                    as usize;
+            CompiledInstruction::MkList { argc } => {
+                let argc = *argc;
                 if stack.len() < argc {
                     return Err(VmError::new("E4304", "stack underflow in MK_LIST"));
                 }
                 let items = stack.split_off(stack.len() - argc);
-                stack.push(Value::List(Rc::new(items)));
+                stack.push(Value::List(ListValue::from_vec(items)));
             }
-            OpCode::GetIndex => {
+            CompiledInstruction::SplitHeadTailLocal {
+                src_local,
+                tail_local,
+                head_local,
+            } => {
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src_local,
+                    *tail_local,
+                    *head_local,
+                    "SplitHeadTailLocal",
+                )?;
+            }
+            CompiledInstruction::ListLen3GtSplitHeadTail3Local {
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                target,
+            } => {
+                let max_local = *[
+                    *src0_local,
+                    *src1_local,
+                    *src2_local,
+                    *tail0_local,
+                    *head0_local,
+                    *tail1_local,
+                    *head1_local,
+                    *tail2_local,
+                    *head2_local,
+                ]
+                .iter()
+                .max()
+                .expect("destination locals are never empty");
+                if frame.locals.len() <= max_local {
+                    frame.locals.resize(max_local + 1, Value::Unit);
+                }
+                let mut keep_going = true;
+                let groups = [
+                    (src0_local, tail0_local, head0_local),
+                    (src1_local, tail1_local, head1_local),
+                    (src2_local, tail2_local, head2_local),
+                ];
+                for (src_local, tail_local, head_local) in groups {
+                    let (tail_value, head_value) = match frame.locals.get(*src_local) {
+                        Some(Value::List(items)) => {
+                            if items.is_empty() {
+                                frame.ip = *target;
+                                keep_going = false;
+                                break;
+                            }
+                            (
+                                Value::List(items.tail()),
+                                items.first().cloned().ok_or_else(|| {
+                                    VmError::new("E4303", "GET_INDEX list index out of bounds")
+                                })?,
+                            )
+                        }
+                        Some(_) => {
+                            frame.ip = *target;
+                            keep_going = false;
+                            break;
+                        }
+                        None => {
+                            return Err(VmError::new(
+                                "E4303",
+                                format!(
+                                    "LOAD_LOCAL index {} out of bounds in '{}'",
+                                    src_local, func.name
+                                ),
+                            ));
+                        }
+                    };
+                    frame.locals[*tail_local] = tail_value;
+                    frame.locals[*head_local] = head_value;
+                }
+                if !keep_going {
+                    continue;
+                }
+            }
+            CompiledInstruction::ListLen3TriadIter {
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                coeff_local,
+                acc_local,
+                entry,
+                exit,
+            } => {
+                let list0 = match frame.locals.get(*src0_local) {
+                    Some(Value::List(list0)) => list0.clone(),
+                    Some(_) => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "expected list value for triad local {} in '{}'",
+                                src0_local, func.name
+                            ),
+                        ));
+                    }
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                src0_local, func.name
+                            ),
+                        ));
+                    }
+                };
+                let list1 = match frame.locals.get(*src1_local) {
+                    Some(Value::List(list1)) => list1.clone(),
+                    Some(_) => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "expected list value for triad local {} in '{}'",
+                                src1_local, func.name
+                            ),
+                        ));
+                    }
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                src1_local, func.name
+                            ),
+                        ));
+                    }
+                };
+                let list2 = match frame.locals.get(*src2_local) {
+                    Some(Value::List(list2)) => list2.clone(),
+                    Some(_) => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "expected list value for triad local {} in '{}'",
+                                src2_local, func.name
+                            ),
+                        ));
+                    }
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                src2_local, func.name
+                            ),
+                        ));
+                    }
+                };
+                if list0.is_empty() || list1.is_empty() || list2.is_empty() {
+                    frame.ip = *exit;
+                    continue;
+                }
+                let max_local = *[
+                    *src0_local,
+                    *src1_local,
+                    *src2_local,
+                    *tail0_local,
+                    *head0_local,
+                    *tail1_local,
+                    *head1_local,
+                    *tail2_local,
+                    *head2_local,
+                    *coeff_local,
+                    *acc_local,
+                ]
+                .iter()
+                .max()
+                .expect("destination locals are never empty");
+                if frame.locals.len() <= max_local {
+                    frame.locals.resize(max_local + 1, Value::Unit);
+                }
+
+                let head0 = list0
+                    .first()
+                    .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?
+                    .clone();
+                let head1 = list1
+                    .first()
+                    .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?
+                    .clone();
+                let head2 = list2
+                    .first()
+                    .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?
+                    .clone();
+                let tail0 = Value::List(list0.tail());
+                let tail1 = Value::List(list1.tail());
+                let tail2 = Value::List(list2.tail());
+                frame.locals[*tail0_local] = tail0.clone();
+                frame.locals[*src0_local] = tail0;
+                frame.locals[*head0_local] = head0.clone();
+                frame.locals[*tail1_local] = tail1.clone();
+                frame.locals[*src1_local] = tail1;
+                frame.locals[*head1_local] = head1.clone();
+                frame.locals[*tail2_local] = tail2.clone();
+                frame.locals[*src2_local] = tail2;
+                frame.locals[*head2_local] = head2.clone();
+
+                let coeff = frame.locals.get(*coeff_local).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!(
+                            "LOAD_LOCAL index {} out of bounds in '{}'",
+                            coeff_local, func.name
+                        ),
+                    )
+                })?;
+                let acc = frame.locals.get(*acc_local).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!(
+                            "LOAD_LOCAL index {} out of bounds in '{}'",
+                            acc_local, func.name
+                        ),
+                    )
+                })?;
+
+                let mul = mul_values(coeff, &head1)?;
+                let acc_term = add_values(&head2, &mul)?;
+                let acc_term = add_values(&head0, &acc_term)?;
+                let new_acc = add_values(acc, &acc_term)?;
+                frame.locals[*acc_local] = new_acc;
+                frame.ip = *entry;
+            }
+            CompiledInstruction::SplitHeadTail3Local {
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+            } => {
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src0_local,
+                    *tail0_local,
+                    *head0_local,
+                    "SplitHeadTail3Local",
+                )?;
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src1_local,
+                    *tail1_local,
+                    *head1_local,
+                    "SplitHeadTail3Local",
+                )?;
+                split_head_tail_local(
+                    frame,
+                    func,
+                    *src2_local,
+                    *tail2_local,
+                    *head2_local,
+                    "SplitHeadTail3Local",
+                )?;
+            }
+            CompiledInstruction::ListLenCmpZeroJump {
+                local,
+                cmp_gt_zero,
+                target,
+            } => {
+                let len = match frame.locals.get(*local) {
+                    Some(Value::List(items)) => items.len() as i64,
+                    Some(_) => return Err(VmError::new("E4305", "list_size arg must be list")),
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                local, func.name
+                            ),
+                        ))
+                    }
+                };
+                let cond = if *cmp_gt_zero { len > 0 } else { len == 0 };
+                if !cond {
+                    frame.ip = *target;
+                }
+            }
+            CompiledInstruction::ListLen3CmpZeroJump {
+                local0,
+                local1,
+                local2,
+                cmp_gt_zero,
+                target,
+            } => {
+                let locals = [*local0, *local1, *local2];
+                for local in locals {
+                    match frame.locals.get(local) {
+                        Some(Value::List(items)) => {
+                            let cond = if *cmp_gt_zero {
+                                !items.is_empty()
+                            } else {
+                                items.is_empty()
+                            };
+                            if !cond {
+                                frame.ip = *target;
+                                break;
+                            }
+                        }
+                        _ => {
+                            frame.ip = *target;
+                            break;
+                        }
+                    }
+                }
+            }
+            CompiledInstruction::GetIndex => {
                 let idx_val = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
@@ -448,14 +1342,16 @@ fn execute_with_entry<H: VmHost>(
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
                 match list_val {
                     Value::List(items) => {
-                        if items.is_empty() {
-                            return Err(VmError::new("E4303", "GET_INDEX list index out of bounds"));
-                        }
-                        let idx = match idx_val {
-                            Value::Int(v) => normalize_index(v, items.len()),
-                            _ => return Err(VmError::new("E4305", "GET_INDEX expects integer index")),
+                        let raw_idx = match idx_val {
+                            Value::Int(v) => v,
+                            _ => {
+                                return Err(VmError::new(
+                                    "E4305",
+                                    "GET_INDEX expects integer index",
+                                ))
+                            }
                         };
-                        let item = items.get(idx).ok_or_else(|| {
+                        let item = items.get_wrapped(raw_idx).ok_or_else(|| {
                             VmError::new("E4303", "GET_INDEX list index out of bounds")
                         })?;
                         stack.push(item.clone());
@@ -463,12 +1359,32 @@ fn execute_with_entry<H: VmHost>(
                     _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
                 }
             }
-            OpCode::Len => {
+            CompiledInstruction::GetIndexConst(raw_idx) => {
+                let list_val = stack
+                    .pop()
+                    .ok_or_else(|| VmError::new("E4304", "stack underflow in GET_INDEX"))?;
+                match list_val {
+                    Value::List(items) => {
+                        let item = if *raw_idx == 0 {
+                            items.first().ok_or_else(|| {
+                                VmError::new("E4303", "GET_INDEX list index out of bounds")
+                            })?
+                        } else {
+                            items.get_wrapped(*raw_idx).ok_or_else(|| {
+                                VmError::new("E4303", "GET_INDEX list index out of bounds")
+                            })?
+                        };
+                        stack.push(item.clone());
+                    }
+                    _ => return Err(VmError::new("E4305", "GET_INDEX expects list value")),
+                }
+            }
+            CompiledInstruction::Len => {
                 let value = stack
                     .pop()
                     .ok_or_else(|| VmError::new("E4304", "stack underflow in LEN"))?;
                 let len = match value {
-                    Value::List(items) => deep_len(&items) as i64,
+                    Value::List(items) => deep_len(items.as_slice()) as i64,
                     Value::String(s) => s.chars().count() as i64,
                     _ => 1,
                 };
@@ -478,6 +1394,1012 @@ fn execute_with_entry<H: VmHost>(
     }
 
     Err(VmError::new("E4302", "program terminated without RETURN"))
+}
+
+fn split_head_tail_local(
+    frame: &mut Frame,
+    func: &CompiledFunction,
+    src_local: usize,
+    tail_local: usize,
+    head_local: usize,
+    context: &str,
+) -> Result<(), VmError> {
+    let src_value = frame.locals.get(src_local).ok_or_else(|| {
+        VmError::new(
+            "E4303",
+            format!(
+                "LOAD_LOCAL index {} out of bounds in '{}'",
+                src_local, func.name
+            ),
+        )
+    })?;
+    let (tail_value, head_value) = match src_value {
+        Value::List(items) => (
+            Value::List(items.tail()),
+            items
+                .first()
+                .cloned()
+                .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?,
+        ),
+        _ => return Err(VmError::new("E4305", context)),
+    };
+
+    if frame.locals.len() <= tail_local {
+        frame.locals.resize(tail_local + 1, Value::Unit);
+    }
+    frame.locals[tail_local] = tail_value;
+
+    if src_local == tail_local {
+        let head_value = match frame.locals.get(src_local).ok_or_else(|| {
+            VmError::new(
+                "E4303",
+                format!(
+                    "LOAD_LOCAL index {} out of bounds in '{}'",
+                    src_local, func.name
+                ),
+            )
+        })? {
+            Value::List(items) => items
+                .first()
+                .cloned()
+                .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?,
+            _ => return Err(VmError::new("E4305", context)),
+        };
+        if frame.locals.len() <= head_local {
+            frame.locals.resize(head_local + 1, Value::Unit);
+        }
+        frame.locals[head_local] = head_value;
+        Ok(())
+    } else {
+        if frame.locals.len() <= head_local {
+            frame.locals.resize(head_local + 1, Value::Unit);
+        }
+        frame.locals[head_local] = head_value;
+        Ok(())
+    }
+}
+
+fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmError> {
+    let mut functions = Vec::with_capacity(bytecode.functions.len());
+    for (fn_idx, f) in bytecode.functions.iter().enumerate() {
+        let jump_targets = collect_jump_targets(&f.code)?;
+        let mut skip_compile = vec![false; f.code.len()];
+        let mut get_index_skip = vec![false; f.code.len()];
+        let mut get_index_const: Vec<Option<i64>> = vec![None; f.code.len()];
+        let mut split_head_tail_local: Vec<Option<(usize, usize, usize)>> =
+            vec![None; f.code.len()];
+        let mut split_head_tail_3_local: Vec<
+            Option<(
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+            )>,
+        > = vec![None; f.code.len()];
+        let mut list_len_cmp_zero_jump: Vec<Option<(usize, bool, usize)>> =
+            vec![None; f.code.len()];
+        let mut list_len_3_cmp_zero_jump: Vec<Option<(usize, usize, usize, bool, usize)>> =
+            vec![None; f.code.len()];
+        let mut list_len3_split3_local: Vec<
+            Option<(
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+            )>,
+        > = vec![None; f.code.len()];
+        let mut list_len3_triad_iter: Vec<
+            Option<(
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+            )>,
+        > = vec![None; f.code.len()];
+        if f.code.len() >= 2 {
+            for ip in 0..(f.code.len() - 1) {
+                if !matches!(f.code[ip].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 1].op, OpCode::GetIndex)
+                {
+                    continue;
+                }
+                // If a jump can enter directly at GET_INDEX, preserve stack-based semantics.
+                if jump_targets[ip + 1] {
+                    continue;
+                }
+                let idx = require_i64_arg(&f.code[ip], "PUSH_INT")?;
+                skip_compile[ip] = true;
+                get_index_skip[ip] = true;
+                get_index_const[ip + 1] = Some(idx);
+            }
+        }
+        if f.code.len() >= 21 {
+            for ip in 0..=(f.code.len() - 21) {
+                if (ip..=ip + 20).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                if (ip..=ip + 20).any(|k| skip_compile[k]) {
+                    continue;
+                }
+                if !matches!(f.code[ip].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 1].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 2].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 3].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 4].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 5].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 6].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                if !matches!(f.code[ip + 7].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 8].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 9].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 10].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 11].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 12].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 13].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                if !matches!(f.code[ip + 14].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 15].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 16].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 17].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 18].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 19].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 20].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                let call_ok = f.code[ip + 1].id == Some(48)
+                    && f.code[ip + 1].argc == Some(1)
+                    && f.code[ip + 8].id == Some(48)
+                    && f.code[ip + 8].argc == Some(1)
+                    && f.code[ip + 15].id == Some(48)
+                    && f.code[ip + 15].argc == Some(1);
+                if !call_ok {
+                    continue;
+                }
+                if require_i64_arg(&f.code[ip + 4], "PUSH_INT")? != 0
+                    || require_i64_arg(&f.code[ip + 11], "PUSH_INT")? != 0
+                    || require_i64_arg(&f.code[ip + 18], "PUSH_INT")? != 0
+                {
+                    continue;
+                }
+                let src0 = require_u32_arg(&f.code[ip], "LOAD_LOCAL")? as usize;
+                let src1 = require_u32_arg(&f.code[ip + 7], "LOAD_LOCAL")? as usize;
+                let src2 = require_u32_arg(&f.code[ip + 14], "LOAD_LOCAL")? as usize;
+                if src0 == src1 || src0 == src2 || src1 == src2 {
+                    continue;
+                }
+                let tail0 = require_u32_arg(&f.code[ip + 2], "STORE_LOCAL")? as usize;
+                let head0 = require_u32_arg(&f.code[ip + 6], "STORE_LOCAL")? as usize;
+                let tail1 = require_u32_arg(&f.code[ip + 9], "STORE_LOCAL")? as usize;
+                let head1 = require_u32_arg(&f.code[ip + 13], "STORE_LOCAL")? as usize;
+                let tail2 = require_u32_arg(&f.code[ip + 16], "STORE_LOCAL")? as usize;
+                let head2 = require_u32_arg(&f.code[ip + 20], "STORE_LOCAL")? as usize;
+                for slot in skip_compile.iter_mut().take(ip + 21).skip(ip + 1) {
+                    *slot = true;
+                }
+                split_head_tail_3_local[ip] =
+                    Some((src0, src1, src2, tail0, tail1, tail2, head0, head1, head2));
+            }
+        }
+        if f.code.len() >= 45 {
+            for ip in 0..=(f.code.len() - 45) {
+                if (ip..=ip + 44).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                let mut triplets = [(0usize, 0usize, 0usize); 3];
+                let mut pattern_ok = true;
+                for group in 0..3 {
+                    let base = ip + group * 15;
+                    let split_base = base + 8;
+                    if !matches!(f.code[base].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 1].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 2].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 3].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 4].op, OpCode::PushInt)
+                        || !matches!(f.code[base + 5].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 6].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 7].op, OpCode::JumpIfFalse)
+                        || !matches!(f.code[split_base].op, OpCode::LoadLocal)
+                        || !matches!(f.code[split_base + 1].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[split_base + 2].op, OpCode::StoreLocal)
+                        || !matches!(f.code[split_base + 3].op, OpCode::LoadLocal)
+                        || !matches!(f.code[split_base + 4].op, OpCode::PushInt)
+                        || !matches!(f.code[split_base + 5].op, OpCode::GetIndex)
+                        || !matches!(f.code[split_base + 6].op, OpCode::StoreLocal)
+                    {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let is_list_ok =
+                        f.code[base + 1].id == Some(47) && f.code[base + 1].argc == Some(1);
+                    let list_size_ok =
+                        f.code[base + 3].id == Some(49) && f.code[base + 3].argc == Some(1);
+                    let push_zero_ok = require_i64_arg(&f.code[base + 4], "PUSH_INT")? == 0;
+                    let cmp_ok = matches!(f.code[base + 5].id, Some(25) | Some(29))
+                        && f.code[base + 5].argc == Some(2);
+                    let and_ok =
+                        f.code[base + 6].id == Some(31) && f.code[base + 6].argc == Some(2);
+                    if !(is_list_ok && list_size_ok && push_zero_ok && cmp_ok && and_ok) {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let check_src_local = require_u32_arg(&f.code[base], "LOAD_LOCAL")? as usize;
+                    let split_src_local =
+                        require_u32_arg(&f.code[split_base], "LOAD_LOCAL")? as usize;
+                    if check_src_local != split_src_local {
+                        pattern_ok = false;
+                        break;
+                    }
+                    if require_i64_arg(&f.code[split_base + 4], "PUSH_INT")? != 0 {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let tail_local =
+                        require_u32_arg(&f.code[split_base + 2], "STORE_LOCAL")? as usize;
+                    let head_local =
+                        require_u32_arg(&f.code[split_base + 6], "STORE_LOCAL")? as usize;
+                    triplets[group] = (check_src_local, tail_local, head_local);
+                }
+                if !pattern_ok {
+                    continue;
+                }
+                let target0 = require_u32_arg(&f.code[ip + 7], "JUMP_IF_FALSE")? as usize;
+                let target1 = require_u32_arg(&f.code[ip + 22], "JUMP_IF_FALSE")? as usize;
+                let target2 = require_u32_arg(&f.code[ip + 37], "JUMP_IF_FALSE")? as usize;
+                if target0 != target1 || target0 != target2 {
+                    continue;
+                }
+                let (src0_local, tail0_local, head0_local) = triplets[0];
+                let (src1_local, tail1_local, head1_local) = triplets[1];
+                let (src2_local, tail2_local, head2_local) = triplets[2];
+                if src0_local == src1_local
+                    || src0_local == src2_local
+                    || src1_local == src2_local
+                    || src0_local == tail0_local
+                    || src1_local == tail1_local
+                    || src2_local == tail2_local
+                    || src0_local == head0_local
+                    || src1_local == head1_local
+                    || src2_local == head2_local
+                    || tail0_local == head0_local
+                    || tail1_local == head1_local
+                    || tail2_local == head2_local
+                {
+                    continue;
+                }
+                if f.code.len() >= ip + 60 {
+                    if (ip..=ip + 59).any(|k| skip_compile[k] && !get_index_skip[k]) {
+                        continue;
+                    }
+                    let body = ip + 45;
+                    let body_load_tail0 = require_u32_arg(&f.code[body], "LOAD_LOCAL")? as usize;
+                    let body_load_tail1 =
+                        require_u32_arg(&f.code[body + 1], "LOAD_LOCAL")? as usize;
+                    let body_load_tail2 =
+                        require_u32_arg(&f.code[body + 2], "LOAD_LOCAL")? as usize;
+                    let coeff_local = require_u32_arg(&f.code[body + 3], "LOAD_LOCAL")? as usize;
+                    let acc_local = require_u32_arg(&f.code[body + 4], "LOAD_LOCAL")? as usize;
+                    let body_head0 = require_u32_arg(&f.code[body + 5], "LOAD_LOCAL")? as usize;
+                    let body_coeff2 = require_u32_arg(&f.code[body + 6], "LOAD_LOCAL")? as usize;
+                    let body_head1 = require_u32_arg(&f.code[body + 7], "LOAD_LOCAL")? as usize;
+                    let body_mul =
+                        f.code[body + 8].id == Some(22) && f.code[body + 8].argc == Some(2);
+                    let body_head2 = require_u32_arg(&f.code[body + 9], "LOAD_LOCAL")? as usize;
+                    let body_add1 =
+                        f.code[body + 10].id == Some(20) && f.code[body + 10].argc == Some(2);
+                    let body_add2 =
+                        f.code[body + 11].id == Some(20) && f.code[body + 11].argc == Some(2);
+                    let body_add3 =
+                        f.code[body + 12].id == Some(20) && f.code[body + 12].argc == Some(2);
+                    let body_tailcall = require_u32_arg(&f.code[body + 13], "CALL_FN")? as usize;
+                    let body_tailcall_argc = f.code[body + 13].argc;
+                    let has_triad_body = body_load_tail0 == tail0_local
+                        && body_load_tail1 == tail1_local
+                        && body_load_tail2 == tail2_local
+                        && body_head0 == head0_local
+                        && body_head1 == head1_local
+                        && body_head2 == head2_local
+                        && body_coeff2 == coeff_local
+                        && body_mul
+                        && body_add1
+                        && body_add2
+                        && body_add3
+                        && body_tailcall == fn_idx
+                        && body_tailcall_argc == Some(5)
+                        && matches!(f.code[body + 14].op, OpCode::Return)
+                        && coeff_local == body_coeff2;
+
+                    if has_triad_body && body_tailcall == fn_idx {
+                        for slot in skip_compile.iter_mut().take(ip + 60).skip(ip + 1) {
+                            *slot = true;
+                        }
+                        list_len3_triad_iter[ip] = Some((
+                            src0_local,
+                            src1_local,
+                            src2_local,
+                            tail0_local,
+                            tail1_local,
+                            tail2_local,
+                            head0_local,
+                            head1_local,
+                            head2_local,
+                            coeff_local,
+                            acc_local,
+                            target0,
+                        ));
+                        continue;
+                    }
+                }
+                for slot in skip_compile.iter_mut().take(ip + 45).skip(ip + 1) {
+                    *slot = true;
+                }
+                list_len3_split3_local[ip] = Some((
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                    target0,
+                ));
+            }
+        }
+        if f.code.len() >= 7 {
+            for ip in 0..=(f.code.len() - 7) {
+                if !matches!(f.code[ip].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 1].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 2].op, OpCode::StoreLocal)
+                    || !matches!(f.code[ip + 3].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 4].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 5].op, OpCode::GetIndex)
+                    || !matches!(f.code[ip + 6].op, OpCode::StoreLocal)
+                {
+                    continue;
+                }
+                if (ip + 1..=ip + 6).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                if skip_compile[ip..=ip + 6].iter().any(|v| *v) {
+                    continue;
+                }
+                let call_ok = f.code[ip + 1].id == Some(48) && f.code[ip + 1].argc == Some(1);
+                if !call_ok {
+                    continue;
+                }
+                let push_zero_ok = require_i64_arg(&f.code[ip + 4], "PUSH_INT")? == 0;
+                if !push_zero_ok {
+                    continue;
+                }
+                let src0 = require_u32_arg(&f.code[ip], "LOAD_LOCAL")? as usize;
+                let src1 = require_u32_arg(&f.code[ip + 3], "LOAD_LOCAL")? as usize;
+                if src0 != src1 {
+                    continue;
+                }
+                let tail_local = require_u32_arg(&f.code[ip + 2], "STORE_LOCAL")? as usize;
+                let head_local = require_u32_arg(&f.code[ip + 6], "STORE_LOCAL")? as usize;
+                for slot in skip_compile.iter_mut().take(ip + 7).skip(ip + 1) {
+                    *slot = true;
+                }
+                split_head_tail_local[ip] = Some((src0, tail_local, head_local));
+            }
+        }
+        if f.code.len() >= 24 {
+            for ip in 0..=(f.code.len() - 24) {
+                if (ip..=ip + 23).any(|k| jump_targets[k]) {
+                    continue;
+                }
+                if (ip..=ip + 23).any(|k| skip_compile[k]) {
+                    continue;
+                }
+                let mut locals = [0usize; 3];
+                let mut cmp_id = None;
+                let mut pattern_ok = true;
+                for group in 0..3 {
+                    let base = ip + group * 8;
+                    if !matches!(f.code[base].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 1].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 2].op, OpCode::LoadLocal)
+                        || !matches!(f.code[base + 3].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 4].op, OpCode::PushInt)
+                        || !matches!(f.code[base + 5].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 6].op, OpCode::CallBuiltin)
+                        || !matches!(f.code[base + 7].op, OpCode::JumpIfFalse)
+                    {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let local0 = require_u32_arg(&f.code[base], "LOAD_LOCAL")? as usize;
+                    let local1 = require_u32_arg(&f.code[base + 2], "LOAD_LOCAL")? as usize;
+                    if local0 != local1 {
+                        pattern_ok = false;
+                        break;
+                    }
+                    let is_list_ok =
+                        f.code[base + 1].id == Some(47) && f.code[base + 1].argc == Some(1);
+                    let list_size_ok =
+                        f.code[base + 3].id == Some(49) && f.code[base + 3].argc == Some(1);
+                    let push_zero_ok = require_i64_arg(&f.code[base + 4], "PUSH_INT")? == 0;
+                    let cmp_id0 = f.code[base + 5].id;
+                    let cmp_ok =
+                        f.code[base + 5].argc == Some(2) && matches!(cmp_id0, Some(25) | Some(29));
+                    let and_ok =
+                        f.code[base + 6].id == Some(31) && f.code[base + 6].argc == Some(2);
+                    if !(is_list_ok && list_size_ok && push_zero_ok && cmp_ok && and_ok) {
+                        pattern_ok = false;
+                        break;
+                    }
+                    locals[group] = local0;
+                    if let Some(first_cmp_id) = cmp_id {
+                        if cmp_id0 != first_cmp_id {
+                            cmp_id = None;
+                            break;
+                        }
+                    } else {
+                        cmp_id = Some(cmp_id0);
+                    }
+                }
+                if !pattern_ok {
+                    continue;
+                }
+                if locals[0] == locals[1] || locals[0] == locals[2] || locals[1] == locals[2] {
+                    continue;
+                }
+                if cmp_id.is_none() {
+                    continue;
+                }
+                let target0 = require_u32_arg(&f.code[ip + 7], "JUMP_IF_FALSE")? as usize;
+                let target1 = require_u32_arg(&f.code[ip + 15], "JUMP_IF_FALSE")? as usize;
+                let target2 = require_u32_arg(&f.code[ip + 23], "JUMP_IF_FALSE")? as usize;
+                if target0 != target1 || target0 != target2 {
+                    continue;
+                }
+                let cmp_id = cmp_id.unwrap();
+                let cmp_gt_zero = cmp_id == Some(29);
+                for slot in skip_compile.iter_mut().take(ip + 24).skip(ip + 1) {
+                    *slot = true;
+                }
+                list_len_3_cmp_zero_jump[ip] =
+                    Some((locals[0], locals[1], locals[2], cmp_gt_zero, target0));
+            }
+        }
+        if f.code.len() >= 8 {
+            for ip in 0..=(f.code.len() - 8) {
+                let window_has_jump_target = (ip..=ip + 7).any(|k| jump_targets[k]);
+                if window_has_jump_target {
+                    continue;
+                }
+                if skip_compile[ip..=ip + 7].iter().any(|v| *v) {
+                    continue;
+                }
+                if !matches!(f.code[ip].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 1].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 2].op, OpCode::LoadLocal)
+                    || !matches!(f.code[ip + 3].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 4].op, OpCode::PushInt)
+                    || !matches!(f.code[ip + 5].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 6].op, OpCode::CallBuiltin)
+                    || !matches!(f.code[ip + 7].op, OpCode::JumpIfFalse)
+                {
+                    continue;
+                }
+                let local0 = require_u32_arg(&f.code[ip], "LOAD_LOCAL")? as usize;
+                let local1 = require_u32_arg(&f.code[ip + 2], "LOAD_LOCAL")? as usize;
+                if local0 != local1 {
+                    continue;
+                }
+                let is_list_ok = f.code[ip + 1].id == Some(47) && f.code[ip + 1].argc == Some(1);
+                let list_size_ok = f.code[ip + 3].id == Some(49) && f.code[ip + 3].argc == Some(1);
+                let push_zero_ok = require_i64_arg(&f.code[ip + 4], "PUSH_INT")? == 0;
+                let cmp_id = f.code[ip + 5].id;
+                let cmp_ok =
+                    f.code[ip + 5].argc == Some(2) && matches!(cmp_id, Some(25) | Some(29));
+                let and_ok = f.code[ip + 6].id == Some(31) && f.code[ip + 6].argc == Some(2);
+                if !(is_list_ok && list_size_ok && push_zero_ok && cmp_ok && and_ok) {
+                    continue;
+                }
+                let target = require_u32_arg(&f.code[ip + 7], "JUMP_IF_FALSE")? as usize;
+                let cmp_gt_zero = cmp_id == Some(29);
+                for slot in skip_compile.iter_mut().take(ip + 7).skip(ip) {
+                    *slot = true;
+                }
+                list_len_cmp_zero_jump[ip + 7] = Some((local0, cmp_gt_zero, target));
+            }
+        }
+
+        let mut old_to_new = vec![0usize; f.code.len() + 1];
+        let mut new_ip = 0usize;
+        for (old_ip, skip) in skip_compile.iter().enumerate() {
+            old_to_new[old_ip] = new_ip;
+            if !skip {
+                new_ip += 1;
+            }
+        }
+        old_to_new[f.code.len()] = new_ip;
+
+        let mut code = Vec::with_capacity(new_ip);
+        for (ip, ins) in f.code.iter().enumerate() {
+            if skip_compile[ip] {
+                continue;
+            }
+            if let Some((
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                target,
+            )) = list_len3_split3_local[ip]
+            {
+                code.push(CompiledInstruction::ListLen3GtSplitHeadTail3Local {
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                    target: old_to_new[target],
+                });
+                continue;
+            }
+            if let Some((
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+            )) = split_head_tail_3_local[ip]
+            {
+                code.push(CompiledInstruction::SplitHeadTail3Local {
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                });
+                continue;
+            }
+            if let Some((
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                coeff_local,
+                acc_local,
+                exit_target,
+            )) = list_len3_triad_iter[ip]
+            {
+                code.push(CompiledInstruction::ListLen3TriadIter {
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                    coeff_local,
+                    acc_local,
+                    entry: old_to_new[0],
+                    exit: old_to_new[exit_target],
+                });
+                continue;
+            }
+            if let Some((src_local, tail_local, head_local)) = split_head_tail_local[ip] {
+                code.push(CompiledInstruction::SplitHeadTailLocal {
+                    src_local,
+                    tail_local,
+                    head_local,
+                });
+                continue;
+            }
+            if let Some((local0, local1, local2, cmp_gt_zero, target)) =
+                list_len_3_cmp_zero_jump[ip]
+            {
+                code.push(CompiledInstruction::ListLen3CmpZeroJump {
+                    local0,
+                    local1,
+                    local2,
+                    cmp_gt_zero,
+                    target: old_to_new[target],
+                });
+                continue;
+            }
+            if let Some(idx) = get_index_const[ip] {
+                code.push(CompiledInstruction::GetIndexConst(idx));
+                continue;
+            }
+            if let Some((local, cmp_gt_zero, target)) = list_len_cmp_zero_jump[ip] {
+                code.push(CompiledInstruction::ListLenCmpZeroJump {
+                    local,
+                    cmp_gt_zero,
+                    target: old_to_new[target],
+                });
+                continue;
+            }
+            code.push(compile_instruction(
+                bytecode,
+                fn_idx,
+                &f.code,
+                &old_to_new,
+                ip,
+                ins,
+            )?);
+        }
+        functions.push(CompiledFunction {
+            name: f.name.clone(),
+            code,
+        });
+    }
+    Ok(functions)
+}
+
+fn compile_instruction(
+    bytecode: &Bytecode,
+    fn_idx: usize,
+    fn_code: &[Instruction],
+    old_to_new: &[usize],
+    ip: usize,
+    ins: &Instruction,
+) -> Result<CompiledInstruction, VmError> {
+    let fn_len = fn_code.len();
+    let tail_pos = ip + 1 < fn_len && matches!(fn_code[ip + 1].op, OpCode::Return);
+    match ins.op {
+        OpCode::PushInt => Ok(CompiledInstruction::PushInt(require_i64_arg(
+            ins, "PUSH_INT",
+        )?)),
+        OpCode::PushFloat => Ok(CompiledInstruction::PushFloat(require_f64_arg(
+            ins,
+            "PUSH_FLOAT",
+        )?)),
+        OpCode::PushBool => Ok(CompiledInstruction::PushBool(require_bool_arg(
+            ins,
+            "PUSH_BOOL",
+        )?)),
+        OpCode::PushString => {
+            let idx = require_u32_arg(ins, "PUSH_STRING")? as usize;
+            let s = bytecode.strings.get(idx).ok_or_else(|| {
+                VmError::new("E4303", format!("PUSH_STRING index {} out of bounds", idx))
+            })?;
+            Ok(CompiledInstruction::PushString(s.clone()))
+        }
+        OpCode::PushUnit => Ok(CompiledInstruction::PushUnit),
+        OpCode::LoadLocal => {
+            let idx = require_u32_arg(ins, "LOAD_LOCAL")? as usize;
+            match idx {
+                0 => Ok(CompiledInstruction::LoadLocal0),
+                1 => Ok(CompiledInstruction::LoadLocal1),
+                2 => Ok(CompiledInstruction::LoadLocal2),
+                3 => Ok(CompiledInstruction::LoadLocal3),
+                4 => Ok(CompiledInstruction::LoadLocal4),
+                5 => Ok(CompiledInstruction::LoadLocal5),
+                6 => Ok(CompiledInstruction::LoadLocal6),
+                7 => Ok(CompiledInstruction::LoadLocal7),
+                8 => Ok(CompiledInstruction::LoadLocal8),
+                9 => Ok(CompiledInstruction::LoadLocal9),
+                10 => Ok(CompiledInstruction::LoadLocal10),
+                11 => Ok(CompiledInstruction::LoadLocal11),
+                _ => Ok(CompiledInstruction::LoadLocal(idx)),
+            }
+        }
+        OpCode::StoreLocal => {
+            let idx = require_u32_arg(ins, "STORE_LOCAL")? as usize;
+            match idx {
+                0 => Ok(CompiledInstruction::StoreLocal0),
+                1 => Ok(CompiledInstruction::StoreLocal1),
+                2 => Ok(CompiledInstruction::StoreLocal2),
+                3 => Ok(CompiledInstruction::StoreLocal3),
+                4 => Ok(CompiledInstruction::StoreLocal4),
+                5 => Ok(CompiledInstruction::StoreLocal5),
+                6 => Ok(CompiledInstruction::StoreLocal6),
+                7 => Ok(CompiledInstruction::StoreLocal7),
+                8 => Ok(CompiledInstruction::StoreLocal8),
+                9 => Ok(CompiledInstruction::StoreLocal9),
+                10 => Ok(CompiledInstruction::StoreLocal10),
+                11 => Ok(CompiledInstruction::StoreLocal11),
+                _ => Ok(CompiledInstruction::StoreLocal(idx)),
+            }
+        }
+        OpCode::Pop => Ok(CompiledInstruction::Pop),
+        OpCode::Jump => {
+            let target = require_u32_arg(ins, "JUMP")? as usize;
+            if target > fn_len {
+                return Err(VmError::new("E4303", "JUMP target out of bounds"));
+            }
+            Ok(CompiledInstruction::Jump(old_to_new[target]))
+        }
+        OpCode::JumpIfFalse => {
+            let target = require_u32_arg(ins, "JUMP_IF_FALSE")? as usize;
+            if target > fn_len {
+                return Err(VmError::new("E4303", "JUMP_IF_FALSE target out of bounds"));
+            }
+            Ok(CompiledInstruction::JumpIfFalse(old_to_new[target]))
+        }
+        OpCode::CallBuiltin => {
+            let id = ins
+                .id
+                .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing id"))?;
+            let argc = ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_BUILTIN missing argc"))?
+                as usize;
+            match (id, argc) {
+                (20, 2) => Ok(CompiledInstruction::BuiltinAdd),
+                (21, 2) => Ok(CompiledInstruction::BuiltinSub),
+                (22, 2) => Ok(CompiledInstruction::BuiltinMul),
+                (23, 2) => Ok(CompiledInstruction::BuiltinDiv),
+                (24, 2) => Ok(CompiledInstruction::BuiltinMod),
+                (25, 2) => Ok(CompiledInstruction::BuiltinEq),
+                (26, 2) => Ok(CompiledInstruction::BuiltinNe),
+                (27, 2) => Ok(CompiledInstruction::BuiltinLt),
+                (28, 2) => Ok(CompiledInstruction::BuiltinLe),
+                (29, 2) => Ok(CompiledInstruction::BuiltinGt),
+                (30, 2) => Ok(CompiledInstruction::BuiltinGe),
+                (31, 2) => Ok(CompiledInstruction::BuiltinAnd),
+                (32, 2) => Ok(CompiledInstruction::BuiltinOr),
+                (33, 1) => Ok(CompiledInstruction::BuiltinNot),
+                (47, 1) => Ok(CompiledInstruction::BuiltinIsList),
+                (48, 1) => Ok(CompiledInstruction::BuiltinTail),
+                (49, 1) => Ok(CompiledInstruction::BuiltinListSize),
+                _ => Ok(CompiledInstruction::CallBuiltin { id, argc }),
+            }
+        }
+        OpCode::CallFn => {
+            let target_fn = require_u32_arg(ins, "CALL_FN")? as usize;
+            let argc = ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_FN missing argc"))?
+                as usize;
+            let target = bytecode.functions.get(target_fn).ok_or_else(|| {
+                VmError::new(
+                    "E4303",
+                    format!(
+                        "CALL_FN function {} out of bounds at function {}, ip {}",
+                        target_fn, fn_idx, ip
+                    ),
+                )
+            })?;
+            if target.captures != 0 {
+                return Err(VmError::new(
+                    "E4305",
+                    "CALL_FN cannot target closure-compiled function",
+                ));
+            }
+            if target.arity as usize != argc {
+                return Err(VmError::new(
+                    "E4305",
+                    format!(
+                        "CALL_FN arity mismatch for '{}': expected {}, got {}",
+                        target.name, target.arity, argc
+                    ),
+                ));
+            }
+            if tail_pos && target_fn == fn_idx {
+                Ok(CompiledInstruction::TailCallSelf { argc })
+            } else {
+                Ok(CompiledInstruction::CallFn {
+                    target_fn,
+                    argc,
+                    tail: tail_pos,
+                })
+            }
+        }
+        OpCode::CallIndirect => Ok(CompiledInstruction::CallIndirect {
+            argc: ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_INDIRECT missing argc"))?
+                as usize,
+            tail: tail_pos,
+        }),
+        OpCode::CallHost => {
+            let host_name_idx = require_u32_arg(ins, "CALL_HOST")? as usize;
+            let host_name = bytecode.strings.get(host_name_idx).ok_or_else(|| {
+                VmError::new(
+                    "E4303",
+                    format!("CALL_HOST string index {} out of bounds", host_name_idx),
+                )
+            })?;
+            let argc = ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "CALL_HOST missing argc"))?
+                as usize;
+            Ok(CompiledInstruction::CallHost {
+                host_name: host_name.clone(),
+                argc,
+            })
+        }
+        OpCode::Return => Ok(CompiledInstruction::Return),
+        OpCode::Trap => {
+            let idx = require_u32_arg(ins, "TRAP")? as usize;
+            let msg = bytecode.strings.get(idx).ok_or_else(|| {
+                VmError::new("E4303", format!("TRAP string index {} out of bounds", idx))
+            })?;
+            Ok(CompiledInstruction::Trap(msg.clone()))
+        }
+        OpCode::MkList => Ok(CompiledInstruction::MkList {
+            argc: ins
+                .argc
+                .ok_or_else(|| VmError::new("E4305", "MK_LIST missing argc"))?
+                as usize,
+        }),
+        OpCode::GetIndex => Ok(CompiledInstruction::GetIndex),
+        OpCode::Len => Ok(CompiledInstruction::Len),
+    }
+}
+
+fn collect_jump_targets(code: &[Instruction]) -> Result<Vec<bool>, VmError> {
+    let mut targets = vec![false; code.len()];
+    for ins in code {
+        match ins.op {
+            OpCode::Jump | OpCode::JumpIfFalse => {
+                let target = require_u32_arg(ins, op_name(ins.op))? as usize;
+                if target < code.len() {
+                    targets[target] = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(targets)
+}
+
+fn fast_numeric_binop(
+    stack: &mut Vec<Value>,
+    int_op: fn(i64, i64) -> Option<i64>,
+    float_op: fn(f64, f64) -> f64,
+) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => int_op(*a, *b)
+            .map(Value::Int)
+            .ok_or_else(|| VmError::new("E4305", "integer overflow in builtin arithmetic"))?,
+        (Value::Int(a), Value::Float(b)) => Value::Float(float_op(*a as f64, *b)),
+        (Value::Float(a), Value::Int(b)) => Value::Float(float_op(*a, *b as f64)),
+        (Value::Float(a), Value::Float(b)) => Value::Float(float_op(*a, *b)),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_div(stack: &mut Vec<Value>) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => {
+            if *b == 0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            a.checked_div(*b)
+                .map(Value::Int)
+                .ok_or_else(|| VmError::new("E4305", "integer overflow in /"))?
+        }
+        (Value::Int(a), Value::Float(b)) => {
+            if *b == 0.0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            Value::Float(*a as f64 / *b)
+        }
+        (Value::Float(a), Value::Int(b)) => {
+            if *b == 0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            Value::Float(*a / *b as f64)
+        }
+        (Value::Float(a), Value::Float(b)) => {
+            if *b == 0.0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            Value::Float(*a / *b)
+        }
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_mod(stack: &mut Vec<Value>) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => {
+            if *b == 0 {
+                return Err(VmError::new("E4305", "division by zero"));
+            }
+            a.checked_rem(*b)
+                .map(Value::Int)
+                .ok_or_else(|| VmError::new("E4305", "integer overflow in %"))?
+        }
+        (Value::Float(_), _) | (_, Value::Float(_)) => {
+            return Err(VmError::new("E4305", "builtin % expects integer args"))
+        }
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_cmp_num(stack: &mut Vec<Value>, f: fn(f64, f64) -> bool) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Int(a), Value::Int(b)) => Value::Bool(f(*a as f64, *b as f64)),
+        (Value::Int(a), Value::Float(b)) => Value::Bool(f(*a as f64, *b)),
+        (Value::Float(a), Value::Int(b)) => Value::Bool(f(*a, *b as f64)),
+        (Value::Float(a), Value::Float(b)) => Value::Bool(f(*a, *b)),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_bool2(stack: &mut Vec<Value>, f: fn(bool, bool) -> bool) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match (&stack[n - 2], &stack[n - 1]) {
+        (Value::Bool(a), Value::Bool(b)) => Value::Bool(f(*a, *b)),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 2);
+    stack.push(out);
+    Ok(true)
+}
+
+fn fast_not(stack: &mut Vec<Value>) -> Result<bool, VmError> {
+    let n = stack.len();
+    let out = match &stack[n - 1] {
+        Value::Bool(v) => Value::Bool(!v),
+        _ => return Ok(false),
+    };
+    stack.truncate(n - 1);
+    stack.push(out);
+    Ok(true)
 }
 
 fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value, VmError> {
@@ -627,7 +2549,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 return Err(VmError::new("E4305", "len expects one arg"));
             }
             let len = match &args[0] {
-                Value::List(items) => deep_len(items) as i64,
+                Value::List(items) => deep_len(items.as_slice()) as i64,
                 Value::String(s) => s.chars().count() as i64,
                 _ => 1,
             };
@@ -662,8 +2584,8 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 _ => return Err(VmError::new("E4305", "flatten expects list arg")),
             };
             let mut out = Vec::new();
-            flatten_values(items, &mut out);
-            Ok(Value::List(Rc::new(out)))
+            flatten_values(items.as_slice(), &mut out);
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         41 => {
             if args.len() != 2 {
@@ -679,7 +2601,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 Value::List(items) => out.extend(items.iter().cloned()),
                 other => out.push(other.clone()),
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         42 => {
             if args.len() != 2 {
@@ -702,7 +2624,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 Value::List(items) => out.extend(items.iter().cloned()),
                 other => out.push(other.clone()),
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         43 => {
             if args.len() != 2 {
@@ -711,7 +2633,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
             let left = spread_list(&args[0], "list concat tail arg0")?;
             let mut out = left.to_vec();
             out.push(args[1].clone());
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         44 => {
             let (left, right) = spread_list2(args, "difference")?;
@@ -721,7 +2643,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                     out.push(item.clone());
                 }
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         45 => {
             if args.len() != 3 {
@@ -733,11 +2655,21 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
             };
             let rows = match args[1] {
                 Value::Int(v) if v >= 0 => v as usize,
-                _ => return Err(VmError::new("E4305", "reshape arg1 must be non-negative int")),
+                _ => {
+                    return Err(VmError::new(
+                        "E4305",
+                        "reshape arg1 must be non-negative int",
+                    ))
+                }
             };
             let cols = match args[2] {
                 Value::Int(v) if v >= 0 => v as usize,
-                _ => return Err(VmError::new("E4305", "reshape arg2 must be non-negative int")),
+                _ => {
+                    return Err(VmError::new(
+                        "E4305",
+                        "reshape arg2 must be non-negative int",
+                    ))
+                }
             };
             if rows == 0 || cols == 0 || rows * cols != items.len() {
                 return Ok(Value::List(items.clone()));
@@ -745,10 +2677,10 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
             let mut out = Vec::with_capacity(rows);
             for i in 0..rows {
                 let start = i * cols;
-                let end = start + cols;
-                out.push(Value::List(Rc::new(items[start..end].to_vec())));
+                let end = start + cols - 1;
+                out.push(Value::List(items.slice_inclusive(start, end)));
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         47 => {
             if args.len() != 1 {
@@ -764,11 +2696,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 Value::List(items) => items,
                 _ => return Err(VmError::new("E4305", "tail arg must be list")),
             };
-            if items.len() <= 1 {
-                Ok(Value::List(Rc::new(Vec::new())))
-            } else {
-                Ok(Value::List(Rc::new(items[1..].to_vec())))
-            }
+            Ok(Value::List(items.tail()))
         }
         49 => {
             if args.len() != 1 {
@@ -782,7 +2710,10 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
         }
         46 => {
             if args.len() != 1 {
-                return Err(VmError::new("E4305", "fread_list expects one string path arg"));
+                return Err(VmError::new(
+                    "E4305",
+                    "fread_list expects one string path arg",
+                ));
             }
             let path = match &args[0] {
                 Value::String(s) => s,
@@ -799,7 +2730,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 })?;
                 out.push(Value::Int(n));
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         40 => {
             if args.len() != 3 {
@@ -810,7 +2741,7 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 _ => return Err(VmError::new("E4305", "slice arg0 expects list")),
             };
             if items.is_empty() {
-                return Ok(Value::List(Rc::new(Vec::new())));
+                return Ok(Value::List(ListValue::from_vec(Vec::new())));
             }
             let start = match args[1] {
                 Value::Int(v) => normalize_index(v, items.len()),
@@ -821,9 +2752,9 @@ fn call_builtin<H: VmHost>(id: u8, args: &[Value], host: &mut H) -> Result<Value
                 _ => return Err(VmError::new("E4305", "slice arg2 expects int")),
             };
             if end < start {
-                return Ok(Value::List(Rc::new(Vec::new())));
+                return Ok(Value::List(ListValue::from_vec(Vec::new())));
             }
-            Ok(Value::List(Rc::new(items[start..=end].to_vec())))
+            Ok(Value::List(items.slice_inclusive(start, end)))
         }
         _ => Err(VmError::new(
             "E4305",
@@ -838,6 +2769,16 @@ fn normalize_index(raw: i64, len: usize) -> usize {
     }
     let len_i64 = len as i64;
     raw.rem_euclid(len_i64) as usize
+}
+
+fn normalize_index_fast(raw: i64, len: usize) -> usize {
+    if raw >= 0 {
+        let raw_u = raw as usize;
+        if raw_u < len {
+            return raw_u;
+        }
+    }
+    normalize_index(raw, len)
 }
 
 fn next_random_u64() -> u64 {
@@ -877,7 +2818,7 @@ fn to_f64(value: &Value, label: &str) -> Result<f64, VmError> {
 fn flatten_values(items: &[Value], out: &mut Vec<Value>) {
     for item in items {
         match item {
-            Value::List(nested) => flatten_values(nested, out),
+            Value::List(nested) => flatten_values(nested.as_slice(), out),
             _ => out.push(item.clone()),
         }
     }
@@ -888,7 +2829,7 @@ fn deep_len(items: &[Value]) -> usize {
     for item in items {
         match item {
             Value::List(nested) => {
-                total += deep_len(nested);
+                total += deep_len(nested.as_slice());
             }
             _ => total += 1,
         }
@@ -941,7 +2882,7 @@ fn neg_value(value: &Value) -> Result<Value, VmError> {
             for item in items.iter() {
                 out.push(neg_value(item)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         _ => Err(VmError::new("E4305", "neg expects numeric/bool/list arg")),
     }
@@ -959,7 +2900,7 @@ fn abs_value(value: &Value) -> Result<Value, VmError> {
             for item in items.iter() {
                 out.push(abs_value(item)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         _ => Err(VmError::new("E4305", "abs expects int or float arg")),
     }
@@ -1001,7 +2942,9 @@ fn mod_values(a: &Value, b: &Value) -> Result<Value, VmError> {
                         .map(Value::Int)
                         .ok_or_else(|| VmError::new("E4305", "integer overflow in %"))
                 }
-                NumPair::Float(_, _) => Err(VmError::new("E4305", "builtin % expects integer args")),
+                NumPair::Float(_, _) => {
+                    Err(VmError::new("E4305", "builtin % expects integer args"))
+                }
             }
         }
     }
@@ -1015,9 +2958,9 @@ fn map_numeric2(
     float_op: fn(f64, f64) -> f64,
 ) -> Result<Value, VmError> {
     match (a, b) {
-        (Value::List(_), _) | (_, Value::List(_)) => map_list2(a, b, |x, y| {
-            map_numeric2(x, y, op, int_op, float_op)
-        }),
+        (Value::List(_), _) | (_, Value::List(_)) => {
+            map_list2(a, b, |x, y| map_numeric2(x, y, op, int_op, float_op))
+        }
         _ => match num_pair(a, b, op)? {
             NumPair::Int(x, y) => int_op(x, y)
                 .map(Value::Int)
@@ -1039,48 +2982,35 @@ where
     match (a, b) {
         (Value::List(lhs), Value::List(rhs)) => {
             if lhs.len() != rhs.len() {
-                return Err(VmError::new("E4305", "list sizes must match for elementwise operation"));
+                return Err(VmError::new(
+                    "E4305",
+                    "list sizes must match for elementwise operation",
+                ));
             }
+            let lhs_items = lhs.as_slice();
+            let rhs_items = rhs.as_slice();
             let mut out = Vec::with_capacity(lhs.len());
             for i in 0..lhs.len() {
-                out.push(f(&lhs[i], &rhs[i])?);
+                out.push(f(&lhs_items[i], &rhs_items[i])?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         (Value::List(lhs), scalar) => {
             let mut out = Vec::with_capacity(lhs.len());
             for item in lhs.iter() {
                 out.push(f(item, scalar)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         (scalar, Value::List(rhs)) => {
             let mut out = Vec::with_capacity(rhs.len());
             for item in rhs.iter() {
                 out.push(f(scalar, item)?);
             }
-            Ok(Value::List(Rc::new(out)))
+            Ok(Value::List(ListValue::from_vec(out)))
         }
         _ => Err(VmError::new("E4305", "internal map_list2 misuse")),
     }
-}
-
-fn list2<'a>(args: &'a [Value], op: &str) -> Result<(&'a [Value], &'a [Value]), VmError> {
-    if args.len() != 2 {
-        return Err(VmError::new(
-            "E4305",
-            format!("builtin {} expects 2 list args", op),
-        ));
-    }
-    let left = match &args[0] {
-        Value::List(items) => items,
-        _ => return Err(VmError::new("E4305", format!("builtin {} arg0 must be list", op))),
-    };
-    let right = match &args[1] {
-        Value::List(items) => items,
-        _ => return Err(VmError::new("E4305", format!("builtin {} arg1 must be list", op))),
-    };
-    Ok((left, right))
 }
 
 fn spread_list<'a>(value: &'a Value, arg_name: &str) -> Result<&'a [Value], VmError> {
@@ -1257,7 +3187,438 @@ pub fn disassemble(bytecode: &Bytecode) -> String {
 mod tests {
     use crate::bytecode::load_bytecode_from_str;
 
-    use super::{run, Value, DEFAULT_FUEL};
+    use super::{compile_functions, run, CompiledInstruction, Value, DEFAULT_FUEL};
+
+    #[test]
+    fn compile_fuses_list_len3_and_split3() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":3},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"PUSH_INT","arg":0},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let compiled = compile_functions(&bc).expect("compile function pass");
+        let has_fused = compiled.iter().flat_map(|f| f.code.iter()).any(|ins| {
+            matches!(
+                ins,
+                CompiledInstruction::ListLen3GtSplitHeadTail3Local { .. }
+            )
+        });
+        assert!(has_fused, "expected list-len+split3 fused opcode");
+    }
+
+    #[test]
+    fn compile_fuses_list_len3_and_split3_eq_zero() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":3},
+        {"op":"MK_LIST","argc":1},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":54},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"PUSH_INT","arg":0},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 0
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let compiled = compile_functions(&bc).expect("compile function pass");
+        let has_fused = compiled.iter().flat_map(|f| f.code.iter()).any(|ins| {
+            matches!(
+                ins,
+                CompiledInstruction::ListLen3GtSplitHeadTail3Local { .. }
+            )
+        });
+        assert!(
+            has_fused,
+            "expected list-len+split3 fused opcode for eq-zero form"
+        );
+    }
+
+    #[test]
+    fn compile_fuses_list_len3_and_triad_iter() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "triad_sum#5",
+      "arity": 5,
+      "captures": 0,
+      "code": [
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":10},
+
+        {"op":"LOAD_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"LOAD_LOCAL","arg":6},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":8},
+        {"op":"CALL_BUILTIN","id":22,"argc":2},
+        {"op":"LOAD_LOCAL","arg":10},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"},
+
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"RETURN"}
+      ]
+    },
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":0},
+
+        {"op":"PUSH_INT","arg":3},
+        {"op":"PUSH_INT","arg":4},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":1},
+
+        {"op":"PUSH_INT","arg":5},
+        {"op":"PUSH_INT","arg":6},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"PUSH_INT","arg":2},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 1
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let compiled = compile_functions(&bc).expect("compile function pass");
+        let has_fused = compiled
+            .iter()
+            .flat_map(|f| f.code.iter())
+            .any(|ins| matches!(ins, CompiledInstruction::ListLen3TriadIter { .. }));
+        assert!(has_fused, "expected list-len+split3 triad fused opcode");
+    }
+
+    #[test]
+    fn run_triad_fused_iter() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "triad_sum#5",
+      "arity": 5,
+      "captures": 0,
+      "code": [
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":10},
+
+        {"op":"LOAD_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"LOAD_LOCAL","arg":6},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":8},
+        {"op":"CALL_BUILTIN","id":22,"argc":2},
+        {"op":"LOAD_LOCAL","arg":10},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"},
+
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"RETURN"}
+      ]
+    },
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":0},
+
+        {"op":"PUSH_INT","arg":3},
+        {"op":"PUSH_INT","arg":4},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":1},
+
+        {"op":"PUSH_INT","arg":5},
+        {"op":"PUSH_INT","arg":6},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"PUSH_INT","arg":2},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 1
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(28));
+    }
 
     #[test]
     fn run_simple_add_program() {
