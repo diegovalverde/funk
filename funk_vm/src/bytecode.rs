@@ -135,8 +135,9 @@ pub fn load_bytecode_from_bytes(raw: &[u8]) -> Result<Bytecode, BytecodeError> {
     if raw.len() >= 4 && &raw[0..4] == BINARY_MAGIC {
         return decode_binary(raw);
     }
-    let text = std::str::from_utf8(raw)
-        .map_err(|e| BytecodeError::new("E4201", format!("bytecode is not valid UTF-8 JSON: {e}")))?;
+    let text = std::str::from_utf8(raw).map_err(|e| {
+        BytecodeError::new("E4201", format!("bytecode is not valid UTF-8 JSON: {e}"))
+    })?;
     load_bytecode_from_str(text)
 }
 
@@ -193,7 +194,10 @@ fn validate_instruction(
             if ins.id.is_none() || ins.argc.is_none() {
                 return Err(BytecodeError::new(
                     "E4202",
-                    format!("CALL_BUILTIN missing id/argc at function {}, ip {}", fn_idx, ip),
+                    format!(
+                        "CALL_BUILTIN missing id/argc at function {}, ip {}",
+                        fn_idx, ip
+                    ),
                 ));
             }
         }
@@ -202,7 +206,10 @@ fn validate_instruction(
             if target as usize >= bytecode.functions.len() {
                 return Err(BytecodeError::new(
                     "E4204",
-                    format!("CALL_FN function index out of bounds at function {}, ip {}", fn_idx, ip),
+                    format!(
+                        "CALL_FN function index out of bounds at function {}, ip {}",
+                        fn_idx, ip
+                    ),
                 ));
             }
             if ins.argc.is_none() {
@@ -216,7 +223,10 @@ fn validate_instruction(
             if ins.argc.is_none() {
                 return Err(BytecodeError::new(
                     "E4202",
-                    format!("CALL_INDIRECT missing argc at function {}, ip {}", fn_idx, ip),
+                    format!(
+                        "CALL_INDIRECT missing argc at function {}, ip {}",
+                        fn_idx, ip
+                    ),
                 ));
             }
         }
@@ -294,8 +304,16 @@ fn decode_binary(raw: &[u8]) -> Result<Bytecode, BytecodeError> {
             code.push(Instruction {
                 op,
                 arg,
-                argc: if argc_raw == u8::MAX { None } else { Some(argc_raw) },
-                id: if id_raw == u8::MAX { None } else { Some(id_raw) },
+                argc: if argc_raw == u8::MAX {
+                    None
+                } else {
+                    Some(argc_raw)
+                },
+                id: if id_raw == u8::MAX {
+                    None
+                } else {
+                    Some(id_raw)
+                },
             });
         }
         functions.push(FunctionBytecode {
@@ -376,7 +394,10 @@ impl<'a> BinaryCursor<'a> {
 
     fn read_exact(&mut self, n: usize) -> Result<&'a [u8], BytecodeError> {
         if self.pos + n > self.raw.len() {
-            return Err(BytecodeError::new("E4201", "unexpected end of binary payload"));
+            return Err(BytecodeError::new(
+                "E4201",
+                "unexpected end of binary payload",
+            ));
         }
         let out = &self.raw[self.pos..self.pos + n];
         self.pos += n;
@@ -448,9 +469,9 @@ pub fn require_u32_arg(ins: &Instruction, op: &str) -> Result<u32, BytecodeError
         .arg
         .as_ref()
         .ok_or_else(|| BytecodeError::new("E4202", format!("{op} missing arg")))?;
-    let raw = arg
-        .as_u64()
-        .ok_or_else(|| BytecodeError::new("E4202", format!("{op} expects non-negative integer arg")))?;
+    let raw = arg.as_u64().ok_or_else(|| {
+        BytecodeError::new("E4202", format!("{op} expects non-negative integer arg"))
+    })?;
     u32::try_from(raw)
         .map_err(|_| BytecodeError::new("E4202", format!("{op} arg out of range for u32")))
 }

@@ -131,9 +131,9 @@ body {
 }
 
 .workspace {
-  --output-height: 160px;
+  --output-height: 240px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto 14px var(--output-height);
+  grid-template-rows: auto minmax(0, 1fr) auto auto 14px minmax(160px, var(--output-height));
   height: 100%;
   min-height: 0;
 }
@@ -362,20 +362,25 @@ button:disabled {
 }
 
 .output-shell {
-  min-height: 0;
-  height: 100%;
+  display: flex;
+  align-self: stretch;
+  min-height: 160px;
   background: #0c1327;
   border-radius: 0 0 10px 10px;
   overflow: hidden;
 }
 
 .output {
+  flex: 1 1 auto;
   margin: 0;
   min-height: 0;
   height: 100%;
   overflow: auto;
   padding: 10px;
   font-family: 'IBM Plex Mono', monospace;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   background: transparent;
 }
 
@@ -391,7 +396,7 @@ button:disabled {
   }
 
   .workspace {
-    grid-template-rows: auto minmax(220px, 1fr) auto auto 10px minmax(120px, 220px);
+    grid-template-rows: auto minmax(220px, 1fr) auto auto 10px minmax(160px, 260px);
     height: auto;
   }
 

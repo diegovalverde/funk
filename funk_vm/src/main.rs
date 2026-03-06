@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::process;
 
+use funk_vm::vm::{disassemble, Value, DEFAULT_FUEL};
 use funk_vm::{load_bytecode_from_path, run};
-use funk_vm::vm::{disassemble, DEFAULT_FUEL, Value};
 
 fn usage() -> &'static str {
     "Usage:\n  funk_vm run <path.fkb.json|path.fkb> [--fuel N]\n  funk_vm disasm <path.fkb.json|path.fkb>\n"

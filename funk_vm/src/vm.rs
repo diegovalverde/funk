@@ -253,6 +253,21 @@ enum CompiledInstruction {
         head2_local: usize,
         target: usize,
     },
+    ListLen3TriadIter {
+        src0_local: usize,
+        src1_local: usize,
+        src2_local: usize,
+        tail0_local: usize,
+        tail1_local: usize,
+        tail2_local: usize,
+        head0_local: usize,
+        head1_local: usize,
+        head2_local: usize,
+        coeff_local: usize,
+        acc_local: usize,
+        entry: usize,
+        exit: usize,
+    },
     ListLenCmpZeroJump {
         local: usize,
         cmp_gt_zero: bool,
@@ -1019,6 +1034,9 @@ fn execute_with_entry<H: VmHost>(
                 target,
             } => {
                 let max_local = *[
+                    *src0_local,
+                    *src1_local,
+                    *src2_local,
                     *tail0_local,
                     *head0_local,
                     *tail1_local,
@@ -1074,6 +1092,159 @@ fn execute_with_entry<H: VmHost>(
                 if !keep_going {
                     continue;
                 }
+            }
+            CompiledInstruction::ListLen3TriadIter {
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                coeff_local,
+                acc_local,
+                entry,
+                exit,
+            } => {
+                let list0 = match frame.locals.get(*src0_local) {
+                    Some(Value::List(list0)) => list0.clone(),
+                    Some(_) => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "expected list value for triad local {} in '{}'",
+                                src0_local, func.name
+                            ),
+                        ));
+                    }
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                src0_local, func.name
+                            ),
+                        ));
+                    }
+                };
+                let list1 = match frame.locals.get(*src1_local) {
+                    Some(Value::List(list1)) => list1.clone(),
+                    Some(_) => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "expected list value for triad local {} in '{}'",
+                                src1_local, func.name
+                            ),
+                        ));
+                    }
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                src1_local, func.name
+                            ),
+                        ));
+                    }
+                };
+                let list2 = match frame.locals.get(*src2_local) {
+                    Some(Value::List(list2)) => list2.clone(),
+                    Some(_) => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "expected list value for triad local {} in '{}'",
+                                src2_local, func.name
+                            ),
+                        ));
+                    }
+                    None => {
+                        return Err(VmError::new(
+                            "E4303",
+                            format!(
+                                "LOAD_LOCAL index {} out of bounds in '{}'",
+                                src2_local, func.name
+                            ),
+                        ));
+                    }
+                };
+                if list0.is_empty() || list1.is_empty() || list2.is_empty() {
+                    frame.ip = *exit;
+                    continue;
+                }
+                let max_local = *[
+                    *src0_local,
+                    *src1_local,
+                    *src2_local,
+                    *tail0_local,
+                    *head0_local,
+                    *tail1_local,
+                    *head1_local,
+                    *tail2_local,
+                    *head2_local,
+                    *coeff_local,
+                    *acc_local,
+                ]
+                .iter()
+                .max()
+                .expect("destination locals are never empty");
+                if frame.locals.len() <= max_local {
+                    frame.locals.resize(max_local + 1, Value::Unit);
+                }
+
+                let head0 = list0
+                    .first()
+                    .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?
+                    .clone();
+                let head1 = list1
+                    .first()
+                    .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?
+                    .clone();
+                let head2 = list2
+                    .first()
+                    .ok_or_else(|| VmError::new("E4303", "GET_INDEX list index out of bounds"))?
+                    .clone();
+                let tail0 = Value::List(list0.tail());
+                let tail1 = Value::List(list1.tail());
+                let tail2 = Value::List(list2.tail());
+                frame.locals[*tail0_local] = tail0.clone();
+                frame.locals[*src0_local] = tail0;
+                frame.locals[*head0_local] = head0.clone();
+                frame.locals[*tail1_local] = tail1.clone();
+                frame.locals[*src1_local] = tail1;
+                frame.locals[*head1_local] = head1.clone();
+                frame.locals[*tail2_local] = tail2.clone();
+                frame.locals[*src2_local] = tail2;
+                frame.locals[*head2_local] = head2.clone();
+
+                let coeff = frame.locals.get(*coeff_local).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!(
+                            "LOAD_LOCAL index {} out of bounds in '{}'",
+                            coeff_local, func.name
+                        ),
+                    )
+                })?;
+                let acc = frame.locals.get(*acc_local).ok_or_else(|| {
+                    VmError::new(
+                        "E4303",
+                        format!(
+                            "LOAD_LOCAL index {} out of bounds in '{}'",
+                            acc_local, func.name
+                        ),
+                    )
+                })?;
+
+                let mul = mul_values(coeff, &head1)?;
+                let acc_term = add_values(&head2, &mul)?;
+                let acc_term = add_values(&head0, &acc_term)?;
+                let new_acc = add_values(acc, &acc_term)?;
+                frame.locals[*acc_local] = new_acc;
+                frame.ip = *entry;
             }
             CompiledInstruction::SplitHeadTail3Local {
                 src0_local,
@@ -1293,6 +1464,7 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
     for (fn_idx, f) in bytecode.functions.iter().enumerate() {
         let jump_targets = collect_jump_targets(&f.code)?;
         let mut skip_compile = vec![false; f.code.len()];
+        let mut get_index_skip = vec![false; f.code.len()];
         let mut get_index_const: Vec<Option<i64>> = vec![None; f.code.len()];
         let mut split_head_tail_local: Vec<Option<(usize, usize, usize)>> =
             vec![None; f.code.len()];
@@ -1327,6 +1499,22 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                 usize,
             )>,
         > = vec![None; f.code.len()];
+        let mut list_len3_triad_iter: Vec<
+            Option<(
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+                usize,
+            )>,
+        > = vec![None; f.code.len()];
         if f.code.len() >= 2 {
             for ip in 0..(f.code.len() - 1) {
                 if !matches!(f.code[ip].op, OpCode::PushInt)
@@ -1340,6 +1528,7 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                 }
                 let idx = require_i64_arg(&f.code[ip], "PUSH_INT")?;
                 skip_compile[ip] = true;
+                get_index_skip[ip] = true;
                 get_index_const[ip + 1] = Some(idx);
             }
         }
@@ -1500,6 +1689,69 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                     || tail2_local == head2_local
                 {
                     continue;
+                }
+                if f.code.len() >= ip + 60 {
+                    if (ip..=ip + 59).any(|k| skip_compile[k] && !get_index_skip[k]) {
+                        continue;
+                    }
+                    let body = ip + 45;
+                    let body_load_tail0 = require_u32_arg(&f.code[body], "LOAD_LOCAL")? as usize;
+                    let body_load_tail1 =
+                        require_u32_arg(&f.code[body + 1], "LOAD_LOCAL")? as usize;
+                    let body_load_tail2 =
+                        require_u32_arg(&f.code[body + 2], "LOAD_LOCAL")? as usize;
+                    let coeff_local = require_u32_arg(&f.code[body + 3], "LOAD_LOCAL")? as usize;
+                    let acc_local = require_u32_arg(&f.code[body + 4], "LOAD_LOCAL")? as usize;
+                    let body_head0 = require_u32_arg(&f.code[body + 5], "LOAD_LOCAL")? as usize;
+                    let body_coeff2 = require_u32_arg(&f.code[body + 6], "LOAD_LOCAL")? as usize;
+                    let body_head1 = require_u32_arg(&f.code[body + 7], "LOAD_LOCAL")? as usize;
+                    let body_mul =
+                        f.code[body + 8].id == Some(22) && f.code[body + 8].argc == Some(2);
+                    let body_head2 = require_u32_arg(&f.code[body + 9], "LOAD_LOCAL")? as usize;
+                    let body_add1 =
+                        f.code[body + 10].id == Some(20) && f.code[body + 10].argc == Some(2);
+                    let body_add2 =
+                        f.code[body + 11].id == Some(20) && f.code[body + 11].argc == Some(2);
+                    let body_add3 =
+                        f.code[body + 12].id == Some(20) && f.code[body + 12].argc == Some(2);
+                    let body_tailcall = require_u32_arg(&f.code[body + 13], "CALL_FN")? as usize;
+                    let body_tailcall_argc = f.code[body + 13].argc;
+                    let has_triad_body = body_load_tail0 == tail0_local
+                        && body_load_tail1 == tail1_local
+                        && body_load_tail2 == tail2_local
+                        && body_head0 == head0_local
+                        && body_head1 == head1_local
+                        && body_head2 == head2_local
+                        && body_coeff2 == coeff_local
+                        && body_mul
+                        && body_add1
+                        && body_add2
+                        && body_add3
+                        && body_tailcall == fn_idx
+                        && body_tailcall_argc == Some(5)
+                        && matches!(f.code[body + 14].op, OpCode::Return)
+                        && coeff_local == body_coeff2;
+
+                    if has_triad_body && body_tailcall == fn_idx {
+                        for slot in skip_compile.iter_mut().take(ip + 60).skip(ip + 1) {
+                            *slot = true;
+                        }
+                        list_len3_triad_iter[ip] = Some((
+                            src0_local,
+                            src1_local,
+                            src2_local,
+                            tail0_local,
+                            tail1_local,
+                            tail2_local,
+                            head0_local,
+                            head1_local,
+                            head2_local,
+                            coeff_local,
+                            acc_local,
+                            target0,
+                        ));
+                        continue;
+                    }
                 }
                 for slot in skip_compile.iter_mut().take(ip + 45).skip(ip + 1) {
                     *slot = true;
@@ -1744,6 +1996,38 @@ fn compile_functions(bytecode: &Bytecode) -> Result<Vec<CompiledFunction>, VmErr
                     head0_local,
                     head1_local,
                     head2_local,
+                });
+                continue;
+            }
+            if let Some((
+                src0_local,
+                src1_local,
+                src2_local,
+                tail0_local,
+                tail1_local,
+                tail2_local,
+                head0_local,
+                head1_local,
+                head2_local,
+                coeff_local,
+                acc_local,
+                exit_target,
+            )) = list_len3_triad_iter[ip]
+            {
+                code.push(CompiledInstruction::ListLen3TriadIter {
+                    src0_local,
+                    src1_local,
+                    src2_local,
+                    tail0_local,
+                    tail1_local,
+                    tail2_local,
+                    head0_local,
+                    head1_local,
+                    head2_local,
+                    coeff_local,
+                    acc_local,
+                    entry: old_to_new[0],
+                    exit: old_to_new[exit_target],
                 });
                 continue;
             }
@@ -3021,7 +3305,7 @@ mod tests {
         {"op":"LOAD_LOCAL","arg":0},
         {"op":"CALL_BUILTIN","id":49,"argc":1},
         {"op":"PUSH_INT","arg":0},
-        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
         {"op":"CALL_BUILTIN","id":31,"argc":2},
         {"op":"JUMP_IF_FALSE","arg":54},
         {"op":"LOAD_LOCAL","arg":0},
@@ -3037,7 +3321,7 @@ mod tests {
         {"op":"LOAD_LOCAL","arg":1},
         {"op":"CALL_BUILTIN","id":49,"argc":1},
         {"op":"PUSH_INT","arg":0},
-        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
         {"op":"CALL_BUILTIN","id":31,"argc":2},
         {"op":"JUMP_IF_FALSE","arg":54},
         {"op":"LOAD_LOCAL","arg":1},
@@ -3053,7 +3337,7 @@ mod tests {
         {"op":"LOAD_LOCAL","arg":2},
         {"op":"CALL_BUILTIN","id":49,"argc":1},
         {"op":"PUSH_INT","arg":0},
-        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
         {"op":"CALL_BUILTIN","id":31,"argc":2},
         {"op":"JUMP_IF_FALSE","arg":54},
         {"op":"LOAD_LOCAL","arg":2},
@@ -3080,7 +3364,260 @@ mod tests {
                 CompiledInstruction::ListLen3GtSplitHeadTail3Local { .. }
             )
         });
-        assert!(has_fused, "expected list-len+split3 fused opcode for eq-zero form");
+        assert!(
+            has_fused,
+            "expected list-len+split3 fused opcode for eq-zero form"
+        );
+    }
+
+    #[test]
+    fn compile_fuses_list_len3_and_triad_iter() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "triad_sum#5",
+      "arity": 5,
+      "captures": 0,
+      "code": [
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":29,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":10},
+
+        {"op":"LOAD_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"LOAD_LOCAL","arg":6},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":8},
+        {"op":"CALL_BUILTIN","id":22,"argc":2},
+        {"op":"LOAD_LOCAL","arg":10},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"},
+
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"RETURN"}
+      ]
+    },
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":0},
+
+        {"op":"PUSH_INT","arg":3},
+        {"op":"PUSH_INT","arg":4},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":1},
+
+        {"op":"PUSH_INT","arg":5},
+        {"op":"PUSH_INT","arg":6},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"PUSH_INT","arg":2},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 1
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let compiled = compile_functions(&bc).expect("compile function pass");
+        let has_fused = compiled
+            .iter()
+            .flat_map(|f| f.code.iter())
+            .any(|ins| matches!(ins, CompiledInstruction::ListLen3TriadIter { .. }));
+        assert!(has_fused, "expected list-len+split3 triad fused opcode");
+    }
+
+    #[test]
+    fn run_triad_fused_iter() {
+        let src = r#"
+{
+  "format": "funk-bytecode-v1-json",
+  "strings": [],
+  "functions": [
+    {
+      "name": "triad_sum#5",
+      "arity": 5,
+      "captures": 0,
+      "code": [
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":6},
+
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":8},
+
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":47,"argc":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":49,"argc":1},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"CALL_BUILTIN","id":25,"argc":2},
+        {"op":"CALL_BUILTIN","id":31,"argc":2},
+        {"op":"JUMP_IF_FALSE","arg":60},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"CALL_BUILTIN","id":48,"argc":1},
+        {"op":"STORE_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"GET_INDEX"},
+        {"op":"STORE_LOCAL","arg":10},
+
+        {"op":"LOAD_LOCAL","arg":5},
+        {"op":"LOAD_LOCAL","arg":7},
+        {"op":"LOAD_LOCAL","arg":9},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"LOAD_LOCAL","arg":6},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":8},
+        {"op":"CALL_BUILTIN","id":22,"argc":2},
+        {"op":"LOAD_LOCAL","arg":10},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_BUILTIN","id":20,"argc":2},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"},
+
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"RETURN"}
+      ]
+    },
+    {
+      "name": "main",
+      "arity": 0,
+      "captures": 0,
+      "code": [
+        {"op":"PUSH_INT","arg":1},
+        {"op":"PUSH_INT","arg":2},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":0},
+
+        {"op":"PUSH_INT","arg":3},
+        {"op":"PUSH_INT","arg":4},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":1},
+
+        {"op":"PUSH_INT","arg":5},
+        {"op":"PUSH_INT","arg":6},
+        {"op":"MK_LIST","argc":2},
+        {"op":"STORE_LOCAL","arg":2},
+
+        {"op":"PUSH_INT","arg":2},
+        {"op":"STORE_LOCAL","arg":3},
+        {"op":"PUSH_INT","arg":0},
+        {"op":"STORE_LOCAL","arg":4},
+
+        {"op":"LOAD_LOCAL","arg":0},
+        {"op":"LOAD_LOCAL","arg":1},
+        {"op":"LOAD_LOCAL","arg":2},
+        {"op":"LOAD_LOCAL","arg":3},
+        {"op":"LOAD_LOCAL","arg":4},
+        {"op":"CALL_FN","arg":0,"argc":5},
+        {"op":"RETURN"}
+      ]
+    }
+  ],
+  "entry_fn": 1
+}
+"#;
+        let bc = load_bytecode_from_str(src).expect("bytecode parse");
+        let result = run(&bc, DEFAULT_FUEL).expect("vm run");
+        assert_eq!(result.return_value, Value::Int(28));
     }
 
     #[test]
